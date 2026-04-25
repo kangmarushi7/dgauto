@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: dg-bet-automation
+    env: docker
+    plan: starter
+    autoDeploy: true

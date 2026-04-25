@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LM Strat - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>LM Strat</h1>
+      <p class="subtitle">Strict Over 1.5 filter: team GF >= 1, H2H O1.5 >= 80%, and both teams Form O1.5 >= 80%.</p>
+      <p class="top-links">
+        <a href="/">Back to Home</a> |
+        <a href="/lm-bet-log">Go to LM Bet Log</a>
+      </p>
+      <p class="meta">Last scrape: <strong>{{ data.scraped_at or "Never" }}</strong></p>
+
+      <section class="recommendation-card">
+        <h2>Qualified LM Over 1.5 Bets</h2>
+        <p class="hit-note">Total qualified fixtures: <strong>{{ picks|length }}</strong></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>Odds O1.5</th>
+              <th>Home GF</th>
+              <th>Away GF</th>
+              <th>H2H O1.5%</th>
+              <th>Home Form O1.5%</th>
+              <th>Away Form O1.5%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if picks|length == 0 %}
+            <tr>
+              <td colspan="9">No LM strat fixtures qualified for this slate.</td>
+            </tr>
+            {% else %}
+            {% for p in picks %}
+            <tr>
+              <td>{{ p["fixture_date"] or "" }}</td>
+              <td>{{ p["fixture"] }}</td>
+              <td>{{ p["league_name"] }}</td>
+              <td>{{ p["odds"] or "" }}</td>
+              <td>{{ p["home_gf"] }}</td>
+              <td>{{ p["away_gf"] }}</td>
+              <td>{{ p["h2h_over15_pct"] }}</td>
+              <td>{{ p["home_form_o15_pct"] }}</td>
+              <td>{{ p["away_form_o15_pct"] }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      if (window.TableTools) {
+        window.TableTools.enhanceAll();
+      }
+    </script>
+  </body>
+</html>

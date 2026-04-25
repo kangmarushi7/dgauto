@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bet Log - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Bet Log</h1>
+      <p class="subtitle">Track recommended Moneyline and Over 1.5 bets, then resolve as won/lost/push.</p>
+      <p class="top-links"><a href="/">Back to Home</a> | <a href="/todays-bets">Go to Today's Bets</a></p>
+
+      <div class="actions">
+        <button id="syncBtn">Sync Recommended Bets From Home</button>
+        <span id="status"></span>
+      </div>
+
+      <section class="recommendations">
+        <div class="recommendation-card">
+          <h2>Overall</h2>
+          <p class="hit-note" id="overallStats"></p>
+        </div>
+        <div class="recommendation-card">
+          <h2>Moneyline</h2>
+          <p class="hit-note" id="moneylineStats"></p>
+        </div>
+        <div class="recommendation-card">
+          <h2>Over 1.5</h2>
+          <p class="hit-note" id="overStats"></p>
+        </div>
+      </section>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Fixture Date</th>
+            <th>Fixture</th>
+            <th>League</th>
+            <th>Bet Type</th>
+            <th>Team</th>
+            <th>Odds</th>
+            <th>Units</th>
+            <th>Status</th>
+            <th>Unit PnL</th>
+            <th>Resolve</th>
+          </tr>
+        </thead>
+        <tbody id="betRows"></tbody>
+      </table>
+    </main>
+
+    <script>
+      const syncBtn = document.getElementById("syncBtn");
+      const statusEl = document.getElementById("status");
+      const betRowsEl = document.getElementById("betRows");
+      const overallStatsEl = document.getElementById("overallStats");
+      const moneylineStatsEl = document.getElementById("moneylineStats");
+      const overStatsEl = document.getElementById("overStats");
+
+      function td(text) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        return el;
+      }
+
+      function fmtStats(s) {
+        return `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | UnitPnL: ${s.unit_pnl}`;
+      }
+
+      function drawDashboard(dashboard) {
+        overallStatsEl.textContent = fmtStats(dashboard.all);
+        moneylineStatsEl.textContent = fmtStats(dashboard.moneyline);
+        overStatsEl.textContent = fmtStats(dashboard.over1_5);
+      }
+
+      async function resolveBet(id, result) {
+        statusEl.textContent = `Resolving as ${result}...`;
+        const res = await fetch(`/api/bet-log/${id}/resolve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        drawDashboard(data.dashboard);
+        renderRows(data.entries);
+        statusEl.textContent = `Updated: ${result}`;
+      }
+
+      function renderRows(entries) {
+        betRowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No bets logged yet. Click sync button above.");
+          empty.colSpan = 10;
+          tr.appendChild(empty);
+          betRowsEl.appendChild(tr);
+          return;
+        }
+
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(e.fixture_date || ""));
+          tr.appendChild(td(e.fixture || ""));
+          tr.appendChild(td(e.league_name || ""));
+          tr.appendChild(td(e.bet_type || ""));
+          tr.appendChild(td(e.team_name || ""));
+          tr.appendChild(td(e.odds ?? ""));
+          tr.appendChild(td(e.units ?? 1));
+          tr.appendChild(td(e.status || "open"));
+          tr.appendChild(td(e.pnl_units ?? ""));
+
+          const actions = document.createElement("td");
+          const won = document.createElement("button");
+          won.className = "small-btn";
+          won.textContent = "Won";
+          won.onclick = () => resolveBet(e.id, "won");
+
+          const lost = document.createElement("button");
+          lost.className = "small-btn";
+          lost.textContent = "Lost";
+          lost.onclick = () => resolveBet(e.id, "lost");
+
+          const push = document.createElement("button");
+          push.className = "small-btn";
+          push.textContent = "Push";
+          push.onclick = () => resolveBet(e.id, "push");
+
+          actions.appendChild(won);
+          actions.appendChild(lost);
+          actions.appendChild(push);
+          tr.appendChild(actions);
+
+          betRowsEl.appendChild(tr);
+        }
+        if (window.TableTools) {
+          window.TableTools.reapply(betRowsEl.closest("table"));
+        }
+      }
+
+      async function reloadLog() {
+        const res = await fetch("/api/bet-log");
+        const data = await res.json();
+        drawDashboard(data.dashboard);
+        renderRows(data.entries);
+      }
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Syncing recommended bets...";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch("/api/bet-log/sync-recommended", { method: "POST" });
+          const data = await res.json();
+          drawDashboard(data.dashboard);
+          renderRows(data.entries);
+          statusEl.textContent = `Synced ${data.result.inserted} new bets`;
+        } catch (err) {
+          statusEl.textContent = "Sync failed";
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      drawDashboard({{ dashboard | tojson }});
+      renderRows({{ entries | tojson }});
+      if (window.TableTools) {
+        window.TableTools.enhanceAll();
+      }
+    </script>
+  </body>
+</html>

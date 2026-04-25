@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Today's Bets - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Today's Bets</h1>
+      <p class="subtitle">Scenario-based fixtures filtered from the current slate.</p>
+      <p class="top-links">
+        <a href="/">Back to Home</a> | <a href="/bet-log">Go to Bet Log</a>
+      </p>
+      <p class="meta">Last scrape: <strong>{{ data.scraped_at or "Never" }}</strong></p>
+
+      {% for scenario in scenarios %}
+      <details class="accordion-card">
+        <summary class="accordion-header">
+          <span class="accordion-title">{{ scenario["name"] }} -> {{ scenario["outcome"] }}</span>
+          <span class="accordion-meta">Hit %: {{ scenario["hit_rate"] }} | Fixtures: {{ scenario["items"]|length }}</span>
+        </summary>
+        <div class="accordion-content">
+          <table>
+            <thead>
+              <tr>
+                <th>Fixture</th>
+                <th>Selection</th>
+                <th>Scenario Metric</th>
+                <th>Recommended Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if scenario["items"]|length == 0 %}
+              <tr>
+                <td colspan="4">No fixtures matched this scenario for the current slate.</td>
+              </tr>
+              {% else %}
+              {% for item in scenario["items"] %}
+              <tr>
+                <td>{{ item["fixture"] }}</td>
+                <td>{{ item["selection"] }}</td>
+                <td>{{ item["metric"] }}</td>
+                <td>{{ item["outcome"] }}</td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {% endfor %}
+    </main>
+    <script>
+      if (window.TableTools) {
+        window.TableTools.enhanceAll();
+      }
+    </script>
+  </body>
+</html>
