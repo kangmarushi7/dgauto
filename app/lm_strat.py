@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-from pathlib import Path
 import uuid
 from urllib.request import urlopen
 from typing import Any
 
+from app.db import insert_bets, list_bets, resolve_bet_entry
 
 TEAM_ACTUALS_URL = "https://www.datagaffer.com/team_actuals.json"
 H2H_FORM_URL = "https://www.datagaffer.com/h2h_form_combined.json"
-LM_BET_LOG_FILE = Path("data") / "lm_bet_log.json"
+LOG_TYPE = "lm"
 
 
 def _load_json(url: str) -> dict | list:
@@ -100,29 +100,13 @@ def _now_iso() -> str:
 
 
 def load_lm_bet_log() -> list[dict[str, Any]]:
-    if not LM_BET_LOG_FILE.exists():
-        return []
-    return json.loads(LM_BET_LOG_FILE.read_text(encoding="utf-8"))
-
-
-def save_lm_bet_log(entries: list[dict[str, Any]]) -> None:
-    LM_BET_LOG_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
-
-
-def _entry_key(entry: dict[str, Any]) -> tuple[str | None, str]:
-    return (entry.get("fixture_date"), entry.get("fixture", ""))
+    return list_bets(LOG_TYPE)
 
 
 def sync_lm_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
-    existing = load_lm_bet_log()
-    existing_keys = {_entry_key(e) for e in existing}
-    inserted = 0
-
+    candidates: list[dict[str, Any]] = []
     for p in picks:
-        k = _entry_key(p)
-        if k in existing_keys:
-            continue
-        existing.append(
+        candidates.append(
             {
                 "id": str(uuid.uuid4()),
                 "created_at": _now_iso(),
@@ -137,11 +121,8 @@ def sync_lm_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
                 "pnl_units": None,
             }
         )
-        existing_keys.add(k)
-        inserted += 1
-
-    save_lm_bet_log(existing)
-    return {"inserted": inserted, "total": len(existing)}
+    inserted = insert_bets(LOG_TYPE, candidates)
+    return {"inserted": inserted, "total": len(load_lm_bet_log())}
 
 
 def resolve_lm_bet(bet_id: str, result: str) -> dict[str, Any]:
@@ -150,26 +131,20 @@ def resolve_lm_bet(bet_id: str, result: str) -> dict[str, Any]:
         raise ValueError("Result must be one of: won, lost, push")
 
     entries = load_lm_bet_log()
-    updated: dict[str, Any] | None = None
-    for e in entries:
-        if e.get("id") != bet_id:
-            continue
-        e["status"] = result
-        odds = float(e.get("odds") or 0)
-        units = float(e.get("units") or 1)
-        if result == "won":
-            e["pnl_units"] = round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
-        elif result == "lost":
-            e["pnl_units"] = round(-1.0 * units, 3)
-        else:
-            e["pnl_units"] = 0.0
-        e["resolved_at"] = _now_iso()
-        updated = e
-        break
-
+    entry = next((e for e in entries if e.get("id") == bet_id), None)
+    if not entry:
+        raise ValueError("Bet not found.")
+    odds = float(entry.get("odds") or 0)
+    units = float(entry.get("units") or 1)
+    if result == "won":
+        pnl = round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
+    elif result == "lost":
+        pnl = round(-1.0 * units, 3)
+    else:
+        pnl = 0.0
+    updated = resolve_bet_entry(LOG_TYPE, bet_id, result, pnl, _now_iso())
     if not updated:
         raise ValueError("Bet not found.")
-    save_lm_bet_log(entries)
     return updated
 
 

@@ -1,16 +1,12 @@
-# DG standalone cloud webapp (DataGaffer scraper)
+# DG standalone cloud webapp (Railway + Postgres)
 
-This project now provides a standalone webapp that:
-
-1. Logs into DataGaffer using your credentials
-2. Scrapes `Goal Zone` and `Win Outlook`
-3. Merges fixtures across both sources
-4. Calculates simple bet signals (`high`, `medium`, `watch`)
-5. Shows everything in a web dashboard
+This app scrapes DataGaffer fixture feeds, builds strategy pages (including LM Strat), and tracks bet logs with persistent storage.
 
 Sources:
 - [Goal Zone](https://www.datagaffer.com/goal_zone)
 - [Outlooks (Win Outlook)](https://www.datagaffer.com/outlooks#win-outlook)
+- [Team Data](https://www.datagaffer.com/team_data)
+- [Dashboard](https://www.datagaffer.com/dashboard)
 
 ## Local setup
 
@@ -19,54 +15,66 @@ cd D:\DG
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-playwright install chromium
-```
-
-Create env file:
-
-```powershell
 copy .env.example .env
 ```
-
-Set your credentials and (if needed) CSS selectors in `.env`:
-
-- `DG_EMAIL`
-- `DG_PASSWORD`
-- `DG_LOGIN_URL`
-- `DG_EMAIL_SELECTOR`
-- `DG_PASSWORD_SELECTOR`
-- `DG_SUBMIT_SELECTOR`
 
 Run app:
 
 ```powershell
-uvicorn app.main:app --reload
+& "D:\DG\.venv\Scripts\python.exe" -m uvicorn app.main:app --port 8000
 ```
 
-Open `http://127.0.0.1:8000`, then click **Refresh from DataGaffer**.
+Open `http://127.0.0.1:8000`.
 
-## Deploy to cloud (Render)
+## Database behavior
 
-1. Push this repository to GitHub.
-2. Create a new Render Web Service using this repo.
-3. Render will use `Dockerfile` + `render.yaml`.
-4. Add environment variables in Render dashboard:
-   - `DG_EMAIL`
-   - `DG_PASSWORD`
-   - `DG_LOGIN_URL` (if different)
-   - `DG_EMAIL_SELECTOR`
-   - `DG_PASSWORD_SELECTOR`
-   - `DG_SUBMIT_SELECTOR`
-5. Deploy and open the app URL.
+- If `DATABASE_URL` is set (Railway Postgres), the app uses Postgres.
+- If `DATABASE_URL` is not set, it falls back to local SQLite: `data/dgauto.db`.
+- Stored in DB:
+  - latest scraped slate data
+  - main bet log
+  - LM bet log
+
+## Railway deployment (step-by-step)
+
+1. **Push repo to GitHub**
+   - Ensure code is committed and available on GitHub.
+
+2. **Create Railway project**
+   - Go to Railway dashboard, click **New Project**.
+   - Choose **Deploy from GitHub repo**, select this repo.
+
+3. **Add Postgres service**
+   - In the same Railway project, click **New** -> **Database** -> **PostgreSQL**.
+   - Railway automatically provides `DATABASE_URL` to services in the project.
+
+4. **Configure app service**
+   - Open your app service -> **Variables**.
+   - Confirm `DATABASE_URL` is present.
+   - Add app vars if needed:
+     - `APP_ENV=prod`
+     - `DG_LOGIN_URL=https://www.datagaffer.com/login`
+     - `DG_GOAL_ZONE_URL=https://www.datagaffer.com/goal_zone`
+     - `DG_WIN_OUTLOOK_URL=https://www.datagaffer.com/outlooks#win-outlook`
+
+5. **Set start command**
+   - Railway usually detects automatically, but if required set:
+   - `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+6. **Deploy**
+   - Trigger deploy from Railway.
+   - Open the generated public URL.
+
+7. **First-time initialize data**
+   - Visit homepage and click **Refresh from DataGaffer**.
+   - Open strategy pages and sync bet logs.
 
 ## API endpoints
 
-- `POST /api/refresh` - Run login + scrape + signal generation
-- `GET /api/data` - Return latest scraped dataset
-- `GET /health` - Health check
-
-## Notes
-
-- The scraper is selector-configurable because login forms can change.
-- Never hardcode credentials in code; keep them in env vars only.
-- The first refresh after deployment may be slightly slower due to browser startup.
+- `POST /api/refresh` - refresh latest slate data
+- `GET /api/data` - latest slate data
+- `GET /api/todays-bets` - scenario-filtered bets
+- `GET /api/lm-strat` - LM Strat filtered picks
+- `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
+- `POST /api/lm-bet-log/sync` - sync LM Strat bets
+- `GET /health` - health check

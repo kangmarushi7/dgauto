@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.models import MatchSignal, RefreshResponse
 from app.bet_log import bet_log_dashboard, load_bet_log, resolve_bet, sync_recommended_bets
+from app.db import init_db, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
     lm_dashboard,
@@ -26,19 +24,17 @@ app = FastAPI(title="DG Bet Automation")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(exist_ok=True)
-LATEST_FILE = DATA_DIR / "latest.json"
-
-
 def read_latest() -> dict:
-    if not LATEST_FILE.exists():
-        return {"scraped_at": None, "matches": []}
-    return json.loads(LATEST_FILE.read_text(encoding="utf-8"))
+    return load_state("latest_data", {"scraped_at": None, "matches": []})
 
 
 def write_latest(payload: dict) -> None:
-    LATEST_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    save_state("latest_data", payload)
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
 
 
 @app.get("/")

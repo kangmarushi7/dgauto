@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
-from pathlib import Path
 import uuid
 from typing import Any
 
+from app.db import insert_bets, list_bets, resolve_bet_entry
 
-BET_LOG_FILE = Path("data") / "bet_log.json"
+LOG_TYPE = "main"
 
 
 def _now_iso() -> str:
@@ -15,22 +14,7 @@ def _now_iso() -> str:
 
 
 def load_bet_log() -> list[dict[str, Any]]:
-    if not BET_LOG_FILE.exists():
-        return []
-    return json.loads(BET_LOG_FILE.read_text(encoding="utf-8"))
-
-
-def save_bet_log(entries: list[dict[str, Any]]) -> None:
-    BET_LOG_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
-
-
-def _entry_key(entry: dict[str, Any]) -> tuple[str | None, str, str, str]:
-    return (
-        entry.get("fixture_date"),
-        entry.get("fixture", ""),
-        entry.get("bet_type", ""),
-        entry.get("team_name", ""),
-    )
+    return list_bets(LOG_TYPE)
 
 
 def _make_moneyline_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -95,50 +79,31 @@ def _make_over15_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def sync_recommended_bets(matches: list[dict[str, Any]]) -> dict[str, Any]:
-    existing = load_bet_log()
-    existing_keys = {_entry_key(e) for e in existing}
-
     candidates = _make_moneyline_bets(matches) + _make_over15_bets(matches)
-    inserted = 0
-    for c in candidates:
-        key = _entry_key(c)
-        if key in existing_keys:
-            continue
-        existing.append(c)
-        existing_keys.add(key)
-        inserted += 1
-
-    save_bet_log(existing)
-    return {"inserted": inserted, "total": len(existing)}
+    inserted = insert_bets(LOG_TYPE, candidates)
+    return {"inserted": inserted, "total": len(load_bet_log())}
 
 
 def resolve_bet(bet_id: str, result: str) -> dict[str, Any]:
-    entries = load_bet_log()
     result = result.lower().strip()
     if result not in {"won", "lost", "push"}:
         raise ValueError("Result must be one of: won, lost, push")
 
-    updated: dict[str, Any] | None = None
-    for e in entries:
-        if e.get("id") != bet_id:
-            continue
-        e["status"] = result
-        odds = float(e.get("odds") or 0)
-        units = float(e.get("units") or 1)
-        if result == "won":
-            e["pnl_units"] = round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
-        elif result == "lost":
-            e["pnl_units"] = round(-1.0 * units, 3)
-        else:
-            e["pnl_units"] = 0.0
-        e["resolved_at"] = _now_iso()
-        updated = e
-        break
-
+    entries = load_bet_log()
+    entry = next((e for e in entries if e.get("id") == bet_id), None)
+    if not entry:
+        raise ValueError("Bet not found.")
+    odds = float(entry.get("odds") or 0)
+    units = float(entry.get("units") or 1)
+    if result == "won":
+        pnl = round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
+    elif result == "lost":
+        pnl = round(-1.0 * units, 3)
+    else:
+        pnl = 0.0
+    updated = resolve_bet_entry(LOG_TYPE, bet_id, result, pnl, _now_iso())
     if not updated:
         raise ValueError("Bet not found.")
-
-    save_bet_log(entries)
     return updated
 
 
