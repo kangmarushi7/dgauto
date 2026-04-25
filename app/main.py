@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.models import MatchSignal, RefreshResponse
 from app.bet_log import bet_log_dashboard, load_bet_log, resolve_bet, sync_recommended_bets
-from app.db import init_db, load_state, save_state
+from app.db import check_db_health, init_db, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
     lm_dashboard,
@@ -46,6 +46,12 @@ async def dashboard(request: Request):
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/health/db")
+async def health_db():
+    status = check_db_health()
+    return status
 
 
 @app.get("/todays-bets")

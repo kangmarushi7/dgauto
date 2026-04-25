@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    text,
     select,
 )
 
@@ -152,3 +153,12 @@ def resolve_bet_entry(log_type: str, bet_id: str, result: str, pnl_units: float,
         updated["pnl_units"] = pnl_units
         updated["resolved_at"] = resolved_at
         return updated
+
+
+def check_db_health() -> dict[str, Any]:
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"ok": True, "database_url_set": bool(os.getenv("DATABASE_URL", "").strip())}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
