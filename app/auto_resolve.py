@@ -5,6 +5,7 @@ from urllib.parse import quote
 from urllib.request import urlopen
 import json
 import re
+import time
 from typing import Any
 
 from app.db import list_bets, resolve_bet_entry
@@ -48,6 +49,15 @@ def _team_variants(name: str) -> set[str]:
     return variants
 
 
+def _canonical_team_name(name: str) -> str:
+    norm = _normalize(name)
+    for canonical, aliases in TEAM_ALIASES.items():
+        options = {_normalize(canonical), *(_normalize(a) for a in aliases)}
+        if norm in options:
+            return canonical
+    return norm
+
+
 def _team_match(a: str, b: str) -> bool:
     return bool(_team_variants(a) & _team_variants(b))
 
@@ -72,12 +82,22 @@ def _parse_entry_date(value: str | None) -> datetime | None:
         return None
 
 
-def _fetch_events(query: str) -> list[dict[str, Any]]:
+def _fetch_events(query: str, retries: int = 3) -> list[dict[str, Any]]:
     url = SEARCH_URL + quote(query)
-    with urlopen(url, timeout=15) as resp:
-        payload = json.load(resp)
-    events = payload.get("event") if isinstance(payload, dict) else None
-    return events if isinstance(events, list) else []
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            with urlopen(url, timeout=15) as resp:
+                payload = json.load(resp)
+            events = payload.get("event") if isinstance(payload, dict) else None
+            return events if isinstance(events, list) else []
+        except Exception as exc:
+            last_error = exc
+            if attempt < retries - 1:
+                time.sleep(0.35 * (attempt + 1))
+    if last_error:
+        raise last_error
+    return []
 
 
 def _event_is_final(event: dict[str, Any]) -> bool:
@@ -96,27 +116,25 @@ def _parse_score(event: dict[str, Any]) -> tuple[int, int] | None:
         return None
 
 
-def _find_best_event(entry: dict[str, Any]) -> dict[str, Any] | None:
+def _find_best_event(entry: dict[str, Any], cache: dict[str, list[dict[str, Any]]]) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
         return None
 
-    queries = [f"{home} vs {away}"]
-    # Add alias-expanded alternatives.
-    for hv in _team_variants(home):
-        for av in _team_variants(away):
-            queries.append(f"{hv} vs {av}")
+    raw_query = f"{home} vs {away}"
+    canonical_home = _canonical_team_name(home)
+    canonical_away = _canonical_team_name(away)
+    canonical_query = f"{canonical_home} vs {canonical_away}"
+    queries = [raw_query] if canonical_query == raw_query else [raw_query, canonical_query]
 
-    seen = set()
     candidates: list[dict[str, Any]] = []
     for q in queries:
-        if q in seen:
-            continue
-        seen.add(q)
-        try:
-            candidates.extend(_fetch_events(q))
-        except Exception:
-            continue
+        if q not in cache:
+            try:
+                cache[q] = _fetch_events(q)
+            except Exception:
+                cache[q] = []
+        candidates.extend(cache[q])
 
     if not candidates:
         return None
@@ -194,22 +212,35 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     skipped_not_final = 0
     skipped_unresolved = 0
 
+    # Resolve multiple bets on the same fixture from one lookup to avoid rate limiting.
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for entry in open_rows:
-        event = _find_best_event(entry)
+        key = (
+            str(entry.get("fixture_date") or ""),
+            str(entry.get("fixture") or ""),
+            str(entry.get("league_name") or ""),
+        )
+        grouped.setdefault(key, []).append(entry)
+
+    event_cache: dict[str, list[dict[str, Any]]] = {}
+    for group_entries in grouped.values():
+        seed = group_entries[0]
+        event = _find_best_event(seed, event_cache)
         if not event:
-            skipped_not_found += 1
+            skipped_not_found += len(group_entries)
             continue
         if not _event_is_final(event):
-            skipped_not_final += 1
+            skipped_not_final += len(group_entries)
             continue
-        result = _resolve_result(entry, event)
-        if result not in {"won", "lost", "push"}:
-            skipped_unresolved += 1
-            continue
-        pnl = _compute_pnl(entry, result)
-        updated = resolve_bet_entry(log_type, str(entry.get("id")), result, pnl, _now_iso())
-        if updated:
-            resolved += 1
+        for entry in group_entries:
+            result = _resolve_result(entry, event)
+            if result not in {"won", "lost", "push"}:
+                skipped_unresolved += 1
+                continue
+            pnl = _compute_pnl(entry, result)
+            updated = resolve_bet_entry(log_type, str(entry.get("id")), result, pnl, _now_iso())
+            if updated:
+                resolved += 1
 
     return {
         "open_checked": len(open_rows),
