@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote
 from urllib.request import urlopen
 import json
@@ -11,6 +11,7 @@ from typing import Any
 from app.db import list_bets, resolve_bet_entry
 
 SEARCH_URL = "https://www.thesportsdb.com/api/v1/json/123/searchevents.php?e="
+EVENTS_DAY_URL = "https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d="
 FINAL_STATUSES = {"match finished", "ft", "aet", "pen"}
 TEAM_ALIASES: dict[str, list[str]] = {
     "inter miami": ["miami", "inter miami cf"],
@@ -21,6 +22,19 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "charlotte fc": ["charlotte"],
     "cd guadalajara": ["guadalajara", "chivas"],
     "mazatlan": ["mazatlan fc", "mazatlan"],
+    "atlas": ["atla"],
+    "psg": ["paris saint germain", "paris sg"],
+    "fortuna sittard": ["sittard"],
+    "fc twente": ["twente"],
+    "nec nijmegen": ["nijmegen"],
+    "eintracht frankfurt": ["frankfurt"],
+    "central coast mariners": ["central coast"],
+    "manchester city": ["man city"],
+    "odense": ["ob"],
+    "bodoe glimt": ["bodo glimt", "bodo/glimt"],
+    "nordsjaelland": ["fc nordsjaelland", "nordjaelland"],
+    "gil vicente": ["gil vicente", "gill vicente"],
+    "club america": ["america", "club america"],
 }
 
 
@@ -35,6 +49,14 @@ def _normalize(text: str) -> str:
     lowered = lowered.replace("í", "i")
     lowered = lowered.replace("ó", "o")
     lowered = lowered.replace("ú", "u")
+    lowered = lowered.replace("ö", "o")
+    lowered = lowered.replace("ü", "u")
+    lowered = lowered.replace("ş", "s")
+    lowered = lowered.replace("ç", "c")
+    lowered = lowered.replace("ğ", "g")
+    lowered = lowered.replace("ø", "o")
+    lowered = lowered.replace("æ", "ae")
+    lowered = lowered.replace("/", " ")
     lowered = re.sub(r"[^a-z0-9]+", " ", lowered).strip()
     return lowered
 
@@ -60,6 +82,24 @@ def _canonical_team_name(name: str) -> str:
 
 def _team_match(a: str, b: str) -> bool:
     return bool(_team_variants(a) & _team_variants(b))
+
+
+def _team_similarity(a: str, b: str) -> float:
+    av = _team_variants(a)
+    bv = _team_variants(b)
+    if av & bv:
+        return 1.0
+    na = _normalize(a)
+    nb = _normalize(b)
+    if not na or not nb:
+        return 0.0
+    sa = set(na.split())
+    sb = set(nb.split())
+    if not sa or not sb:
+        return 0.0
+    inter = len(sa & sb)
+    union = len(sa | sb)
+    return inter / union if union else 0.0
 
 
 def _parse_fixture(fixture: str) -> tuple[str, str]:
@@ -100,6 +140,24 @@ def _fetch_events(query: str, retries: int = 3) -> list[dict[str, Any]]:
     return []
 
 
+def _fetch_events_for_date(date_str: str, retries: int = 3) -> list[dict[str, Any]]:
+    url = EVENTS_DAY_URL + quote(date_str) + "&s=Soccer"
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            with urlopen(url, timeout=15) as resp:
+                payload = json.load(resp)
+            events = payload.get("events") if isinstance(payload, dict) else None
+            return events if isinstance(events, list) else []
+        except Exception as exc:
+            last_error = exc
+            if attempt < retries - 1:
+                time.sleep(0.35 * (attempt + 1))
+    if last_error:
+        raise last_error
+    return []
+
+
 def _event_is_final(event: dict[str, Any]) -> bool:
     status = _normalize(str(event.get("strStatus") or ""))
     return status in FINAL_STATUSES
@@ -116,7 +174,11 @@ def _parse_score(event: dict[str, Any]) -> tuple[int, int] | None:
         return None
 
 
-def _find_best_event(entry: dict[str, Any], cache: dict[str, list[dict[str, Any]]]) -> dict[str, Any] | None:
+def _find_best_event(
+    entry: dict[str, Any],
+    query_cache: dict[str, list[dict[str, Any]]],
+    date_cache: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
         return None
@@ -129,26 +191,39 @@ def _find_best_event(entry: dict[str, Any], cache: dict[str, list[dict[str, Any]
 
     candidates: list[dict[str, Any]] = []
     for q in queries:
-        if q not in cache:
+        if q not in query_cache:
             try:
-                cache[q] = _fetch_events(q)
+                query_cache[q] = _fetch_events(q)
             except Exception:
-                cache[q] = []
-        candidates.extend(cache[q])
+                query_cache[q] = []
+        candidates.extend(query_cache[q])
+
+    entry_date = _parse_entry_date(entry.get("fixture_date"))
+    if entry_date:
+        day_offsets = (-1, 0, 1)
+        for day_offset in day_offsets:
+            date_key = (entry_date.date() + timedelta(days=day_offset)).isoformat()
+            if date_key not in date_cache:
+                try:
+                    date_cache[date_key] = _fetch_events_for_date(date_key)
+                except Exception:
+                    date_cache[date_key] = []
+            candidates.extend(date_cache[date_key])
 
     if not candidates:
         return None
 
-    entry_date = _parse_entry_date(entry.get("fixture_date"))
     best: dict[str, Any] | None = None
     best_score = -1
     for event in candidates:
         ev_home = str(event.get("strHomeTeam") or "")
         ev_away = str(event.get("strAwayTeam") or "")
-        if not (_team_match(home, ev_home) and _team_match(away, ev_away)):
+        home_sim = _team_similarity(home, ev_home)
+        away_sim = _team_similarity(away, ev_away)
+        if home_sim < 0.45 or away_sim < 0.45:
             continue
 
-        score = 10
+        score = 10 + int(home_sim * 4) + int(away_sim * 4)
         event_date_str = str(event.get("dateEvent") or "")
         if entry_date and event_date_str:
             try:
@@ -222,10 +297,11 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         )
         grouped.setdefault(key, []).append(entry)
 
-    event_cache: dict[str, list[dict[str, Any]]] = {}
+    query_cache: dict[str, list[dict[str, Any]]] = {}
+    date_cache: dict[str, list[dict[str, Any]]] = {}
     for group_entries in grouped.values():
         seed = group_entries[0]
-        event = _find_best_event(seed, event_cache)
+        event = _find_best_event(seed, query_cache, date_cache)
         if not event:
             skipped_not_found += len(group_entries)
             continue
