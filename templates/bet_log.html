@@ -88,6 +88,21 @@
         return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
 
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) {
+            setTimeout(tick, 150);
+          }
+        };
+        tick();
+      }
+
       function drawDashboard(dashboard) {
         overallStatsEl.textContent = fmtStats(dashboard.all);
         moneylineStatsEl.textContent = fmtStats(dashboard.moneyline);
@@ -199,6 +214,7 @@
 
       drawDashboard({{ dashboard | tojson }});
       renderRows({{ entries | tojson }});
+      ensureTableTools();
     </script>
   </body>
 </html>

@@ -123,6 +123,21 @@
         return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
 
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) {
+            setTimeout(tick, 150);
+          }
+        };
+        tick();
+      }
+
       function buildRecommendations(matches) {
         const moneyline = [];
         const over15 = [];
@@ -230,9 +245,7 @@
 
       renderRows({{ data.matches | tojson }});
       scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
-      if (window.TableTools) {
-        window.TableTools.enhanceAll();
-      }
+      ensureTableTools();
 
       refreshBtn.addEventListener("click", async () => {
         statusEl.textContent = "Refreshing...";
