@@ -99,11 +99,28 @@
       const moneylineRowsEl = document.getElementById("moneylineRows");
       const over15RowsEl = document.getElementById("over15Rows");
       const OVER_15_HIT_RATE = 86.1;
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
 
       function td(text) {
         const el = document.createElement("td");
         el.textContent = text ?? "";
         return el;
+      }
+
+      function formatToIst(value) {
+        if (!value) return "Unknown";
+        if (value === "Never") return value;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
 
       function buildRecommendations(matches) {
@@ -212,6 +229,7 @@
       }
 
       renderRows({{ data.matches | tojson }});
+      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
       if (window.TableTools) {
         window.TableTools.enhanceAll();
       }
@@ -226,7 +244,7 @@
             statusEl.textContent = `Failed: ${data.message}`;
           } else {
             statusEl.textContent = "Done";
-            scrapedAtEl.textContent = data.scraped_at || "Unknown";
+            scrapedAtEl.textContent = formatToIst(data.scraped_at);
             renderRows(data.matches || []);
           }
         } catch (err) {

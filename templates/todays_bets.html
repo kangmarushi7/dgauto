@@ -14,7 +14,7 @@
       <p class="top-links">
         <a href="/">Back to Home</a> | <a href="/bet-log">Go to Bet Log</a>
       </p>
-      <p class="meta">Last scrape: <strong>{{ data.scraped_at or "Never" }}</strong></p>
+      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
 
       {% for scenario in scenarios %}
       <details class="accordion-card">
@@ -54,6 +54,27 @@
       {% endfor %}
     </main>
     <script>
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function formatToIst(value) {
+        if (!value) return "Unknown";
+        if (value === "Never") return value;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
+      }
+
+      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
+
       if (window.TableTools) {
         window.TableTools.enhanceAll();
       }

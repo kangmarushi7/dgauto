@@ -15,6 +15,7 @@
 
       <div class="actions">
         <button id="syncBtn">Sync LM Strat Bets</button>
+        <button id="autoResolveBtn">Auto Resolve Open Bets</button>
         <span id="status"></span>
       </div>
 
@@ -45,9 +46,19 @@
 
     <script>
       const syncBtn = document.getElementById("syncBtn");
+      const autoResolveBtn = document.getElementById("autoResolveBtn");
       const statusEl = document.getElementById("status");
       const rowsEl = document.getElementById("rows");
       const statsEl = document.getElementById("stats");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
 
       function td(text) {
         const el = document.createElement("td");
@@ -57,6 +68,13 @@
 
       function renderStats(s) {
         statsEl.textContent = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | UnitPnL: ${s.unit_pnl}`;
+      }
+
+      function formatToIst(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
 
       async function resolveBet(id, result) {
@@ -82,7 +100,7 @@
         }
         for (const e of entries) {
           const tr = document.createElement("tr");
-          tr.appendChild(td(e.fixture_date || ""));
+          tr.appendChild(td(formatToIst(e.fixture_date)));
           tr.appendChild(td(e.fixture || ""));
           tr.appendChild(td(e.league_name || ""));
           tr.appendChild(td(e.bet_type || ""));
@@ -129,11 +147,24 @@
         }
       });
 
+      autoResolveBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Auto resolving open bets...";
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch("/api/lm-bet-log/auto-resolve", { method: "POST" });
+          const data = await res.json();
+          renderStats(data.dashboard);
+          renderRows(data.entries);
+          statusEl.textContent = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+        } catch (err) {
+          statusEl.textContent = "Auto resolve failed";
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+
       renderStats({{ dashboard | tojson }});
       renderRows({{ entries | tojson }});
-      if (window.TableTools) {
-        window.TableTools.enhanceAll();
-      }
     </script>
   </body>
 </html>

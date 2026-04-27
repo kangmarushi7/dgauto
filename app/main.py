@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.models import MatchSignal, RefreshResponse
 from app.bet_log import bet_log_dashboard, load_bet_log, resolve_bet, sync_recommended_bets
+from app.auto_resolve import auto_resolve_open_bets
 from app.db import check_db_health, init_db, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
@@ -149,6 +150,13 @@ async def bet_log_resolve(bet_id: str, payload: dict):
     return JSONResponse({"updated": updated, "entries": entries, "dashboard": bet_log_dashboard(entries)})
 
 
+@app.post("/api/bet-log/auto-resolve")
+async def bet_log_auto_resolve():
+    result = auto_resolve_open_bets("main")
+    entries = load_bet_log()
+    return JSONResponse({"result": result, "entries": entries, "dashboard": bet_log_dashboard(entries)})
+
+
 @app.get("/api/lm-strat")
 async def lm_strat_data():
     latest = read_latest()
@@ -176,3 +184,10 @@ async def lm_bet_log_resolve(bet_id: str, payload: dict):
     updated = resolve_lm_bet(bet_id, str(payload.get("result", "")))
     entries = load_lm_bet_log()
     return JSONResponse({"updated": updated, "entries": entries, "dashboard": lm_dashboard(entries)})
+
+
+@app.post("/api/lm-bet-log/auto-resolve")
+async def lm_bet_log_auto_resolve():
+    result = auto_resolve_open_bets("lm")
+    entries = load_lm_bet_log()
+    return JSONResponse({"result": result, "entries": entries, "dashboard": lm_dashboard(entries)})

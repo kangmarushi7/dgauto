@@ -15,7 +15,7 @@
         <a href="/">Back to Home</a> |
         <a href="/lm-bet-log">Go to LM Bet Log</a>
       </p>
-      <p class="meta">Last scrape: <strong>{{ data.scraped_at or "Never" }}</strong></p>
+      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
 
       <section class="recommendation-card">
         <h2>Qualified LM Over 1.5 Bets</h2>
@@ -42,7 +42,7 @@
             {% else %}
             {% for p in picks %}
             <tr>
-              <td>{{ p["fixture_date"] or "" }}</td>
+              <td class="fixture-date">{{ p["fixture_date"] or "" }}</td>
               <td>{{ p["fixture"] }}</td>
               <td>{{ p["league_name"] }}</td>
               <td>{{ p["odds"] or "" }}</td>
@@ -59,9 +59,32 @@
       </section>
     </main>
     <script>
-      if (window.TableTools) {
-        window.TableTools.enhanceAll();
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function formatToIst(value) {
+        if (!value) return "Unknown";
+        if (value === "Never") return value;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
+
+      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
+
+      document.querySelectorAll(".fixture-date").forEach((cell) => {
+        const value = (cell.textContent || "").trim();
+        if (!value) return;
+        cell.textContent = formatToIst(value);
+      });
     </script>
   </body>
 </html>
