@@ -12,6 +12,8 @@ from app.db import list_bets, resolve_bet_entry
 
 SEARCH_URL = "https://www.thesportsdb.com/api/v1/json/123/searchevents.php?e="
 EVENTS_DAY_URL = "https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d="
+SEARCH_TEAMS_URL = "https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t="
+EVENTS_LAST_URL = "https://www.thesportsdb.com/api/v1/json/123/eventslast.php?id="
 FINAL_STATUSES = {"match finished", "ft", "aet", "pen"}
 TEAM_ALIASES: dict[str, list[str]] = {
     "inter miami": ["miami", "inter miami cf"],
@@ -158,6 +160,45 @@ def _fetch_events_for_date(date_str: str, retries: int = 3) -> list[dict[str, An
     return []
 
 
+def _fetch_team_id(team_name: str, retries: int = 2) -> str | None:
+    url = SEARCH_TEAMS_URL + quote(team_name)
+    for attempt in range(retries):
+        try:
+            with urlopen(url, timeout=12) as resp:
+                payload = json.load(resp)
+            teams = payload.get("teams") if isinstance(payload, dict) else None
+            if not isinstance(teams, list):
+                return None
+            norm_target = _normalize(team_name)
+            best_id = None
+            best_score = -1.0
+            for t in teams:
+                cand = str(t.get("strTeam") or "")
+                score = _team_similarity(norm_target, cand)
+                if score > best_score:
+                    best_score = score
+                    best_id = str(t.get("idTeam") or "")
+            return best_id or None
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(0.25 * (attempt + 1))
+    return None
+
+
+def _fetch_team_last_events(team_id: str, retries: int = 2) -> list[dict[str, Any]]:
+    url = EVENTS_LAST_URL + quote(team_id)
+    for attempt in range(retries):
+        try:
+            with urlopen(url, timeout=12) as resp:
+                payload = json.load(resp)
+            events = payload.get("results") if isinstance(payload, dict) else None
+            return events if isinstance(events, list) else []
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(0.25 * (attempt + 1))
+    return []
+
+
 def _event_is_final(event: dict[str, Any]) -> bool:
     status = _normalize(str(event.get("strStatus") or ""))
     return status in FINAL_STATUSES
@@ -178,6 +219,8 @@ def _find_best_event(
     entry: dict[str, Any],
     query_cache: dict[str, list[dict[str, Any]]],
     date_cache: dict[str, list[dict[str, Any]]],
+    team_id_cache: dict[str, str | None],
+    team_last_cache: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
@@ -209,6 +252,20 @@ def _find_best_event(
                 except Exception:
                     date_cache[date_key] = []
             candidates.extend(date_cache[date_key])
+
+    # Final fallback: team-level recent events (works better on free tier for some leagues).
+    for team in (home, away, canonical_home, canonical_away):
+        tn = _normalize(team)
+        if not tn:
+            continue
+        if tn not in team_id_cache:
+            team_id_cache[tn] = _fetch_team_id(team)
+        team_id = team_id_cache[tn]
+        if not team_id:
+            continue
+        if team_id not in team_last_cache:
+            team_last_cache[team_id] = _fetch_team_last_events(team_id)
+        candidates.extend(team_last_cache[team_id])
 
     if not candidates:
         return None
@@ -299,9 +356,11 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
 
     query_cache: dict[str, list[dict[str, Any]]] = {}
     date_cache: dict[str, list[dict[str, Any]]] = {}
+    team_id_cache: dict[str, str | None] = {}
+    team_last_cache: dict[str, list[dict[str, Any]]] = {}
     for group_entries in grouped.values():
         seed = group_entries[0]
-        event = _find_best_event(seed, query_cache, date_cache)
+        event = _find_best_event(seed, query_cache, date_cache, team_id_cache, team_last_cache)
         if not event:
             skipped_not_found += len(group_entries)
             continue
