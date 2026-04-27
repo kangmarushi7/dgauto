@@ -37,6 +37,22 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "nordsjaelland": ["fc nordsjaelland", "nordjaelland"],
     "gil vicente": ["gil vicente", "gill vicente"],
     "club america": ["america", "club america"],
+    "vancouver whitecaps": ["vancouver", "vancouver whitecaps fc"],
+    "colorado rapids": ["colorado", "colorado rapids fc"],
+    "karlsruher sc": ["karlsruher", "karlsruher sc"],
+    "hannover 96": ["hannover", "hannover 96"],
+    "fc twente": ["twente"],
+    "nec nijmegen": ["nijmegen", "nec"],
+    "heracles almelo": ["heracles", "heracles almelo"],
+    "fc volendam": ["volendam"],
+    "aalesunds fk": ["aalesund", "aalesunds"],
+    "kristiansund bk": ["kristiansund"],
+    "lillestrom sk": ["lillestrom"],
+    "bodoe glimt": ["bodo glimt", "bodo/glimt", "bodo"],
+    "fc nordsjaelland": ["nordsjaelland", "nordsjaelland fc"],
+    "fc fredericia": ["fredericia"],
+    "odense boldklub": ["odense", "ob"],
+    "atlas": ["atla", "atlas"],
 }
 
 
@@ -161,27 +177,35 @@ def _fetch_events_for_date(date_str: str, retries: int = 3) -> list[dict[str, An
 
 
 def _fetch_team_id(team_name: str, retries: int = 2) -> str | None:
-    url = SEARCH_TEAMS_URL + quote(team_name)
-    for attempt in range(retries):
-        try:
-            with urlopen(url, timeout=12) as resp:
-                payload = json.load(resp)
-            teams = payload.get("teams") if isinstance(payload, dict) else None
-            if not isinstance(teams, list):
-                return None
-            norm_target = _normalize(team_name)
-            best_id = None
-            best_score = -1.0
-            for t in teams:
-                cand = str(t.get("strTeam") or "")
-                score = _team_similarity(norm_target, cand)
-                if score > best_score:
-                    best_score = score
-                    best_id = str(t.get("idTeam") or "")
-            return best_id or None
-        except Exception:
-            if attempt < retries - 1:
-                time.sleep(0.25 * (attempt + 1))
+    candidates = sorted(_team_variants(team_name), key=len, reverse=True)
+    if team_name and _normalize(team_name) not in candidates:
+        candidates.insert(0, _normalize(team_name))
+
+    best_id = None
+    best_score = -1.0
+    for candidate_name in candidates:
+        url = SEARCH_TEAMS_URL + quote(candidate_name)
+        for attempt in range(retries):
+            try:
+                with urlopen(url, timeout=12) as resp:
+                    payload = json.load(resp)
+                teams = payload.get("teams") if isinstance(payload, dict) else None
+                if not isinstance(teams, list):
+                    break
+                for t in teams:
+                    cand = str(t.get("strTeam") or "")
+                    score = _team_similarity(team_name, cand)
+                    if score > best_score:
+                        best_score = score
+                        best_id = str(t.get("idTeam") or "")
+                break
+            except Exception:
+                if attempt < retries - 1:
+                    time.sleep(0.25 * (attempt + 1))
+        if best_score >= 0.8 and best_id:
+            return best_id
+    if best_score >= 0.45 and best_id:
+        return best_id
     return None
 
 
