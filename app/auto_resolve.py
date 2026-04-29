@@ -62,6 +62,30 @@ LEAGUE_LOOKUP_FALLBACKS = [
     "Swedish Allsvenskan",
     "Austrian Bundesliga",
 ]
+FIXTURE_QUERY_OVERRIDES: dict[str, list[str]] = {
+    "st louis vs san jose": ["St. Louis City SC vs San Jose Earthquakes"],
+    "toronto vs atlanta": ["Toronto FC vs Atlanta United"],
+    "wattens vs ried": ["WSG Wattens vs Ried"],
+    "pachuca vs puma": ["Pachuca vs U.N.A.M. - Pumas", "Pachuca vs Pumas UNAM"],
+    "lausanne vs zurich": ["Lausanne vs FC Zurich", "Lausanne Sport vs FC Zurich"],
+    "western sydney vs melbourne victory": ["Western Sydney Wanderers vs Melbourne Victory"],
+    "sheffield utd vs preston": ["Sheffield Utd vs Preston", "Sheffield United vs Preston North End"],
+    "ad ceuta vs santander": ["AD Ceuta FC vs Racing Santander", "AD Ceuta vs Santander"],
+    "kfum oslo vs sarpsborg": ["KFUM Oslo vs Sarpsborg 08 FF", "KFUM Oslo vs Sarpsborg"],
+    "heracles vs volendam": ["Heracles Almelo vs FC Volendam", "Heracles vs Volendam"],
+    "la galaxy vs salt lake": ["LA Galaxy vs Real Salt Lake"],
+    "aarhus vs midtjylland": ["Aarhus vs FC Midtjylland", "AGF Aarhus vs Midtjylland"],
+    "paderborn vs schalke": ["SC Paderborn 07 vs FC Schalke 04", "Paderborn vs Schalke"],
+    "brommapojkarna vs vasteras sk fk": ["IF Brommapojkarna vs Vasteras SK FK"],
+    "copenhagen vs vejle": ["FC Copenhagen vs Vejle", "Copenhagen vs Vejle"],
+    "den bosch vs almere city": ["Den Bosch vs Almere City FC", "FC Den Bosch vs Almere City FC"],
+    "club america vs atla": ["Club América vs Atlas", "Club America vs Atlas"],
+    "karlsruher vs hannover": ["Karlsruhe vs Hannover", "Karlsruher SC vs Hannover 96"],
+    "viborg vs nordsjaelland": ["Viborg vs FC Nordsjælland", "Viborg vs FC Nordsjaelland"],
+    "aalesund vs kristiansund": ["Aalesund vs Kristiansund"],
+    "lillestrom vs bodo glimt": ["Lillestrøm vs Bodø/Glimt", "Lillestrom vs Bodo/Glimt"],
+    "fredericia vs odense": ["Fredericia vs Odense BK", "FC Fredericia vs Odense"],
+}
 TEAM_ALIASES: dict[str, list[str]] = {
     "inter miami": ["miami", "inter miami cf"],
     "new england revolution": ["new england", "new england revs"],
@@ -205,6 +229,30 @@ def _parse_fixture(fixture: str) -> tuple[str, str]:
         home, away = raw.split(" v ", 1)
         return home.strip(), away.strip()
     return "", ""
+
+
+def _fixture_queries(entry: dict[str, Any]) -> list[str]:
+    fixture = str(entry.get("fixture") or "")
+    home, away = _parse_fixture(fixture)
+    if not home or not away:
+        return []
+    key = _normalize(fixture)
+    overrides = FIXTURE_QUERY_OVERRIDES.get(key, [])
+    raw_query = f"{home} vs {away}"
+    canonical_query = f"{_canonical_team_name(home)} vs {_canonical_team_name(away)}"
+    queries = [*overrides, raw_query, canonical_query]
+    # Keep order, drop empties/duplicates.
+    out: list[str] = []
+    seen: set[str] = set()
+    for q in queries:
+        qn = q.strip()
+        if not qn:
+            continue
+        if qn in seen:
+            continue
+        seen.add(qn)
+        out.append(qn)
+    return out
 
 
 def _parse_entry_date(value: str | None) -> datetime | None:
@@ -450,11 +498,13 @@ def _find_best_event(
     if not home or not away:
         return None
 
-    raw_query = f"{home} vs {away}"
     canonical_home = _canonical_team_name(home)
     canonical_away = _canonical_team_name(away)
-    canonical_query = f"{canonical_home} vs {canonical_away}"
-    queries = [raw_query] if canonical_query == raw_query else [raw_query, canonical_query]
+    queries = _fixture_queries(entry)
+    if not queries:
+        raw_query = f"{home} vs {away}"
+        canonical_query = f"{canonical_home} vs {canonical_away}"
+        queries = [raw_query] if canonical_query == raw_query else [raw_query, canonical_query]
 
     candidates: list[dict[str, Any]] = []
     for q in queries:
