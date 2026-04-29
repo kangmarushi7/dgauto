@@ -15,6 +15,8 @@ EVENTS_DAY_URL = "https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d="
 SEARCH_TEAMS_URL = "https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t="
 SEARCH_ALL_TEAMS_URL = "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l="
 EVENTS_LAST_URL = "https://www.thesportsdb.com/api/v1/json/123/eventslast.php?id="
+SEARCH_ALL_LEAGUES_URL = "https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?s=Soccer"
+EVENTS_SEASON_URL = "https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id="
 FINAL_STATUSES = {"match finished", "ft", "aet", "pen"}
 LEAGUE_NAME_MAP = {
     "major league soccer": "American Major League Soccer",
@@ -318,6 +320,61 @@ def _fetch_teams_for_league(league_name: str, retries: int = 2) -> list[dict[str
     return []
 
 
+def _fetch_all_leagues(retries: int = 2) -> list[dict[str, Any]]:
+    for attempt in range(retries):
+        try:
+            with urlopen(SEARCH_ALL_LEAGUES_URL, timeout=20) as resp:
+                payload = json.load(resp)
+            countries = payload.get("countries") if isinstance(payload, dict) else None
+            return countries if isinstance(countries, list) else []
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(0.3 * (attempt + 1))
+    return []
+
+
+def _guess_league_id(league_name: str, leagues: list[dict[str, Any]]) -> str | None:
+    needle = _normalize(league_name)
+    if not needle or not leagues:
+        return None
+    best_id = None
+    best_score = -1.0
+    for l in leagues:
+        lname = str(l.get("strLeague") or "")
+        score = _team_similarity(needle, lname)
+        if score > best_score:
+            best_score = score
+            best_id = str(l.get("idLeague") or "")
+    if best_score >= 0.45 and best_id:
+        return best_id
+    return None
+
+
+def _season_candidates(entry_date: datetime | None) -> list[str]:
+    if not entry_date:
+        return []
+    y = entry_date.year
+    return [
+        str(y),
+        f"{y-1}-{y}",
+        f"{y}-{y+1}",
+    ]
+
+
+def _fetch_events_for_league_season(league_id: str, season: str, retries: int = 2) -> list[dict[str, Any]]:
+    url = f"{EVENTS_SEASON_URL}{quote(league_id)}&s={quote(season)}"
+    for attempt in range(retries):
+        try:
+            with urlopen(url, timeout=20) as resp:
+                payload = json.load(resp)
+            events = payload.get("events") if isinstance(payload, dict) else None
+            return events if isinstance(events, list) else []
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(0.3 * (attempt + 1))
+    return []
+
+
 def _league_team_id_lookup(
     entry: dict[str, Any],
     league_team_cache: dict[str, list[dict[str, Any]]],
@@ -386,6 +443,8 @@ def _find_best_event(
     team_id_cache: dict[str, str | None],
     team_last_cache: dict[str, list[dict[str, Any]]],
     league_team_cache: dict[str, list[dict[str, Any]]],
+    league_list_cache: dict[str, list[dict[str, Any]]],
+    season_events_cache: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
@@ -417,6 +476,18 @@ def _find_best_event(
                 except Exception:
                     date_cache[date_key] = []
             candidates.extend(date_cache[date_key])
+
+    # Robust fallback for older fixtures: pull whole league-season fixtures once.
+    league_name = _league_to_sportsdb_name(str(entry.get("league_name") or ""))
+    if "all" not in league_list_cache:
+        league_list_cache["all"] = _fetch_all_leagues()
+    league_id = _guess_league_id(league_name, league_list_cache["all"])
+    if league_id:
+        for season in _season_candidates(entry_date):
+            cache_key = f"{league_id}:{season}"
+            if cache_key not in season_events_cache:
+                season_events_cache[cache_key] = _fetch_events_for_league_season(league_id, season)
+            candidates.extend(season_events_cache[cache_key])
 
     # League-level team directory is more reliable and less rate-limited than searchteams.
     home_id, away_id = _league_team_id_lookup(entry, league_team_cache)
@@ -533,6 +604,8 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     team_id_cache: dict[str, str | None] = {}
     team_last_cache: dict[str, list[dict[str, Any]]] = {}
     league_team_cache: dict[str, list[dict[str, Any]]] = {}
+    league_list_cache: dict[str, list[dict[str, Any]]] = {}
+    season_events_cache: dict[str, list[dict[str, Any]]] = {}
     for group_entries in grouped.values():
         seed = group_entries[0]
         event = _find_best_event(
@@ -542,6 +615,8 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             team_id_cache,
             team_last_cache,
             league_team_cache,
+            league_list_cache,
+            season_events_cache,
         )
         if not event:
             skipped_not_found += len(group_entries)
