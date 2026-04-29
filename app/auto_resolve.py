@@ -33,7 +33,33 @@ LEAGUE_NAME_MAP = {
     "a league": "Australian A-League",
     "sueper lig": "Turkish Super Lig",
     "super lig": "Turkish Super Lig",
+    "jupiler pro league": "Belgian First Division A",
+    "la liga": "Spanish La Liga",
+    "segunda division": "Spanish Segunda Division",
+    "allsvenskan": "Swedish Allsvenskan",
+    "bundesliga austria": "Austrian Bundesliga",
 }
+LEAGUE_LOOKUP_FALLBACKS = [
+    "American Major League Soccer",
+    "Mexican Primera League",
+    "Dutch Eredivisie",
+    "Danish Superliga",
+    "Norwegian Eliteserien",
+    "Scottish Premiership",
+    "German Bundesliga",
+    "German 2. Bundesliga",
+    "French Ligue 1",
+    "Italian Serie A",
+    "Portuguese Primeira Liga",
+    "Swiss Super League",
+    "Australian A-League",
+    "Turkish Super Lig",
+    "Belgian First Division A",
+    "Spanish La Liga",
+    "Spanish Segunda Division",
+    "Swedish Allsvenskan",
+    "Austrian Bundesliga",
+]
 TEAM_ALIASES: dict[str, list[str]] = {
     "inter miami": ["miami", "inter miami cf"],
     "new england revolution": ["new england", "new england revs"],
@@ -72,6 +98,35 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "fc fredericia": ["fredericia"],
     "odense boldklub": ["odense", "ob"],
     "atlas": ["atla", "atlas"],
+    "st louis city": ["st. louis", "st louis"],
+    "san jose earthquakes": ["san jose"],
+    "hamburg": ["hamburger", "hamburger sv", "hamburg sv"],
+    "toronto fc": ["toronto"],
+    "atlanta united": ["atlanta"],
+    "wsg tirol": ["wattens"],
+    "pumas unam": ["puma", "pumas"],
+    "lausanne sport": ["lausanne"],
+    "fc zurich": ["zurich", "zuerich"],
+    "western sydney wanderers": ["western sydney"],
+    "sheffield united": ["sheffield utd", "sheffield u"],
+    "preston north end": ["preston"],
+    "ad ceuta": ["ceuta"],
+    "racing santander": ["santander"],
+    "kfum oslo": ["kfum"],
+    "real salt lake": ["salt lake"],
+    "agf aarhus": ["aarhus", "agf"],
+    "sc paderborn 07": ["paderborn"],
+    "schalke 04": ["schalke"],
+    "if brommapojkarna": ["brommapojkarna"],
+    "vasteras sk": ["vasteras sk fk", "vasteras"],
+    "borussia moenchengladbach": ["borussia m", "gladbach"],
+    "bk haecken": ["bk hacken", "hacken"],
+    "sirius": ["siriu", "ik sirius"],
+    "oergyte is": ["orgryte is", "orgryte"],
+    "degerfors": ["degerfor"],
+    "odense boldklub": ["odense", "ob", "odense bk"],
+    "den bosch": ["fc den bosch"],
+    "almere city": ["almere city fc"],
 }
 
 
@@ -271,13 +326,12 @@ def _league_team_id_lookup(
     league_name = _league_to_sportsdb_name(str(entry.get("league_name") or ""))
     if not home or not away or not league_name:
         return None, None
-    if league_name not in league_team_cache:
-        league_team_cache[league_name] = _fetch_teams_for_league(league_name)
-    teams = league_team_cache[league_name]
-    if not teams:
-        return None, None
+    leagues_to_try = [league_name]
+    for league in LEAGUE_LOOKUP_FALLBACKS:
+        if league not in leagues_to_try:
+            leagues_to_try.append(league)
 
-    def _best_id(team_name: str) -> str | None:
+    def _best_id(team_name: str, teams: list[dict[str, Any]]) -> tuple[str | None, float]:
         best_id = None
         best_score = -1.0
         for t in teams:
@@ -286,11 +340,27 @@ def _league_team_id_lookup(
             if score > best_score:
                 best_score = score
                 best_id = str(t.get("idTeam") or "")
-        if best_score >= 0.5 and best_id:
-            return best_id
-        return None
+        return best_id, best_score
 
-    return _best_id(home), _best_id(away)
+    best_pair: tuple[str | None, str | None] = (None, None)
+    best_pair_score = -1.0
+
+    for league in leagues_to_try:
+        if league not in league_team_cache:
+            league_team_cache[league] = _fetch_teams_for_league(league)
+        teams = league_team_cache[league]
+        if not teams:
+            continue
+        home_id, home_score = _best_id(home, teams)
+        away_id, away_score = _best_id(away, teams)
+        pair_score = home_score + away_score
+        if home_id and away_id and home_score >= 0.45 and away_score >= 0.45 and pair_score > best_pair_score:
+            best_pair = (home_id, away_id)
+            best_pair_score = pair_score
+            if home_score >= 0.9 and away_score >= 0.9:
+                break
+
+    return best_pair
 
 
 def _event_is_final(event: dict[str, Any]) -> bool:
