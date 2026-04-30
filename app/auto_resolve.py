@@ -67,18 +67,48 @@ FIXTURE_QUERY_OVERRIDES: dict[str, list[str]] = {
     "toronto vs atlanta": ["Toronto FC vs Atlanta United"],
     "wattens vs ried": ["WSG Wattens vs Ried"],
     "pachuca vs puma": ["Pachuca vs U.N.A.M. - Pumas", "Pachuca vs Pumas UNAM"],
-    "lausanne vs zurich": ["Lausanne vs FC Zurich", "Lausanne Sport vs FC Zurich"],
-    "western sydney vs melbourne victory": ["Western Sydney Wanderers vs Melbourne Victory"],
+    "lausanne vs zurich": [
+        "FC Lausanne-Sport vs FC Zurich",
+        "Lausanne Sport vs FC Zurich",
+        "Lausanne vs FC Zurich",
+    ],
+    "western sydney vs melbourne victory": [
+        "Western Sydney Wanderers FC vs Melbourne Victory",
+        "Western Sydney Wanderers vs Melbourne Victory",
+    ],
     "sheffield utd vs preston": ["Sheffield Utd vs Preston", "Sheffield United vs Preston North End"],
-    "ad ceuta vs santander": ["AD Ceuta FC vs Racing Santander", "AD Ceuta vs Santander"],
-    "kfum oslo vs sarpsborg": ["KFUM Oslo vs Sarpsborg 08 FF", "KFUM Oslo vs Sarpsborg"],
+    "ad ceuta vs santander": [
+        "AD Ceuta FC vs Racing de Santander",
+        "AD Ceuta FC vs Racing Santander",
+        "AD Ceuta vs Santander",
+    ],
+    "kfum oslo vs sarpsborg": [
+        "KFUM-Kameratene Oslo vs Sarpsborg 08 FF",
+        "KFUM Oslo vs Sarpsborg 08 FF",
+        "KFUM Oslo vs Sarpsborg",
+    ],
     "heracles vs volendam": ["Heracles Almelo vs FC Volendam", "Heracles vs Volendam"],
-    "la galaxy vs salt lake": ["LA Galaxy vs Real Salt Lake"],
+    "la galaxy vs salt lake": ["LA Galaxy vs Real Salt Lake", "Los Angeles Galaxy vs Real Salt Lake"],
     "aarhus vs midtjylland": ["Aarhus vs FC Midtjylland", "AGF Aarhus vs Midtjylland"],
     "paderborn vs schalke": ["SC Paderborn 07 vs FC Schalke 04", "Paderborn vs Schalke"],
-    "brommapojkarna vs vasteras sk fk": ["IF Brommapojkarna vs Vasteras SK FK"],
-    "copenhagen vs vejle": ["FC Copenhagen vs Vejle", "Copenhagen vs Vejle"],
-    "den bosch vs almere city": ["Den Bosch vs Almere City FC", "FC Den Bosch vs Almere City FC"],
+    "brommapojkarna vs vasteras sk fk": [
+        "IF Brommapojkarna vs Vasteras SK",
+        "IF Brommapojkarna vs Vasteras SK FK",
+    ],
+    "copenhagen vs vejle": [
+        "FC Kobenhavn vs Vejle Boldklub",
+        "FC Copenhagen vs Vejle",
+        "Copenhagen vs Vejle",
+    ],
+    "den bosch vs almere city": [
+        "FC Den Bosch vs Almere City",
+        "FC Den Bosch vs Almere City FC",
+        "Den Bosch vs Almere City FC",
+    ],
+    "n forest vs aston villa": [
+        "Nottingham Forest vs Aston Villa",
+        "Nottm Forest vs Aston Villa",
+    ],
     "club america vs atla": ["Club América vs Atlas", "Club America vs Atlas"],
     "karlsruher vs hannover": ["Karlsruhe vs Hannover", "Karlsruher SC vs Hannover 96"],
     "viborg vs nordsjaelland": ["Viborg vs FC Nordsjælland", "Viborg vs FC Nordsjaelland"],
@@ -141,6 +171,16 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "kfum oslo": ["kfum"],
     "real salt lake": ["salt lake"],
     "agf aarhus": ["aarhus", "agf"],
+    "fc kobenhavn": ["copenhagen", "fc copenhagen", "kobenhavn", "kobenhavn"],
+    "vejle boldklub": ["vejle", "vejle bk"],
+    "racing de santander": ["racing santander", "santander"],
+    "kfum kameratene oslo": ["kfum oslo", "kfum"],
+    "sarpsborg 08 ff": ["sarpsborg", "sarpsborg 08"],
+    "melbourne victory": ["melbourne victory fc"],
+    "western sydney wanderers fc": ["western sydney"],
+    "fc lausanne sport": ["lausanne", "lausanne sport"],
+    "vasteras sk": ["vasteras sk fk", "vasteras"],
+    "nottingham forest": ["n forest", "n. forest", "forest"],
     "sc paderborn 07": ["paderborn"],
     "schalke 04": ["schalke"],
     "if brommapojkarna": ["brommapojkarna"],
@@ -517,7 +557,7 @@ def _find_best_event(
 
     entry_date = _parse_entry_date(entry.get("fixture_date"))
     if entry_date:
-        day_offsets = (-1, 0, 1)
+        day_offsets = (-2, -1, 0, 1, 2)
         for day_offset in day_offsets:
             date_key = (entry_date.date() + timedelta(days=day_offset)).isoformat()
             if date_key not in date_cache:
