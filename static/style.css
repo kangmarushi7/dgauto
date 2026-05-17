@@ -75,6 +75,16 @@ button:disabled {
   margin-bottom: 16px;
 }
 
+.stats-dashboard .recommendation-card--overall {
+  grid-column: 1 / -1;
+}
+
+.stats-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
 .recommendation-card {
   border: 1px solid #d5dde2;
   border-radius: 8px;

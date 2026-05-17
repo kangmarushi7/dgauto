@@ -10,7 +10,7 @@
   <body>
     <main class="container">
       <h1>Bet Log</h1>
-      <p class="subtitle">Track recommended Moneyline, Over 1.5, and BTTS bets, then resolve as won/lost.</p>
+      <p class="subtitle">Paper-trade all DataGaffer goal scenarios (totals, team props, BTTS, moneyline). Sync from Home, then resolve won/lost.</p>
       <p class="top-links"><a href="/">Back to Home</a> | <a href="/todays-bets">Go to Today's Bets</a></p>
 
       <div class="actions">
@@ -19,23 +19,12 @@
         <span id="status"></span>
       </div>
 
-      <section class="recommendations">
-        <div class="recommendation-card">
+      <section class="recommendations stats-dashboard">
+        <div class="recommendation-card recommendation-card--overall">
           <h2>Overall</h2>
           <p class="hit-note" id="overallStats"></p>
         </div>
-        <div class="recommendation-card">
-          <h2>Moneyline</h2>
-          <p class="hit-note" id="moneylineStats"></p>
-        </div>
-        <div class="recommendation-card">
-          <h2>Over 1.5</h2>
-          <p class="hit-note" id="overStats"></p>
-        </div>
-        <div class="recommendation-card">
-          <h2>BTTS</h2>
-          <p class="hit-note" id="bttsStats"></p>
-        </div>
+        <div id="typeStatsGrid" class="stats-type-grid"></div>
       </section>
 
       <table>
@@ -63,9 +52,18 @@
       const statusEl = document.getElementById("status");
       const betRowsEl = document.getElementById("betRows");
       const overallStatsEl = document.getElementById("overallStats");
-      const moneylineStatsEl = document.getElementById("moneylineStats");
-      const overStatsEl = document.getElementById("overStats");
-      const bttsStatsEl = document.getElementById("bttsStats");
+      const typeStatsGridEl = document.getElementById("typeStatsGrid");
+      const BET_TYPE_ORDER = [
+        "moneyline",
+        "over1.5",
+        "over2.5",
+        "over3.5",
+        "btts",
+        "team_o0.5",
+        "team_o1.5",
+        "under2.5",
+        "under3.5",
+      ];
       const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
@@ -82,9 +80,27 @@
         return el;
       }
 
-      function fmtStats(s) {
+      function fmtStats(s, showHist = false) {
         const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
-        return `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
+        let line = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
+        if (showHist && s.hist_hit_pct > 0) {
+          line += ` | Hist: ${s.hist_hit_pct}%`;
+        }
+        return line;
+      }
+
+      function emptyStats() {
+        return {
+          placed: 0,
+          won: 0,
+          lost: 0,
+          push: 0,
+          win_pct: 0,
+          avg_odds: null,
+          unit_pnl: 0,
+          label: "",
+          hist_hit_pct: 0,
+        };
       }
 
       function formatToIst(value) {
@@ -111,17 +127,21 @@
 
       function drawDashboard(dashboard) {
         overallStatsEl.textContent = fmtStats(dashboard.all);
-        moneylineStatsEl.textContent = fmtStats(dashboard.moneyline);
-        overStatsEl.textContent = fmtStats(dashboard.over1_5);
-        bttsStatsEl.textContent = fmtStats(dashboard.btts || {
-          placed: 0,
-          won: 0,
-          lost: 0,
-          push: 0,
-          win_pct: 0,
-          avg_odds: null,
-          unit_pnl: 0,
-        });
+        typeStatsGridEl.innerHTML = "";
+        const byType = dashboard.by_type || {};
+        for (const key of BET_TYPE_ORDER) {
+          const s = byType[key] || emptyStats();
+          const card = document.createElement("div");
+          card.className = "recommendation-card";
+          const title = document.createElement("h2");
+          title.textContent = s.label || key;
+          const note = document.createElement("p");
+          note.className = "hit-note";
+          note.textContent = fmtStats(s, true);
+          card.appendChild(title);
+          card.appendChild(note);
+          typeStatsGridEl.appendChild(card);
+        }
       }
 
       async function resolveBet(id, result) {

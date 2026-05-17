@@ -654,18 +654,54 @@ def _compute_pnl(entry: dict[str, Any], result: str) -> float:
     return 0.0
 
 
+def _team_goals_scored(entry: dict[str, Any], event: dict[str, Any]) -> int | None:
+    team_name = str(entry.get("team_name") or "")
+    home_team = str(event.get("strHomeTeam") or "")
+    away_team = str(event.get("strAwayTeam") or "")
+    if _team_match(team_name, home_team):
+        return int(event.get("intHomeScore") or 0)
+    if _team_match(team_name, away_team):
+        return int(event.get("intAwayScore") or 0)
+    return None
+
+
 def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
     score = _parse_score(event)
     if score is None:
         return None
     home_goals, away_goals = score
+    total = home_goals + away_goals
     bet_type = str(entry.get("bet_type") or "").strip().lower()
 
     if bet_type in {"over1.5", "over 1.5"}:
-        return "won" if home_goals + away_goals >= 2 else "lost"
+        return "won" if total >= 2 else "lost"
+
+    if bet_type in {"over2.5", "over 2.5"}:
+        return "won" if total >= 3 else "lost"
+
+    if bet_type in {"over3.5", "over 3.5"}:
+        return "won" if total >= 4 else "lost"
+
+    if bet_type in {"under2.5", "under 2.5"}:
+        return "won" if total <= 2 else "lost"
+
+    if bet_type in {"under3.5", "under 3.5"}:
+        return "won" if total <= 3 else "lost"
 
     if bet_type == "btts":
         return "won" if home_goals >= 1 and away_goals >= 1 else "lost"
+
+    if bet_type in {"team_o0.5", "team o0.5"}:
+        scored = _team_goals_scored(entry, event)
+        if scored is None:
+            return None
+        return "won" if scored >= 1 else "lost"
+
+    if bet_type in {"team_o1.5", "team o1.5"}:
+        scored = _team_goals_scored(entry, event)
+        if scored is None:
+            return None
+        return "won" if scored >= 2 else "lost"
 
     if bet_type == "moneyline":
         team_name = str(entry.get("team_name") or "")
