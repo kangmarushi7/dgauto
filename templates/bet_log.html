@@ -108,9 +108,26 @@
         emptyBetsMsg: "No scenario bets yet. Sync recommended bets from Home.",
       };
     </script>
-    <script src="/static/bet_log.js"></script>
+    <script src="/static/bet_log.js?v=2" defer></script>
     <script>
-      BetLogApp.init({{ dashboard | tojson }}, {{ entries | tojson }});
+      (function () {
+        const initialDashboard = {{ dashboard | tojson }};
+        const initialEntries = {{ entries | tojson }};
+
+        function boot() {
+          if (!window.BetLogApp) {
+            console.error("BetLogApp failed to load — hard refresh (Ctrl+F5)");
+            return;
+          }
+          BetLogApp.init(initialDashboard, initialEntries);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", boot);
+        } else {
+          boot();
+        }
+      })();
     </script>
   </body>
 </html>

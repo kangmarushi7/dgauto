@@ -1,19 +1,11 @@
 (function () {
+  "use strict";
+
   const cfg = window.BET_LOG_CONFIG || {
     apiBase: "/api/bet-log",
     showSync: true,
-    emptyBetsMsg: "No bets logged yet. Click Sync Recommended Bets.",
-    scenarioTitle: "Scenario breakdown",
+    emptyBetsMsg: "No bets logged yet. Sync recommended bets from Home.",
   };
-
-  const syncBtn = document.getElementById("syncBtn");
-  const autoResolveBtn = document.getElementById("autoResolveBtn");
-  const statusEl = document.getElementById("status");
-  const betRowsEl = document.getElementById("betRows");
-  const overallKpisEl = document.getElementById("overallKpis");
-  const scenarioStatsBodyEl = document.getElementById("scenarioStatsBody");
-  const scenarioPanelMetaEl = document.getElementById("scenarioPanelMeta");
-  const betsPanelMetaEl = document.getElementById("betsPanelMeta");
 
   let scenarioLookup = {};
   let dashboardCache = null;
@@ -28,11 +20,15 @@
     hour12: false,
   });
 
+  function el(id) {
+    return document.getElementById(id);
+  }
+
   function td(text, className) {
-    const el = document.createElement("td");
-    el.textContent = text ?? "";
-    if (className) el.className = className;
-    return el;
+    const cell = document.createElement("td");
+    cell.textContent = text ?? "";
+    if (className) cell.className = className;
+    return cell;
   }
 
   function formatToIst(value) {
@@ -69,17 +65,20 @@
   }
 
   function renderKpis(all) {
+    const overallKpisEl = el("overallKpis");
+    if (!overallKpisEl) return;
+
     const items = [
-      { label: "Placed", value: all.placed },
-      { label: "Won", value: all.won },
-      { label: "Lost", value: all.lost },
-      { label: "Win%", value: `${all.win_pct}%` },
+      { label: "Placed", value: all.placed ?? 0 },
+      { label: "Won", value: all.won ?? 0 },
+      { label: "Lost", value: all.lost ?? 0 },
+      { label: "Win%", value: `${all.win_pct ?? 0}%` },
       { label: "Avg odds", value: fmtOdds(all.avg_odds) },
       { label: "Unit PnL", value: fmtPnl(all.unit_pnl), cls: pnlClass(all.unit_pnl) },
     ];
     overallKpisEl.innerHTML = "";
     for (const item of items) {
-      const card = document.createElement("div");
+      const card = document.createElement('div');
       card.className = "betlog-kpi";
       const lbl = document.createElement("span");
       lbl.className = "betlog-kpi-label";
@@ -115,9 +114,11 @@
   }
 
   function renderScenarioTable() {
-    if (!dashboardCache) return;
-    const rows = flattenScenarios(dashboardCache);
+    const scenarioStatsBodyEl = el("scenarioStatsBody");
+    const scenarioPanelMetaEl = el("scenarioPanelMeta");
+    if (!scenarioStatsBodyEl || !dashboardCache) return;
 
+    const rows = flattenScenarios(dashboardCache);
     scenarioStatsBodyEl.innerHTML = "";
     let lastCat = "";
     for (const s of rows) {
@@ -151,13 +152,15 @@
       scenarioStatsBodyEl.appendChild(tr);
     }
 
-    scenarioPanelMetaEl.textContent = `${rows.length} scenario${rows.length === 1 ? "" : "s"}`;
+    if (scenarioPanelMetaEl) {
+      scenarioPanelMetaEl.textContent = `${rows.length} scenario${rows.length === 1 ? "" : "s"}`;
+    }
   }
 
   function drawDashboard(dashboard) {
-    dashboardCache = dashboard;
-    scenarioLookup = dashboard.by_scenario || dashboard.by_type || {};
-    renderKpis(dashboard.all || {});
+    dashboardCache = dashboard || {};
+    scenarioLookup = dashboardCache.by_scenario || dashboardCache.by_type || {};
+    renderKpis(dashboardCache.all || {});
     renderScenarioTable();
   }
 
@@ -170,12 +173,19 @@
   }
 
   function renderRows(entries) {
-    betRowsEl.innerHTML = "";
-    betsPanelMetaEl.textContent = entries.length
-      ? `${entries.length} bet${entries.length === 1 ? "" : "s"}`
-      : "No bets";
+    const betRowsEl = el("betRows");
+    const betsPanelMetaEl = el("betsPanelMeta");
+    if (!betRowsEl) return;
 
-    if (!entries.length) {
+    const list = entries || [];
+    betRowsEl.innerHTML = "";
+    if (betsPanelMetaEl) {
+      betsPanelMetaEl.textContent = list.length
+        ? `${list.length} bet${list.length === 1 ? "" : "s"}`
+        : "No bets";
+    }
+
+    if (!list.length) {
       const tr = document.createElement("tr");
       const empty = td(cfg.emptyBetsMsg);
       empty.colSpan = 11;
@@ -185,7 +195,7 @@
       return;
     }
 
-    for (const e of entries) {
+    for (const e of list) {
       const parts = scenarioParts(e);
       const tr = document.createElement("tr");
       tr.appendChild(td(formatToIst(e.fixture_date)));
@@ -226,6 +236,8 @@
   }
 
   function setStatus(msg, kind) {
+    const statusEl = el("status");
+    if (!statusEl) return;
     statusEl.textContent = msg;
     statusEl.className = "betlog-status" + (kind ? ` is-${kind}` : "");
   }
@@ -243,55 +255,6 @@
     setStatus(`Updated: ${result}`, "ok");
   }
 
-  if (cfg.showSync && syncBtn) {
-    syncBtn.addEventListener("click", async () => {
-      setStatus("Syncing...");
-      syncBtn.disabled = true;
-      try {
-        const res = await fetch(`${cfg.apiBase}/sync-recommended`, { method: "POST" });
-        const data = await res.json();
-        drawDashboard(data.dashboard);
-        renderRows(data.entries);
-          let msg = `Synced ${data.result.inserted} new bets`;
-          if (data.result.updated_odds) {
-            msg += `, updated ${data.result.updated_odds} odds`;
-          }
-          setStatus(msg, "ok");
-      } catch (err) {
-        setStatus("Sync failed", "error");
-      } finally {
-        syncBtn.disabled = false;
-      }
-    });
-  }
-
-  if (autoResolveBtn) {
-    autoResolveBtn.addEventListener("click", async () => {
-      setStatus("Auto resolving...");
-      autoResolveBtn.disabled = true;
-      try {
-        const res = await fetch(`${cfg.apiBase}/auto-resolve`, { method: "POST" });
-        const raw = await res.text();
-        if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
-        const data = JSON.parse(raw);
-        if (data.result?.error) {
-          setStatus(data.result.error, "error");
-          return;
-        }
-        drawDashboard(data.dashboard);
-        renderRows(data.entries);
-        let msg = `Resolved ${data.result.resolved}/${data.result.open_checked}`;
-        if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
-        if (data.result.stopped_early) msg += " — run again for remainder";
-        setStatus(msg, "ok");
-      } catch (err) {
-        setStatus(`Auto resolve failed: ${err.message || err}`, "error");
-      } finally {
-        autoResolveBtn.disabled = false;
-      }
-    });
-  }
-
   function ensureTableTools(maxAttempts = 20) {
     let attempts = 0;
     const tick = () => {
@@ -305,11 +268,65 @@
     tick();
   }
 
+  function wireActions() {
+    const syncBtn = el("syncBtn");
+    const autoResolveBtn = el("autoResolveBtn");
+
+    if (cfg.showSync && syncBtn) {
+      syncBtn.addEventListener("click", async () => {
+        setStatus("Syncing...");
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch(`${cfg.apiBase}/sync-recommended`, { method: "POST" });
+          const data = await res.json();
+          drawDashboard(data.dashboard);
+          renderRows(data.entries);
+          let msg = `Synced ${data.result.inserted} new bets`;
+          if (data.result.updated_odds) msg += `, updated ${data.result.updated_odds} odds`;
+          setStatus(msg, "ok");
+        } catch (err) {
+          setStatus("Sync failed", "error");
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+    }
+
+    if (autoResolveBtn) {
+      autoResolveBtn.addEventListener("click", async () => {
+        setStatus("Auto resolving...");
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch(`${cfg.apiBase}/auto-resolve`, { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          if (data.result?.error) {
+            setStatus(data.result.error, "error");
+            return;
+          }
+          drawDashboard(data.dashboard);
+          renderRows(data.entries);
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked}`;
+          if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
+          if (data.result.stopped_early) msg += " — run again for remainder";
+          setStatus(msg, "ok");
+        } catch (err) {
+          setStatus(`Auto resolve failed: ${err.message || err}`, "error");
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   window.BetLogApp = {
     init(initialDashboard, initialEntries) {
-      drawDashboard(initialDashboard);
-      renderRows(initialEntries);
+      drawDashboard(initialDashboard || {});
+      renderRows(initialEntries || []);
       ensureTableTools();
     },
   };
+
+  wireActions();
 })();
