@@ -3,11 +3,8 @@ FROM mcr.microsoft.com/playwright/python:v1.53.0-jammy
 WORKDIR /app
 
 COPY requirements.txt .
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata \
-    && rm -rf /var/lib/apt/lists/*
+# Timezones via pip `tzdata` (avoids interactive apt tzdata prompt during build).
 RUN pip install --no-cache-dir -r requirements.txt
-ENV TZ=Asia/Kolkata
 
 COPY . .
 
