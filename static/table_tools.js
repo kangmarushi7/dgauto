@@ -102,17 +102,25 @@
     state.menuOutsideHandler = null;
   }
 
+  function normalizeFilterSet(selected, allValues) {
+    if (!selected || selected.size === 0) return null;
+    if (selected.size >= allValues.length) return null;
+    return selected;
+  }
+
   function applyColumnFilters(table) {
     const state = table._tableTools;
     if (!state?.columnFilters) return;
     const filters = state.columnFilters;
     for (const row of dataRows(table)) {
       let show = true;
-      for (const [colKey, selected] of Object.entries(filters)) {
-        if (!selected) continue;
+      for (const [colKey, selectedSet] of Object.entries(filters)) {
+        if (!selectedSet || selectedSet.size === 0) continue;
         const colIndex = parseInt(colKey, 10);
-        const cellVal = getFilterValue(row, colIndex, table);
-        if (cellVal.toLowerCase() !== selected.toLowerCase()) {
+        const allValues = collectColumnValues(table, colIndex);
+        if (selectedSet.size >= allValues.length) continue;
+        const cellVal = getFilterValue(row, colIndex, table).toLowerCase();
+        if (!selectedSet.has(cellVal)) {
           show = false;
           break;
         }
@@ -168,60 +176,209 @@
     });
   }
 
+  function isColumnFilterActive(table, colIndex) {
+    const set = table._tableTools?.columnFilters?.[colIndex];
+    if (!set || set.size === 0) return false;
+    const allValues = collectColumnValues(table, colIndex);
+    return set.size < allValues.length;
+  }
+
   function updateFilterButtonState(table, colIndex) {
     const th = table.tHead?.rows?.[0]?.cells?.[colIndex];
     const btn = th?.querySelector(".col-filter-btn");
     if (!btn) return;
-    const active = table._tableTools?.columnFilters?.[colIndex];
-    btn.classList.toggle("col-filter-btn--active", Boolean(active));
+    btn.classList.toggle("col-filter-btn--active", isColumnFilterActive(table, colIndex));
+  }
+
+  function commitColumnFilter(table, colIndex, selectedSet, allValues) {
+    const state = table._tableTools;
+    const normalized = normalizeFilterSet(selectedSet, allValues);
+    if (normalized) state.columnFilters[colIndex] = normalized;
+    else delete state.columnFilters[colIndex];
+    applyFilter(table);
+    updateFilterButtonState(table, colIndex);
+  }
+
+  function positionPopover(menu, anchorEl) {
+    const rect = anchorEl.getBoundingClientRect();
+    const gap = 4;
+    const margin = 8;
+    menu.style.position = "fixed";
+    menu.style.zIndex = "10000";
+    document.body.appendChild(menu);
+    const menuRect = menu.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + gap;
+    if (left + menuRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - menuRect.width - margin;
+    }
+    if (left < margin) left = margin;
+    if (top + menuRect.height > window.innerHeight - margin) {
+      top = rect.top - menuRect.height - gap;
+    }
+    if (top < margin) top = margin;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
   }
 
   function openFilterMenu(table, colIndex, btn) {
     closeFilterMenu(table);
     const state = table._tableTools;
-    const values = collectColumnValues(table, colIndex);
-    const current = state.columnFilters[colIndex] || null;
+    const th = table.tHead?.rows?.[0]?.cells?.[colIndex];
+    const colLabel =
+      th?.dataset.filterLabel || th?.querySelector(".th-label")?.textContent || "Column";
+    const allValues = collectColumnValues(table, colIndex);
+    const existing = state.columnFilters[colIndex];
+    const selected = existing
+      ? new Set(existing)
+      : new Set(allValues.map((v) => v.toLowerCase()));
 
-    const menu = document.createElement("div");
-    menu.className = "col-filter-menu";
-    menu.setAttribute("role", "listbox");
+    const popover = document.createElement("div");
+    popover.className = "excel-filter-popover";
+    popover.setAttribute("role", "dialog");
+    popover.addEventListener("click", (e) => e.stopPropagation());
 
-    function addOption(label, value) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "col-filter-option";
-      item.setAttribute("role", "option");
-      item.textContent = label;
-      if ((value == null && !current) || (value && current && value.toLowerCase() === current.toLowerCase())) {
-        item.classList.add("is-selected");
-        item.setAttribute("aria-selected", "true");
-      }
-      item.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (value == null) delete state.columnFilters[colIndex];
-        else state.columnFilters[colIndex] = value;
-        applyFilter(table);
-        updateFilterButtonState(table, colIndex);
-        closeFilterMenu(table);
-      });
-      menu.appendChild(item);
+    const title = document.createElement("div");
+    title.className = "excel-filter-title";
+    title.textContent = `Filter: ${colLabel}`;
+    popover.appendChild(title);
+
+    const sortRow = document.createElement("div");
+    sortRow.className = "excel-filter-sort";
+    const sortAsc = document.createElement("button");
+    sortAsc.type = "button";
+    sortAsc.className = "excel-filter-link";
+    sortAsc.textContent = "Sort A → Z";
+    const sortDesc = document.createElement("button");
+    sortDesc.type = "button";
+    sortDesc.className = "excel-filter-link";
+    sortDesc.textContent = "Sort Z → A";
+    sortAsc.addEventListener("click", () => {
+      state.sortIndex = colIndex;
+      state.direction = "asc";
+      applySort(table);
+      applyFilter(table);
+      markHeaderSort(table);
+    });
+    sortDesc.addEventListener("click", () => {
+      state.sortIndex = colIndex;
+      state.direction = "desc";
+      applySort(table);
+      applyFilter(table);
+      markHeaderSort(table);
+    });
+    sortRow.appendChild(sortAsc);
+    sortRow.appendChild(sortDesc);
+    popover.appendChild(sortRow);
+
+    const searchWrap = document.createElement("div");
+    searchWrap.className = "excel-filter-search-wrap";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "excel-filter-search";
+    search.placeholder = "Search…";
+    searchWrap.appendChild(search);
+    popover.appendChild(searchWrap);
+
+    const list = document.createElement("div");
+    list.className = "excel-filter-list";
+
+    const selectAllLabel = document.createElement("label");
+    selectAllLabel.className = "excel-filter-row excel-filter-row--select-all";
+    const selectAllCb = document.createElement("input");
+    selectAllCb.type = "checkbox";
+    selectAllCb.checked = selected.size === allValues.length;
+    const selectAllText = document.createElement("span");
+    selectAllText.textContent = "(Select all)";
+    selectAllLabel.appendChild(selectAllCb);
+    selectAllLabel.appendChild(selectAllText);
+    list.appendChild(selectAllLabel);
+
+    const rowRefs = [];
+
+    function syncSelectAll() {
+      const visible = rowRefs.filter((r) => r.label.style.display !== "none");
+      const checkedCount = visible.filter((r) => r.cb.checked).length;
+      selectAllCb.indeterminate = checkedCount > 0 && checkedCount < visible.length;
+      selectAllCb.checked = visible.length > 0 && checkedCount === visible.length;
     }
 
-    addOption("All", null);
-    for (const v of values) addOption(formatFilterLabel(v), v);
+    function applyFromCheckboxes() {
+      const next = new Set();
+      for (const { value, cb } of rowRefs) {
+        if (cb.checked) next.add(value.toLowerCase());
+      }
+      commitColumnFilter(table, colIndex, next, allValues);
+    }
 
-    document.body.appendChild(menu);
-    const rect = btn.getBoundingClientRect();
-    menu.style.position = "fixed";
-    menu.style.left = `${Math.max(8, rect.left)}px`;
-    menu.style.top = `${rect.bottom + 4}px`;
-    menu.style.minWidth = `${Math.max(120, rect.width + 40)}px`;
-    menu.style.zIndex = "10000";
+    for (const value of allValues) {
+      const label = document.createElement("label");
+      label.className = "excel-filter-row";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = selected.has(value.toLowerCase());
+      const text = document.createElement("span");
+      text.textContent = formatFilterLabel(value);
+      label.appendChild(cb);
+      label.appendChild(text);
+      list.appendChild(label);
+      rowRefs.push({ value, cb, label });
 
-    state.openMenu = menu;
+      cb.addEventListener("change", () => {
+        syncSelectAll();
+        applyFromCheckboxes();
+      });
+    }
+
+    selectAllCb.addEventListener("change", () => {
+      const on = selectAllCb.checked;
+      for (const { cb, label } of rowRefs) {
+        if (label.style.display === "none") continue;
+        cb.checked = on;
+      }
+      syncSelectAll();
+      applyFromCheckboxes();
+    });
+
+    search.addEventListener("input", () => {
+      const needle = search.value.trim().toLowerCase();
+      for (const { label, value } of rowRefs) {
+        const text = formatFilterLabel(value).toLowerCase();
+        label.style.display = !needle || text.includes(needle) ? "" : "none";
+      }
+      syncSelectAll();
+    });
+
+    popover.appendChild(list);
+
+    const actions = document.createElement("div");
+    actions.className = "excel-filter-actions";
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "excel-filter-btn";
+    clearBtn.textContent = "Clear filter";
+    clearBtn.addEventListener("click", () => {
+      for (const { cb } of rowRefs) cb.checked = true;
+      delete state.columnFilters[colIndex];
+      applyFilter(table);
+      updateFilterButtonState(table, colIndex);
+      closeFilterMenu(table);
+    });
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "excel-filter-btn excel-filter-btn--primary";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", () => closeFilterMenu(table));
+    actions.appendChild(clearBtn);
+    actions.appendChild(closeBtn);
+    popover.appendChild(actions);
+
+    positionPopover(popover, btn);
+    state.openMenu = popover;
+    syncSelectAll();
 
     state.menuOutsideHandler = (e) => {
-      if (menu.contains(e.target) || btn.contains(e.target)) return;
+      if (popover.contains(e.target) || btn.contains(e.target)) return;
       closeFilterMenu(table);
     };
     setTimeout(() => document.addEventListener("click", state.menuOutsideHandler), 0);
@@ -248,6 +405,7 @@
     headers.forEach((th, idx) => {
       if (th.querySelector(".th-inner")) return;
       const label = (th.dataset.filterLabel || th.textContent || "").trim();
+      th.dataset.filterLabel = label;
       th.textContent = "";
       th.classList.add("th-filterable");
 
@@ -262,8 +420,9 @@
       filterBtn.type = "button";
       filterBtn.className = "col-filter-btn";
       filterBtn.setAttribute("aria-label", `Filter by ${label}`);
-      filterBtn.setAttribute("aria-haspopup", "listbox");
-      filterBtn.innerHTML = "&#9662;";
+      filterBtn.setAttribute("aria-haspopup", "dialog");
+      filterBtn.innerHTML =
+        '<svg class="col-filter-icon" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path fill="currentColor" d="M0 1h10L6 5v3L4 9V5L0 1z"/></svg>';
 
       filterBtn.addEventListener("click", (e) => {
         e.stopPropagation();
