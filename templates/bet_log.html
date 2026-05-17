@@ -6,7 +6,7 @@
     <title>Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css" />
     <link rel="stylesheet" href="/static/betlog.css?v=5" />
-    <script src="/static/table_tools.js" defer></script>
+    <script src="/static/table_tools.js?v=2" defer></script>
   </head>
   <body class="betlog-body">
     <div class="betlog-shell">
@@ -26,13 +26,6 @@
           {% endif %}
         </nav>
       </header>
-
-      {% if legacy_count %}
-      <p class="betlog-legacy-banner">
-        {{ legacy_count }} older unsplit bet{{ "s" if legacy_count != 1 else "" }} (moneyline, over 1.5, etc.) live on
-        <a href="/legacy-bet-log">Legacy Bet Log</a> — this page shows scenario-split bets only.
-      </p>
-      {% endif %}
 
       <div class="betlog-actions">
         <button type="button" id="syncBtn" class="btn-primary">Sync recommended</button>
@@ -78,7 +71,7 @@
         </summary>
         <div class="betlog-panel-body betlog-panel-body--bets">
           <div class="betlog-bets-table-wrap" aria-label="All bets table">
-            <table class="betlog-bets-table">
+            <table class="betlog-bets-table" data-column-filters="1">
             <thead>
               <tr>
                 <th>Date</th>
@@ -87,7 +80,7 @@
                 <th>Bet</th>
                 <th>Odds</th>
                 <th>Status</th>
-                <th class="col-resolve">Resolve</th>
+                <th class="col-resolve" data-filter-source-col="5">Resolve</th>
                 <th>League</th>
                 <th>Category</th>
                 <th>U</th>

@@ -6,7 +6,7 @@
     <title>Legacy Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css" />
     <link rel="stylesheet" href="/static/betlog.css?v=5" />
-    <script src="/static/table_tools.js" defer></script>
+    <script src="/static/table_tools.js?v=2" defer></script>
   </head>
   <body class="betlog-body">
     <div class="betlog-shell">
@@ -67,7 +67,7 @@
         </summary>
         <div class="betlog-panel-body betlog-panel-body--bets">
           <div class="betlog-bets-table-wrap" aria-label="All bets table">
-            <table class="betlog-bets-table">
+            <table class="betlog-bets-table" data-column-filters="1">
             <thead>
               <tr>
                 <th>Fixture date</th>
@@ -80,7 +80,7 @@
                 <th>Units</th>
                 <th>Status</th>
                 <th>Unit PnL</th>
-                <th class="col-resolve">Resolve</th>
+                <th class="col-resolve" data-filter-source-col="8">Resolve</th>
               </tr>
             </thead>
             <tbody id="betRows"></tbody>
