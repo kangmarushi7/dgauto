@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/betlog.css" />
+    <link rel="stylesheet" href="/static/betlog.css?v=5" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body class="betlog-body">
@@ -71,7 +71,7 @@
         </div>
       </details>
 
-      <details class="betlog-panel" open>
+      <details class="betlog-panel betlog-panel--bets" open>
         <summary>
           <span>All bets</span>
           <span class="betlog-panel-meta" id="betsPanelMeta"></span>
@@ -81,17 +81,17 @@
             <table class="betlog-bets-table">
             <thead>
               <tr>
-                <th>Fixture date</th>
+                <th>Date</th>
                 <th>Fixture</th>
                 <th>Team</th>
-                <th>Outcome</th>
+                <th>Bet</th>
                 <th>Odds</th>
                 <th>Status</th>
                 <th class="col-resolve">Resolve</th>
                 <th>League</th>
                 <th>Category</th>
-                <th>Units</th>
-                <th>Unit PnL</th>
+                <th>U</th>
+                <th>PnL</th>
               </tr>
             </thead>
             <tbody id="betRows"></tbody>

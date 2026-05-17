@@ -27,7 +27,7 @@ body.betlog-body {
 }
 
 .betlog-shell {
-  max-width: 1280px;
+  max-width: min(100%, 1440px);
   margin: 0 auto;
   padding: 24px 20px 48px;
 }
@@ -204,7 +204,19 @@ body.betlog-body {
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--bl-text);
+  color: #f1f5f9;
+}
+
+body.betlog-body .betlog-kpi .betlog-kpi-value {
+  color: #f1f5f9;
+}
+
+body.betlog-body .betlog-kpi .betlog-kpi-value.pnl-pos {
+  color: var(--bl-accent);
+}
+
+body.betlog-body .betlog-kpi .betlog-kpi-value.pnl-neg {
+  color: var(--bl-danger);
 }
 
 .betlog-panel {
@@ -214,6 +226,11 @@ body.betlog-body {
   margin-bottom: 16px;
   overflow: hidden;
   box-shadow: var(--bl-shadow);
+}
+
+/* Allow horizontal scroll for wide bet tables (overflow:hidden clips child scrollbars). */
+.betlog-panel.betlog-panel--bets {
+  overflow: visible;
 }
 
 .betlog-panel > summary {
@@ -346,11 +363,13 @@ body.betlog-body {
 
 .betlog-bets-table-wrap {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   max-height: none;
   width: 100%;
   border-radius: 8px;
   border: 1px solid var(--bl-border);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 .betlog-bets-table-wrap .table-tools {
@@ -367,10 +386,11 @@ body.betlog-body {
 
 .betlog-bets-table {
   width: 100%;
+  min-width: 1080px;
   border-collapse: collapse;
   font-size: 0.8125rem;
   margin: 0;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .betlog-stats-table th {
@@ -402,72 +422,84 @@ body.betlog-body {
 }
 
 .betlog-bets-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--bl-border);
   vertical-align: middle;
   color: var(--bl-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Col order: date, fixture, team, outcome, odds, status, resolve, league, category, units, pnl */
 .betlog-bets-table th:nth-child(1),
 .betlog-bets-table td:nth-child(1) {
+  width: 9%;
   white-space: nowrap;
-  min-width: 8rem;
 }
 
 .betlog-bets-table th:nth-child(2),
 .betlog-bets-table td:nth-child(2) {
-  white-space: normal;
-  min-width: 9rem;
-  max-width: 12rem;
-  line-height: 1.35;
+  width: 17%;
+  white-space: nowrap;
 }
 
 .betlog-bets-table th:nth-child(3),
 .betlog-bets-table td:nth-child(3) {
+  width: 7%;
   white-space: nowrap;
-  min-width: 4.5rem;
 }
 
 .betlog-bets-table th:nth-child(4),
 .betlog-bets-table td:nth-child(4) {
-  white-space: normal;
-  min-width: 4.5rem;
+  width: 10%;
+  white-space: nowrap;
 }
 
 .betlog-bets-table th:nth-child(5),
-.betlog-bets-table td:nth-child(5),
+.betlog-bets-table td:nth-child(5) {
+  width: 5%;
+  white-space: nowrap;
+}
+
 .betlog-bets-table th:nth-child(6),
-.betlog-bets-table td:nth-child(6),
-.betlog-bets-table th:nth-child(10),
-.betlog-bets-table td:nth-child(10),
-.betlog-bets-table th:nth-child(11),
-.betlog-bets-table td:nth-child(11) {
+.betlog-bets-table td:nth-child(6) {
+  width: 6%;
+  white-space: nowrap;
+}
+
+.betlog-bets-table th.col-resolve,
+.betlog-bets-table td.col-resolve {
+  width: 13%;
+  overflow: visible;
   white-space: nowrap;
 }
 
 .betlog-bets-table th:nth-child(8),
 .betlog-bets-table td:nth-child(8) {
-  white-space: normal;
-  min-width: 5rem;
-  max-width: 8rem;
-  line-height: 1.35;
+  width: 9%;
+  white-space: nowrap;
   font-size: 0.75rem;
 }
 
 .betlog-bets-table th:nth-child(9),
 .betlog-bets-table td:nth-child(9) {
-  white-space: normal;
-  min-width: 6.5rem;
-  max-width: 10rem;
-  line-height: 1.35;
+  width: 14%;
+  white-space: nowrap;
   font-size: 0.75rem;
 }
 
-.betlog-bets-table th.col-resolve,
-.betlog-bets-table td.col-resolve {
-  min-width: 10.5rem;
+.betlog-bets-table th:nth-child(10),
+.betlog-bets-table td:nth-child(10),
+.betlog-bets-table th:nth-child(11),
+.betlog-bets-table td:nth-child(11) {
+  width: 5%;
   white-space: nowrap;
+  text-align: right;
+}
+
+.betlog-bets-table th:nth-child(10),
+.betlog-bets-table th:nth-child(11) {
+  text-align: right;
 }
 
 .betlog-bets-table th.col-resolve:last-child,
@@ -500,8 +532,8 @@ body.betlog-body {
   color: var(--bl-text);
   border: 1px solid var(--bl-border);
   border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 0.75rem;
+  padding: 4px 8px;
+  font-size: 0.7rem;
   font-weight: 600;
   margin: 0;
   cursor: pointer;

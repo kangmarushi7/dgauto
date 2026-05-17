@@ -198,10 +198,19 @@
     for (const e of list) {
       const parts = scenarioParts(e);
       const tr = document.createElement("tr");
-      tr.appendChild(td(formatToIst(e.fixture_date)));
-      tr.appendChild(td(e.fixture || ""));
-      tr.appendChild(td(e.team_name || ""));
-      tr.appendChild(td(parts.label));
+      const dateCell = td(formatToIst(e.fixture_date));
+      const fixtureCell = td(e.fixture || "");
+      const teamCell = td(e.team_name || "");
+      const betCell = td(parts.label);
+      const leagueCell = td(e.league_name || "");
+      const categoryCell = td(parts.category);
+      for (const cell of [fixtureCell, teamCell, betCell, leagueCell, categoryCell]) {
+        if (cell.textContent) cell.title = cell.textContent;
+      }
+      tr.appendChild(dateCell);
+      tr.appendChild(fixtureCell);
+      tr.appendChild(teamCell);
+      tr.appendChild(betCell);
       tr.appendChild(td(e.odds ?? ""));
       const statusCell = td(e.status || "open");
       statusCell.className = statusClass(e.status);
@@ -230,8 +239,8 @@
         actions.appendChild(settled);
       }
       tr.appendChild(actions);
-      tr.appendChild(td(e.league_name || ""));
-      tr.appendChild(td(parts.category));
+      tr.appendChild(leagueCell);
+      tr.appendChild(categoryCell);
       tr.appendChild(td(e.units ?? 1));
       const pnlCell = td(
         e.status && e.status !== "open" ? fmtPnl(e.pnl_units) : "—",
