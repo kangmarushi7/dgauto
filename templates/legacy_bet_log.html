@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bet Log · DG</title>
+    <title>Legacy Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css" />
     <link rel="stylesheet" href="/static/betlog.css" />
     <script src="/static/table_tools.js" defer></script>
@@ -12,70 +12,59 @@
     <div class="betlog-shell">
       <header class="betlog-topbar">
         <div class="betlog-brand">
-          <h1>Bet Log</h1>
-          <p class="subtitle">Paper-trade DataGaffer scenarios — sync from Home, then auto-resolve or mark results manually.</p>
+          <h1>Legacy Bet Log</h1>
+          <p class="subtitle">
+            Bets logged before scenario split (moneyline, over 1.5, BTTS, etc.). New syncs use the main
+            <a href="/bet-log" style="color: var(--bl-accent)">Bet Log</a> with DataGaffer categories.
+          </p>
         </div>
         <nav class="betlog-nav" aria-label="Main">
           <a href="/">Home</a>
-          <a href="/todays-bets">Today's Bets</a>
-          <a href="/bet-log" class="is-active">Bet Log</a>
-          {% if legacy_count %}
-          <a href="/legacy-bet-log">Legacy<span class="nav-badge">{{ legacy_count }}</span></a>
-          {% else %}
-          <a href="/legacy-bet-log">Legacy</a>
-          {% endif %}
+          <a href="/bet-log">Bet Log</a>
+          <a href="/legacy-bet-log" class="is-active">Legacy</a>
         </nav>
       </header>
 
-      {% if legacy_count %}
-      <p class="betlog-legacy-banner">
-        {{ legacy_count }} older unsplit bet{{ "s" if legacy_count != 1 else "" }} (moneyline, over 1.5, etc.) live on
-        <a href="/legacy-bet-log">Legacy Bet Log</a> — this page shows scenario-split bets only.
-      </p>
-      {% endif %}
-
       <div class="betlog-actions">
-        <button type="button" id="syncBtn" class="btn-primary">Sync recommended</button>
         <button type="button" id="autoResolveBtn" class="btn-secondary">Auto resolve open</button>
         <span id="status" class="betlog-status"></span>
       </div>
 
-      <section class="betlog-summary" aria-label="Overall performance">
+      <section class="betlog-summary" aria-label="Legacy overall">
         <div id="overallKpis" class="betlog-kpi-grid"></div>
       </section>
 
       <details class="betlog-panel" open>
         <summary>
-          <span>Scenario breakdown</span>
+          <span>By bet type</span>
           <span class="betlog-panel-meta" id="scenarioPanelMeta"></span>
         </summary>
         <div class="betlog-panel-body">
           <div class="betlog-toolbar">
             <label class="betlog-check">
               <input type="checkbox" id="hideEmptyScenarios" checked />
-              Hide empty scenarios
+              Hide empty types
             </label>
             <label class="betlog-select-wrap">
-              Category
+              Filter
               <select id="categoryFilter">
-                <option value="">All categories</option>
+                <option value="">All types</option>
               </select>
             </label>
           </div>
           <div class="betlog-nav-chips" id="categoryChips"></div>
           <div class="betlog-table-wrap">
-            <table class="betlog-stats-table" id="scenarioStatsTable">
+            <table class="betlog-stats-table">
               <thead>
                 <tr>
-                  <th>Category</th>
-                  <th>Outcome</th>
+                  <th>Type</th>
+                  <th>Label</th>
                   <th>Placed</th>
                   <th>Won</th>
                   <th>Lost</th>
                   <th>Win%</th>
                   <th>Avg odds</th>
                   <th>Unit PnL</th>
-                  <th>Hist%</th>
                 </tr>
               </thead>
               <tbody id="scenarioStatsBody"></tbody>
@@ -86,7 +75,7 @@
 
       <details class="betlog-panel" open>
         <summary>
-          <span>All bets</span>
+          <span>Legacy bets</span>
           <span class="betlog-panel-meta" id="betsPanelMeta"></span>
         </summary>
         <div class="betlog-panel-body">
@@ -96,8 +85,8 @@
                 <th>Fixture date</th>
                 <th>Fixture</th>
                 <th>League</th>
-                <th>Category</th>
-                <th>Outcome</th>
+                <th>Type</th>
+                <th>Label</th>
                 <th>Team</th>
                 <th>Odds</th>
                 <th>Units</th>
@@ -114,9 +103,9 @@
 
     <script>
       window.BET_LOG_CONFIG = {
-        apiBase: "/api/bet-log",
-        showSync: true,
-        emptyBetsMsg: "No scenario bets yet. Sync recommended bets from Home.",
+        apiBase: "/api/legacy-bet-log",
+        showSync: false,
+        emptyBetsMsg: "No legacy bets in the log.",
       };
     </script>
     <script src="/static/bet_log.js"></script>

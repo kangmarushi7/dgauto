@@ -7,6 +7,7 @@ from typing import Any
 from app.bet_scenarios import (
     BTTS_MIN_TEAM_PROJECTED,
     CATEGORY_ORDER,
+    LEGACY_BET_TYPE_MAP,
     SCENARIO_BY_BET_TYPE,
     SCENARIO_DEFS,
     TEAM_GOALS_20_MIN,
@@ -16,6 +17,7 @@ from app.bet_scenarios import (
     TOTAL_UNDER_20_MAX,
     WIN_MIN_60,
     WIN_MIN_70,
+    is_legacy_entry,
     scenario_meta_for_entry,
 )
 from app.db import insert_bets, list_bets, resolve_bet_entry
@@ -25,6 +27,16 @@ LOG_TYPE = "main"
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def filter_bet_entries(
+    entries: list[dict[str, Any]], *, legacy: bool | None = None
+) -> list[dict[str, Any]]:
+    if legacy is None:
+        return list(entries)
+    if legacy:
+        return [e for e in entries if is_legacy_entry(e)]
+    return [e for e in entries if not is_legacy_entry(e)]
 
 
 def enrich_bet_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -356,33 +368,63 @@ def compute_bet_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def bet_log_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    by_scenario: dict[str, dict[str, Any]] = {}
-    for sdef in SCENARIO_DEFS:
-        bt = sdef["bet_type"]
-        stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
-        stats["bet_type"] = bt
-        stats["category"] = sdef["category"]
-        stats["label"] = sdef["label"]
-        stats["hist_hit_pct"] = sdef["hist_hit_pct"]
-        by_scenario[bt] = stats
+def bet_log_dashboard(entries: list[dict[str, Any]], *, scope: str = "scenarios") -> dict[str, Any]:
+    """scope: 'scenarios' (split DataGaffer), 'legacy' (old bet types), 'all'."""
+    if scope == "scenarios":
+        entries = filter_bet_entries(entries, legacy=False)
+    elif scope == "legacy":
+        entries = filter_bet_entries(entries, legacy=True)
 
-    legacy_types = sorted(
-        {str(e.get("bet_type") or "") for e in entries}
-        - set(SCENARIO_BY_BET_TYPE.keys())
-        - {""}
-    )
-    for bt in legacy_types:
-        meta = scenario_meta_for_entry({"bet_type": bt})
-        stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
-        stats["bet_type"] = bt
-        stats["category"] = meta["category"]
-        stats["label"] = meta["label"]
-        stats["hist_hit_pct"] = meta.get("hist_hit_pct", 0.0)
-        by_scenario[bt] = stats
+    by_scenario: dict[str, dict[str, Any]] = {}
+
+    if scope in {"scenarios", "all"}:
+        for sdef in SCENARIO_DEFS:
+            bt = sdef["bet_type"]
+            stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
+            stats["bet_type"] = bt
+            stats["category"] = sdef["category"]
+            stats["label"] = sdef["label"]
+            stats["hist_hit_pct"] = sdef["hist_hit_pct"]
+            by_scenario[bt] = stats
+
+    if scope in {"legacy", "all"}:
+        legacy_bet_types = sorted(
+            {str(e.get("bet_type") or "") for e in entries if is_legacy_entry(e)}
+        )
+        for bt in legacy_bet_types:
+            if bt not in LEGACY_BET_TYPE_MAP:
+                continue
+            meta = LEGACY_BET_TYPE_MAP[bt]
+            stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
+            stats["bet_type"] = bt
+            stats["category"] = "Legacy bet types"
+            stats["label"] = meta["label"]
+            stats["hist_hit_pct"] = 0.0
+            by_scenario[bt] = stats
+
+    if scope == "all":
+        other_types = sorted(
+            {str(e.get("bet_type") or "") for e in entries}
+            - set(SCENARIO_BY_BET_TYPE.keys())
+            - set(LEGACY_BET_TYPE_MAP.keys())
+            - {""}
+        )
+        for bt in other_types:
+            meta = scenario_meta_for_entry({"bet_type": bt})
+            stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
+            stats["bet_type"] = bt
+            stats["category"] = meta["category"]
+            stats["label"] = meta["label"]
+            stats["hist_hit_pct"] = meta.get("hist_hit_pct", 0.0)
+            by_scenario[bt] = stats
 
     by_category: list[dict[str, Any]] = []
-    categories = list(CATEGORY_ORDER)
+    if scope == "legacy":
+        categories = ["Legacy bet types"]
+    elif scope == "scenarios":
+        categories = [c for c in CATEGORY_ORDER if c != "Legacy"]
+    else:
+        categories = list(CATEGORY_ORDER)
     extra_cats = sorted({by_scenario[k]["category"] for k in by_scenario} - set(categories))
     for category in categories + extra_cats:
         scenario_keys = [k for k, v in by_scenario.items() if v.get("category") == category]

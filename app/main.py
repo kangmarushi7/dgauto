@@ -10,6 +10,7 @@ from app.models import MatchSignal, RefreshResponse
 from app.bet_log import (
     bet_log_dashboard,
     enrich_bet_entries,
+    filter_bet_entries,
     load_bet_log,
     resolve_bet,
     sync_recommended_bets,
@@ -75,11 +76,16 @@ async def todays_bets(request: Request):
 @app.get("/bet-log")
 async def bet_log_page(request: Request):
     entries = load_bet_log()
-    dashboard = bet_log_dashboard(entries)
+    scenario_entries = filter_bet_entries(entries, legacy=False)
+    legacy_count = len(filter_bet_entries(entries, legacy=True))
     return templates.TemplateResponse(
         request,
         "bet_log.html",
-        {"entries": enrich_bet_entries(entries), "dashboard": dashboard},
+        {
+            "entries": enrich_bet_entries(scenario_entries),
+            "dashboard": bet_log_dashboard(entries, scope="scenarios"),
+            "legacy_count": legacy_count,
+        },
     )
 
 
@@ -135,35 +141,74 @@ async def todays_bets_data():
     return JSONResponse({"scraped_at": data.get("scraped_at"), "scenarios": scenarios})
 
 
-def _bet_log_payload() -> dict:
+def _bet_log_payload(*, legacy: bool = False) -> dict:
     entries = load_bet_log()
-    return {"entries": enrich_bet_entries(entries), "dashboard": bet_log_dashboard(entries)}
+    scope = "legacy" if legacy else "scenarios"
+    filtered = filter_bet_entries(entries, legacy=legacy) if legacy else filter_bet_entries(entries, legacy=False)
+    return {
+        "entries": enrich_bet_entries(filtered),
+        "dashboard": bet_log_dashboard(entries, scope=scope),
+        "legacy_count": len(filter_bet_entries(entries, legacy=True)),
+    }
+
+
+@app.get("/legacy-bet-log")
+async def legacy_bet_log_page(request: Request):
+    entries = load_bet_log()
+    legacy_entries = filter_bet_entries(entries, legacy=True)
+    return templates.TemplateResponse(
+        request,
+        "legacy_bet_log.html",
+        {
+            "entries": enrich_bet_entries(legacy_entries),
+            "dashboard": bet_log_dashboard(entries, scope="legacy"),
+        },
+    )
 
 
 @app.get("/api/bet-log")
 async def bet_log_data():
-    return JSONResponse(_bet_log_payload())
+    return JSONResponse(_bet_log_payload(legacy=False))
+
+
+@app.get("/api/legacy-bet-log")
+async def legacy_bet_log_data():
+    return JSONResponse(_bet_log_payload(legacy=True))
 
 
 @app.post("/api/bet-log/sync-recommended")
 async def bet_log_sync_recommended():
     latest = read_latest()
     result = sync_recommended_bets(latest.get("matches", []))
-    payload = _bet_log_payload()
+    payload = _bet_log_payload(legacy=False)
     return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/bet-log/{bet_id}/resolve")
 async def bet_log_resolve(bet_id: str, payload: dict):
     updated = resolve_bet(bet_id, str(payload.get("result", "")))
-    data = _bet_log_payload()
+    data = _bet_log_payload(legacy=False)
+    return JSONResponse({"updated": updated, **data})
+
+
+@app.post("/api/legacy-bet-log/{bet_id}/resolve")
+async def legacy_bet_log_resolve(bet_id: str, payload: dict):
+    updated = resolve_bet(bet_id, str(payload.get("result", "")))
+    data = _bet_log_payload(legacy=True)
     return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/bet-log/auto-resolve")
 async def bet_log_auto_resolve():
     result = await run_in_threadpool(auto_resolve_open_bets, "main")
-    data = _bet_log_payload()
+    data = _bet_log_payload(legacy=False)
+    return JSONResponse({"result": result, **data})
+
+
+@app.post("/api/legacy-bet-log/auto-resolve")
+async def legacy_bet_log_auto_resolve():
+    result = await run_in_threadpool(auto_resolve_open_bets, "main")
+    data = _bet_log_payload(legacy=True)
     return JSONResponse({"result": result, **data})
 
 

@@ -164,6 +164,11 @@ CATEGORY_ORDER: list[str] = [
 ]
 
 
+def is_legacy_entry(entry: dict[str, Any]) -> bool:
+    bt = str(entry.get("bet_type") or "")
+    return bt in LEGACY_BET_TYPE_MAP
+
+
 def scenario_meta_for_entry(entry: dict[str, Any]) -> dict[str, Any]:
     bt = str(entry.get("bet_type") or "")
     if bt in SCENARIO_BY_BET_TYPE:
