@@ -200,21 +200,15 @@
       const tr = document.createElement("tr");
       tr.appendChild(td(formatToIst(e.fixture_date)));
       tr.appendChild(td(e.fixture || ""));
-      tr.appendChild(td(e.league_name || ""));
-      tr.appendChild(td(parts.category));
-      tr.appendChild(td(parts.label));
       tr.appendChild(td(e.team_name || ""));
+      tr.appendChild(td(parts.label));
       tr.appendChild(td(e.odds ?? ""));
-      tr.appendChild(td(e.units ?? 1));
       const statusCell = td(e.status || "open");
       statusCell.className = statusClass(e.status);
       tr.appendChild(statusCell);
-      const pnlCell = td(e.pnl_units ?? "");
-      pnlCell.className = pnlClass(e.pnl_units);
-      tr.appendChild(pnlCell);
 
       const actions = document.createElement("td");
-      actions.className = "resolve-actions";
+      actions.className = "resolve-actions col-resolve";
       const status = (e.status || "open").toLowerCase();
       if (status === "open") {
         for (const [label, result] of [
@@ -236,6 +230,14 @@
         actions.appendChild(settled);
       }
       tr.appendChild(actions);
+      tr.appendChild(td(e.league_name || ""));
+      tr.appendChild(td(parts.category));
+      tr.appendChild(td(e.units ?? 1));
+      const pnlCell = td(
+        e.status && e.status !== "open" ? fmtPnl(e.pnl_units) : "—",
+      );
+      pnlCell.className = pnlClass(e.pnl_units);
+      tr.appendChild(pnlCell);
       betRowsEl.appendChild(tr);
     }
 

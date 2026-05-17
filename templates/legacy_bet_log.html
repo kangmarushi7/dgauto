@@ -80,7 +80,7 @@
                 <th>Units</th>
                 <th>Status</th>
                 <th>Unit PnL</th>
-                <th>Resolve</th>
+                <th class="col-resolve">Resolve</th>
               </tr>
             </thead>
             <tbody id="betRows"></tbody>
@@ -97,7 +97,7 @@
         emptyBetsMsg: "No legacy bets in the log.",
       };
     </script>
-    <script src="/static/bet_log.js?v=3" defer></script>
+    <script src="/static/bet_log.js?v=4" defer></script>
     <script>
       (function () {
         const initialDashboard = {{ dashboard | tojson }};

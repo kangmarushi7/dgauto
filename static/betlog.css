@@ -204,6 +204,7 @@ body.betlog-body {
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--bl-text);
 }
 
 .betlog-panel {
@@ -344,7 +345,8 @@ body.betlog-body {
 }
 
 .betlog-bets-table-wrap {
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
   max-height: none;
   width: 100%;
   border-radius: 8px;
@@ -396,79 +398,89 @@ body.betlog-body {
   padding: 10px 12px;
   border-bottom: 1px solid var(--bl-border);
   white-space: nowrap;
+  color: var(--bl-text);
 }
 
 .betlog-bets-table td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--bl-border);
-  vertical-align: top;
+  vertical-align: middle;
+  color: var(--bl-text);
 }
 
-/* All bets: allow long text columns to wrap; keep compact cols fixed */
+/* Col order: date, fixture, team, outcome, odds, status, resolve, league, category, units, pnl */
 .betlog-bets-table th:nth-child(1),
 .betlog-bets-table td:nth-child(1) {
   white-space: nowrap;
-  min-width: 8.5rem;
+  min-width: 8rem;
 }
 
 .betlog-bets-table th:nth-child(2),
 .betlog-bets-table td:nth-child(2) {
   white-space: normal;
-  min-width: 10.5rem;
-  max-width: 14rem;
+  min-width: 9rem;
+  max-width: 12rem;
   line-height: 1.35;
 }
 
 .betlog-bets-table th:nth-child(3),
 .betlog-bets-table td:nth-child(3) {
-  white-space: normal;
-  min-width: 6.5rem;
-  max-width: 9rem;
-  line-height: 1.35;
+  white-space: nowrap;
+  min-width: 4.5rem;
 }
 
 .betlog-bets-table th:nth-child(4),
 .betlog-bets-table td:nth-child(4) {
   white-space: normal;
-  min-width: 7.5rem;
-  max-width: 11rem;
-  line-height: 1.35;
+  min-width: 4.5rem;
 }
 
 .betlog-bets-table th:nth-child(5),
-.betlog-bets-table td:nth-child(5) {
-  white-space: normal;
-  min-width: 5.5rem;
-  max-width: 8rem;
-}
-
+.betlog-bets-table td:nth-child(5),
 .betlog-bets-table th:nth-child(6),
-.betlog-bets-table td:nth-child(6) {
-  white-space: nowrap;
-  min-width: 5rem;
-}
-
-.betlog-bets-table th:nth-child(7),
-.betlog-bets-table td:nth-child(7),
-.betlog-bets-table th:nth-child(8),
-.betlog-bets-table td:nth-child(8),
-.betlog-bets-table th:nth-child(9),
-.betlog-bets-table td:nth-child(9),
+.betlog-bets-table td:nth-child(6),
 .betlog-bets-table th:nth-child(10),
-.betlog-bets-table td:nth-child(10) {
-  white-space: nowrap;
-}
-
-.betlog-bets-table th:nth-child(10),
-.betlog-bets-table td:nth-child(10) {
-  white-space: nowrap;
-}
-
+.betlog-bets-table td:nth-child(10),
 .betlog-bets-table th:nth-child(11),
 .betlog-bets-table td:nth-child(11) {
   white-space: nowrap;
-  min-width: 11.5rem;
-  width: 11.5rem;
+}
+
+.betlog-bets-table th:nth-child(8),
+.betlog-bets-table td:nth-child(8) {
+  white-space: normal;
+  min-width: 5rem;
+  max-width: 8rem;
+  line-height: 1.35;
+  font-size: 0.75rem;
+}
+
+.betlog-bets-table th:nth-child(9),
+.betlog-bets-table td:nth-child(9) {
+  white-space: normal;
+  min-width: 6.5rem;
+  max-width: 10rem;
+  line-height: 1.35;
+  font-size: 0.75rem;
+}
+
+.betlog-bets-table th.col-resolve,
+.betlog-bets-table td.col-resolve {
+  min-width: 10.5rem;
+  white-space: nowrap;
+}
+
+.betlog-bets-table th.col-resolve:last-child,
+.betlog-bets-table td.col-resolve:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: var(--bl-surface);
+  box-shadow: -6px 0 12px rgba(0, 0, 0, 0.35);
+}
+
+.betlog-bets-table tbody tr:hover td.col-resolve:last-child {
+  background: #1f2834;
 }
 
 .betlog-bets-table .resolve-actions {
@@ -495,6 +507,8 @@ body.betlog-body {
   cursor: pointer;
   font-family: inherit;
   line-height: 1.2;
+  width: auto;
+  display: inline-block;
 }
 
 .betlog-body .betlog-bets-table .betlog-resolve-btn--won:hover {
