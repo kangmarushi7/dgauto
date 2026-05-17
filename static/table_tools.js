@@ -236,6 +236,10 @@
     const popover = document.createElement("div");
     popover.className = "excel-filter-popover";
     popover.setAttribute("role", "dialog");
+    popover.style.background = "#1e2732";
+    popover.style.border = "1px solid rgba(255,255,255,0.14)";
+    popover.style.borderRadius = "8px";
+    popover.style.boxShadow = "0 12px 40px rgba(0,0,0,0.65)";
     popover.addEventListener("click", (e) => e.stopPropagation());
 
     const title = document.createElement("div");
@@ -282,9 +286,19 @@
 
     const list = document.createElement("div");
     list.className = "excel-filter-list";
+    list.style.display = "flex";
+    list.style.flexDirection = "column";
+    list.style.alignItems = "stretch";
+    list.style.maxHeight = "220px";
+    list.style.overflowY = "auto";
+    list.style.overflowX = "hidden";
+    list.style.background = "#1e2732";
 
     const selectAllLabel = document.createElement("label");
     selectAllLabel.className = "excel-filter-row excel-filter-row--select-all";
+    selectAllLabel.style.display = "flex";
+    selectAllLabel.style.width = "100%";
+    selectAllLabel.style.boxSizing = "border-box";
     const selectAllCb = document.createElement("input");
     selectAllCb.type = "checkbox";
     selectAllCb.checked = selected.size === allValues.length;
@@ -314,6 +328,9 @@
     for (const value of allValues) {
       const label = document.createElement("label");
       label.className = "excel-filter-row";
+      label.style.display = "flex";
+      label.style.width = "100%";
+      label.style.boxSizing = "border-box";
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = selected.has(value.toLowerCase());
