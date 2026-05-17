@@ -178,8 +178,10 @@ async def legacy_bet_log_data():
 
 @app.post("/api/bet-log/sync-recommended")
 async def bet_log_sync_recommended():
-    latest = read_latest()
-    result = sync_recommended_bets(latest.get("matches", []))
+    scraped = await run_in_threadpool(scrape_datagaffer_sync)
+    merged = merge_outlooks(scraped["win_rows"], scraped["goal_rows"])
+    write_latest({"scraped_at": scraped["scraped_at"], "matches": merged})
+    result = sync_recommended_bets(merged)
     payload = _bet_log_payload(legacy=False)
     return JSONResponse({"result": result, **payload})
 

@@ -50,20 +50,7 @@
           <span class="betlog-panel-meta" id="scenarioPanelMeta"></span>
         </summary>
         <div class="betlog-panel-body">
-          <div class="betlog-toolbar">
-            <label class="betlog-check">
-              <input type="checkbox" id="hideEmptyScenarios" checked />
-              Hide empty scenarios
-            </label>
-            <label class="betlog-select-wrap">
-              Category
-              <select id="categoryFilter">
-                <option value="">All categories</option>
-              </select>
-            </label>
-          </div>
-          <div class="betlog-nav-chips" id="categoryChips"></div>
-          <div class="betlog-table-wrap">
+          <div class="betlog-table-wrap betlog-table-wrap--full">
             <table class="betlog-stats-table" id="scenarioStatsTable">
               <thead>
                 <tr>
@@ -89,8 +76,9 @@
           <span>All bets</span>
           <span class="betlog-panel-meta" id="betsPanelMeta"></span>
         </summary>
-        <div class="betlog-panel-body">
-          <table class="betlog-bets-table">
+        <div class="betlog-panel-body betlog-panel-body--bets">
+          <div class="betlog-bets-scroll" aria-label="All bets table">
+            <table class="betlog-bets-table">
             <thead>
               <tr>
                 <th>Fixture date</th>
@@ -107,7 +95,8 @@
               </tr>
             </thead>
             <tbody id="betRows"></tbody>
-          </table>
+            </table>
+          </div>
         </div>
       </details>
     </div>

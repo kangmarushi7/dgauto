@@ -134,6 +134,26 @@ def insert_bets(log_type: str, bets: list[dict[str, Any]]) -> int:
     return len(to_insert)
 
 
+def update_bet_odds(log_type: str, bet_id: str, odds: float) -> dict[str, Any] | None:
+    with engine.begin() as conn:
+        row = conn.execute(
+            select(bet_entries).where(
+                bet_entries.c.log_type == log_type,
+                bet_entries.c.id == bet_id,
+            )
+        ).mappings().first()
+        if not row:
+            return None
+        conn.execute(
+            bet_entries.update()
+            .where(bet_entries.c.id == bet_id, bet_entries.c.log_type == log_type)
+            .values(odds=odds)
+        )
+        updated = dict(row)
+        updated["odds"] = odds
+        return updated
+
+
 def resolve_bet_entry(log_type: str, bet_id: str, result: str, pnl_units: float, resolved_at: str) -> dict[str, Any] | None:
     with engine.begin() as conn:
         row = conn.execute(

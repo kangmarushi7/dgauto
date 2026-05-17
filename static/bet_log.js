@@ -14,13 +14,9 @@
   const scenarioStatsBodyEl = document.getElementById("scenarioStatsBody");
   const scenarioPanelMetaEl = document.getElementById("scenarioPanelMeta");
   const betsPanelMetaEl = document.getElementById("betsPanelMeta");
-  const categoryFilterEl = document.getElementById("categoryFilter");
-  const hideEmptyScenariosEl = document.getElementById("hideEmptyScenarios");
-  const categoryChipsEl = document.getElementById("categoryChips");
 
   let scenarioLookup = {};
   let dashboardCache = null;
-  let activeCategory = "";
 
   const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -118,74 +114,19 @@
     return rows;
   }
 
-  function updateCategoryFilterOptions(rows) {
-    const categories = [...new Set(rows.map((r) => r.category).filter(Boolean))];
-    const current = categoryFilterEl.value;
-    categoryFilterEl.innerHTML = '<option value="">All categories</option>';
-    for (const cat of categories) {
-      const opt = document.createElement("option");
-      opt.value = cat;
-      opt.textContent = cat;
-      categoryFilterEl.appendChild(opt);
-    }
-    categoryFilterEl.value = categories.includes(current) ? current : activeCategory || "";
-    activeCategory = categoryFilterEl.value;
-  }
-
-  function renderCategoryChips(rows) {
-    const hideEmpty = hideEmptyScenariosEl.checked;
-    const counts = new Map();
-    for (const r of rows) {
-      if (hideEmpty && r.placed === 0) continue;
-      counts.set(r.category, (counts.get(r.category) || 0) + 1);
-    }
-    categoryChipsEl.innerHTML = "";
-    const allBtn = document.createElement("button");
-    allBtn.type = "button";
-    allBtn.className = "betlog-chip" + (!activeCategory ? " is-active" : "");
-    allBtn.textContent = "All";
-    allBtn.onclick = () => {
-      activeCategory = "";
-      categoryFilterEl.value = "";
-      renderScenarioTable();
-    };
-    categoryChipsEl.appendChild(allBtn);
-    for (const [cat, n] of counts) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "betlog-chip" + (activeCategory === cat ? " is-active" : "");
-      btn.textContent = `${cat} (${n})`;
-      btn.onclick = () => {
-        activeCategory = cat;
-        categoryFilterEl.value = cat;
-        renderScenarioTable();
-      };
-      categoryChipsEl.appendChild(btn);
-    }
-  }
-
   function renderScenarioTable() {
     if (!dashboardCache) return;
-    const hideEmpty = hideEmptyScenariosEl.checked;
-    activeCategory = categoryFilterEl.value;
     const rows = flattenScenarios(dashboardCache);
-    updateCategoryFilterOptions(rows);
-    renderCategoryChips(rows);
-
-    let visible = rows;
-    if (hideEmpty) visible = visible.filter((r) => r.placed > 0);
-    if (activeCategory) visible = visible.filter((r) => r.category === activeCategory);
 
     scenarioStatsBodyEl.innerHTML = "";
     let lastCat = "";
-    for (const s of visible) {
+    for (const s of rows) {
       const tr = document.createElement("tr");
-      const isNewCategory = s.category !== lastCat;
-      if (isNewCategory) {
+      if (s.category !== lastCat) {
         tr.className = "stats-row-category-start";
         lastCat = s.category;
       }
-      const catCell = td(isNewCategory ? s.category : "");
+      const catCell = td(s.category);
       catCell.className = "stats-category-cell";
       tr.appendChild(catCell);
       tr.appendChild(td(s.label));
@@ -201,16 +142,16 @@
       scenarioStatsBodyEl.appendChild(tr);
     }
 
-    if (!visible.length) {
+    if (!rows.length) {
       const tr = document.createElement("tr");
-      const empty = td("No scenarios match the current filters.");
+      const empty = td("No scenarios to display.");
       empty.colSpan = 9;
       empty.className = "stats-empty";
       tr.appendChild(empty);
       scenarioStatsBodyEl.appendChild(tr);
     }
 
-    scenarioPanelMetaEl.textContent = `${visible.length} scenario${visible.length === 1 ? "" : "s"}`;
+    scenarioPanelMetaEl.textContent = `${rows.length} scenario${rows.length === 1 ? "" : "s"}`;
   }
 
   function drawDashboard(dashboard) {
@@ -302,12 +243,6 @@
     setStatus(`Updated: ${result}`, "ok");
   }
 
-  hideEmptyScenariosEl.addEventListener("change", renderScenarioTable);
-  categoryFilterEl.addEventListener("change", () => {
-    activeCategory = categoryFilterEl.value;
-    renderScenarioTable();
-  });
-
   if (cfg.showSync && syncBtn) {
     syncBtn.addEventListener("click", async () => {
       setStatus("Syncing...");
@@ -317,7 +252,11 @@
         const data = await res.json();
         drawDashboard(data.dashboard);
         renderRows(data.entries);
-        setStatus(`Synced ${data.result.inserted} new bets`, "ok");
+          let msg = `Synced ${data.result.inserted} new bets`;
+          if (data.result.updated_odds) {
+            msg += `, updated ${data.result.updated_odds} odds`;
+          }
+          setStatus(msg, "ok");
       } catch (err) {
         setStatus("Sync failed", "error");
       } finally {

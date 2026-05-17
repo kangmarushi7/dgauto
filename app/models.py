@@ -17,6 +17,8 @@ class MatchSignal(BaseModel):
     away_win_pct: float | None = None
     home_ml_odds: float | None = None
     away_ml_odds: float | None = None
+    dc_home_draw_odds: float | None = None
+    dc_draw_away_odds: float | None = None
     over_1_5_odds: float | None = None
     over_2_5_odds: float | None = None
     over_3_5_odds: float | None = None

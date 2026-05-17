@@ -16,6 +16,28 @@ def _pct(val) -> float | None:
         return None
 
 
+def _book_odds_fields(odds: dict) -> dict[str, float | None]:
+    """Map DataGaffer fixture book_odds (Simulated vs Book) to app fields."""
+    if not odds:
+        return {}
+    return {
+        "over_1_5_odds": _pct(odds.get("over_1_5")),
+        "over_2_5_odds": _pct(odds.get("over_2_5")),
+        "over_3_5_odds": _pct(odds.get("over_3_5")),
+        "under_2_5_odds": _pct(odds.get("under_2_5")),
+        "under_3_5_odds": _pct(odds.get("under_3_5")),
+        "btts_yes_odds": _pct(odds.get("btts_yes")),
+        "home_o0_5_odds": _pct(odds.get("home_o0_5")),
+        "away_o0_5_odds": _pct(odds.get("away_o0_5")),
+        "home_o1_5_odds": _pct(odds.get("home_o1_5")),
+        "away_o1_5_odds": _pct(odds.get("away_o1_5")),
+        "home_ml_odds": _pct(odds.get("home_win")),
+        "away_ml_odds": _pct(odds.get("away_win")),
+        "dc_home_draw_odds": _pct(odds.get("dc_home_draw")),
+        "dc_draw_away_odds": _pct(odds.get("dc_draw_away")),
+    }
+
+
 def _team_name(team_val) -> str:
     if isinstance(team_val, dict):
         return str(team_val.get("name") or "").strip()
@@ -27,7 +49,7 @@ def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
     for fx in fixtures:
         perc = (fx.get("sim_stats") or {}).get("percents") or {}
         league = fx.get("league") or {}
-        odds = fx.get("book_odds") or {}
+        book = _book_odds_fields(fx.get("book_odds") or {})
         rows.append(
             {
                 "fixture_id": fx.get("fixture_id"),
@@ -42,18 +64,7 @@ def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
                 "home_projected_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("home")),
                 "away_projected_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("away")),
                 "projected_total_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("total")),
-                "over_1_5_odds": _pct(odds.get("over_1_5")),
-                "over_2_5_odds": _pct(odds.get("over_2_5")),
-                "over_3_5_odds": _pct(odds.get("over_3_5")),
-                "under_2_5_odds": _pct(odds.get("under_2_5")),
-                "under_3_5_odds": _pct(odds.get("under_3_5")),
-                "btts_yes_odds": _pct(odds.get("btts_yes")),
-                "home_o0_5_odds": _pct(odds.get("home_o0_5")),
-                "away_o0_5_odds": _pct(odds.get("away_o0_5")),
-                "home_o1_5_odds": _pct(odds.get("home_o1_5")),
-                "away_o1_5_odds": _pct(odds.get("away_o1_5")),
-                "dc_home_draw_odds": _pct(odds.get("dc_home_draw")),
-                "dc_draw_away_odds": _pct(odds.get("dc_draw_away")),
+                **book,
             }
         )
     return rows
@@ -64,7 +75,7 @@ def _parse_win_rows(fixtures: list[dict]) -> list[dict]:
     for fx in fixtures:
         perc = (fx.get("sim_stats") or {}).get("percents") or {}
         league = fx.get("league") or {}
-        odds = fx.get("book_odds") or {}
+        book = _book_odds_fields(fx.get("book_odds") or {})
         rows.append(
             {
                 "fixture_id": fx.get("fixture_id"),
@@ -77,10 +88,7 @@ def _parse_win_rows(fixtures: list[dict]) -> list[dict]:
                 "home_win_pct": _pct(perc.get("home_win_pct")),
                 "draw_pct": _pct(perc.get("draw_pct")),
                 "away_win_pct": _pct(perc.get("away_win_pct")),
-                "home_ml_odds": _pct(odds.get("home_win")),
-                "away_ml_odds": _pct(odds.get("away_win")),
-                "dc_home_draw_odds": _pct(odds.get("dc_home_draw")),
-                "dc_draw_away_odds": _pct(odds.get("dc_draw_away")),
+                **book,
             }
         )
     return rows

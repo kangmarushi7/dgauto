@@ -20,7 +20,7 @@ from app.bet_scenarios import (
     is_legacy_entry,
     scenario_meta_for_entry,
 )
-from app.db import insert_bets, list_bets, resolve_bet_entry
+from app.db import insert_bets, list_bets, resolve_bet_entry, update_bet_odds
 
 LOG_TYPE = "main"
 
@@ -303,10 +303,54 @@ def build_recommended_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]
     ]
 
 
+def _bet_dedupe_key(entry: dict[str, Any]) -> tuple:
+    return (
+        entry.get("fixture_date"),
+        entry.get("fixture", ""),
+        entry.get("bet_type", ""),
+        entry.get("team_name", ""),
+    )
+
+
+def _odds_lookup_from_candidates(candidates: list[dict[str, Any]]) -> dict[tuple, float]:
+    lookup: dict[tuple, float] = {}
+    for bet in candidates:
+        odds = _float_or_none(bet.get("odds"))
+        if odds is None:
+            continue
+        lookup[_bet_dedupe_key(bet)] = odds
+    return lookup
+
+
+def refresh_open_bet_odds(matches: list[dict[str, Any]]) -> int:
+    """Backfill book odds on open bets from latest fixture feed (Simulated vs Book)."""
+    lookup = _odds_lookup_from_candidates(build_recommended_bets(matches))
+    updated = 0
+    for entry in load_bet_log():
+        if is_legacy_entry(entry):
+            continue
+        if str(entry.get("status") or "").lower() != "open":
+            continue
+        new_odds = lookup.get(_bet_dedupe_key(entry))
+        if new_odds is None:
+            continue
+        old_odds = _float_or_none(entry.get("odds"))
+        if old_odds is not None and abs(old_odds - new_odds) < 0.001:
+            continue
+        if update_bet_odds(LOG_TYPE, str(entry.get("id")), new_odds):
+            updated += 1
+    return updated
+
+
 def sync_recommended_bets(matches: list[dict[str, Any]]) -> dict[str, Any]:
     candidates = build_recommended_bets(matches)
     inserted = insert_bets(LOG_TYPE, candidates)
-    return {"inserted": inserted, "total": len(load_bet_log())}
+    updated_odds = refresh_open_bet_odds(matches)
+    return {
+        "inserted": inserted,
+        "updated_odds": updated_odds,
+        "total": len(load_bet_log()),
+    }
 
 
 def resolve_bet(bet_id: str, result: str) -> dict[str, Any]:
