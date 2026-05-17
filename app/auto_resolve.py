@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import urlopen
 import json
 import re
 import time
 from typing import Any
+
+API_THROTTLE_SEC = 0.4
+MAX_RUNTIME_SEC = 50
 
 from app.db import list_bets, resolve_bet_entry
 
@@ -304,39 +308,45 @@ def _parse_entry_date(value: str | None) -> datetime | None:
         return None
 
 
+def _throttle() -> None:
+    time.sleep(API_THROTTLE_SEC)
+
+
 def _fetch_events(query: str, retries: int = 3) -> list[dict[str, Any]]:
     url = SEARCH_URL + quote(query)
-    last_error: Exception | None = None
     for attempt in range(retries):
         try:
             with urlopen(url, timeout=15) as resp:
                 payload = json.load(resp)
             events = payload.get("event") if isinstance(payload, dict) else None
             return events if isinstance(events, list) else []
-        except Exception as exc:
-            last_error = exc
+        except HTTPError as exc:
+            if exc.code == 429 and attempt < retries - 1:
+                time.sleep(1.2 * (attempt + 1))
+                continue
+            return []
+        except Exception:
             if attempt < retries - 1:
                 time.sleep(0.35 * (attempt + 1))
-    if last_error:
-        raise last_error
     return []
 
 
 def _fetch_events_for_date(date_str: str, retries: int = 3) -> list[dict[str, Any]]:
     url = EVENTS_DAY_URL + quote(date_str) + "&s=Soccer"
-    last_error: Exception | None = None
     for attempt in range(retries):
         try:
             with urlopen(url, timeout=15) as resp:
                 payload = json.load(resp)
             events = payload.get("events") if isinstance(payload, dict) else None
             return events if isinstance(events, list) else []
-        except Exception as exc:
-            last_error = exc
+        except HTTPError as exc:
+            if exc.code == 429 and attempt < retries - 1:
+                time.sleep(1.2 * (attempt + 1))
+                continue
+            return []
+        except Exception:
             if attempt < retries - 1:
                 time.sleep(0.35 * (attempt + 1))
-    if last_error:
-        raise last_error
     return []
 
 
@@ -524,87 +534,40 @@ def _parse_score(event: dict[str, Any]) -> tuple[int, int] | None:
         return None
 
 
-def _find_best_event(
-    entry: dict[str, Any],
-    query_cache: dict[str, list[dict[str, Any]]],
+def _collect_date_keys(entries: list[dict[str, Any]]) -> list[str]:
+    dates: set[str] = set()
+    for entry in entries:
+        entry_date = _parse_entry_date(entry.get("fixture_date"))
+        if not entry_date:
+            continue
+        for day_offset in (-1, 0, 1):
+            dates.add((entry_date.date() + timedelta(days=day_offset)).isoformat())
+    return sorted(dates)
+
+
+def _build_shared_date_pool(
+    date_keys: list[str],
     date_cache: dict[str, list[dict[str, Any]]],
-    team_id_cache: dict[str, str | None],
-    team_last_cache: dict[str, list[dict[str, Any]]],
-    league_team_cache: dict[str, list[dict[str, Any]]],
-    league_list_cache: dict[str, list[dict[str, Any]]],
-    season_events_cache: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    pool: list[dict[str, Any]] = []
+    for date_key in date_keys:
+        if date_key not in date_cache:
+            date_cache[date_key] = _fetch_events_for_date(date_key)
+            _throttle()
+        pool.extend(date_cache[date_key])
+    return pool
+
+
+def _match_event_from_candidates(
+    entry: dict[str, Any],
+    candidates: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
-    if not home or not away:
+    if not home or not away or not candidates:
         return None
-
-    canonical_home = _canonical_team_name(home)
-    canonical_away = _canonical_team_name(away)
-    queries = _fixture_queries(entry)
-    if not queries:
-        raw_query = f"{home} vs {away}"
-        canonical_query = f"{canonical_home} vs {canonical_away}"
-        queries = [raw_query] if canonical_query == raw_query else [raw_query, canonical_query]
-
-    candidates: list[dict[str, Any]] = []
-    for q in queries:
-        if q not in query_cache:
-            try:
-                query_cache[q] = _fetch_events(q)
-            except Exception:
-                query_cache[q] = []
-        candidates.extend(query_cache[q])
 
     entry_date = _parse_entry_date(entry.get("fixture_date"))
-    if entry_date:
-        day_offsets = (-2, -1, 0, 1, 2)
-        for day_offset in day_offsets:
-            date_key = (entry_date.date() + timedelta(days=day_offset)).isoformat()
-            if date_key not in date_cache:
-                try:
-                    date_cache[date_key] = _fetch_events_for_date(date_key)
-                except Exception:
-                    date_cache[date_key] = []
-            candidates.extend(date_cache[date_key])
-
-    # Robust fallback for older fixtures: pull whole league-season fixtures once.
-    league_name = _league_to_sportsdb_name(str(entry.get("league_name") or ""))
-    if "all" not in league_list_cache:
-        league_list_cache["all"] = _fetch_all_leagues()
-    league_id = _guess_league_id(league_name, league_list_cache["all"])
-    if league_id:
-        for season in _season_candidates(entry_date):
-            cache_key = f"{league_id}:{season}"
-            if cache_key not in season_events_cache:
-                season_events_cache[cache_key] = _fetch_events_for_league_season(league_id, season)
-            candidates.extend(season_events_cache[cache_key])
-
-    # League-level team directory is more reliable and less rate-limited than searchteams.
-    home_id, away_id = _league_team_id_lookup(entry, league_team_cache)
-    for team_id in (home_id, away_id):
-        if not team_id:
-            continue
-        if team_id not in team_last_cache:
-            team_last_cache[team_id] = _fetch_team_last_events(team_id)
-        candidates.extend(team_last_cache[team_id])
-
-    # Final fallback: team-level recent events (works better on free tier for some leagues).
-    for team in (home, away, canonical_home, canonical_away):
-        tn = _normalize(team)
-        if not tn:
-            continue
-        if tn not in team_id_cache:
-            team_id_cache[tn] = _fetch_team_id(team)
-        team_id = team_id_cache[tn]
-        if not team_id:
-            continue
-        if team_id not in team_last_cache:
-            team_last_cache[team_id] = _fetch_team_last_events(team_id)
-        candidates.extend(team_last_cache[team_id])
-
-    if not candidates:
-        return None
-
+    league_name = _normalize(str(entry.get("league_name") or ""))
     best: dict[str, Any] | None = None
     best_score = -1
     for event in candidates:
@@ -623,12 +586,13 @@ def _find_best_event(
                 day_delta = abs((event_date - entry_date.date()).days)
                 if day_delta <= 1:
                     score += 3
+                elif day_delta <= 2:
+                    score += 1
                 else:
                     score -= 2
             except ValueError:
                 pass
 
-        league_name = _normalize(str(entry.get("league_name") or ""))
         event_league = _normalize(str(event.get("strLeague") or ""))
         if league_name and event_league and league_name in event_league:
             score += 2
@@ -637,6 +601,47 @@ def _find_best_event(
             best = event
             best_score = score
     return best
+
+
+def _find_best_event(
+    entry: dict[str, Any],
+    shared_candidates: list[dict[str, Any]],
+    query_cache: dict[str, list[dict[str, Any]]],
+    team_id_cache: dict[str, str | None],
+    team_last_cache: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any] | None:
+    home, away = _parse_fixture(str(entry.get("fixture") or ""))
+    if not home or not away:
+        return None
+
+    event = _match_event_from_candidates(entry, shared_candidates)
+    if event:
+        return event
+
+    queries = _fixture_queries(entry)[:3]
+    for q in queries:
+        if q not in query_cache:
+            query_cache[q] = _fetch_events(q)
+            _throttle()
+        event = _match_event_from_candidates(entry, query_cache[q])
+        if event:
+            return event
+
+    # One lightweight fallback: recent home-team results.
+    tn = _normalize(home)
+    if tn and tn not in team_id_cache:
+        team_id_cache[tn] = _fetch_team_id(home)
+        _throttle()
+    team_id = team_id_cache.get(tn)
+    if team_id:
+        if team_id not in team_last_cache:
+            team_last_cache[team_id] = _fetch_team_last_events(team_id)
+            _throttle()
+        event = _match_event_from_candidates(entry, team_last_cache[team_id])
+        if event:
+            return event
+
+    return None
 
 
 def _compute_pnl(entry: dict[str, Any], result: str) -> float:
@@ -678,8 +683,9 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     skipped_not_found = 0
     skipped_not_final = 0
     skipped_unresolved = 0
+    stopped_early = False
+    started = time.monotonic()
 
-    # Resolve multiple bets on the same fixture from one lookup to avoid rate limiting.
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for entry in open_rows:
         key = (
@@ -693,21 +699,18 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     date_cache: dict[str, list[dict[str, Any]]] = {}
     team_id_cache: dict[str, str | None] = {}
     team_last_cache: dict[str, list[dict[str, Any]]] = {}
-    league_team_cache: dict[str, list[dict[str, Any]]] = {}
-    league_list_cache: dict[str, list[dict[str, Any]]] = {}
-    season_events_cache: dict[str, list[dict[str, Any]]] = {}
-    for group_entries in grouped.values():
+    shared_candidates = _build_shared_date_pool(_collect_date_keys(open_rows), date_cache)
+
+    groups = list(grouped.values())
+    for idx, group_entries in enumerate(groups):
+        if time.monotonic() - started > MAX_RUNTIME_SEC:
+            stopped_early = True
+            for remaining in groups[idx:]:
+                skipped_not_found += len(remaining)
+            break
+
         seed = group_entries[0]
-        event = _find_best_event(
-            seed,
-            query_cache,
-            date_cache,
-            team_id_cache,
-            team_last_cache,
-            league_team_cache,
-            league_list_cache,
-            season_events_cache,
-        )
+        event = _find_best_event(seed, shared_candidates, query_cache, team_id_cache, team_last_cache)
         if not event:
             skipped_not_found += len(group_entries)
             continue
@@ -730,4 +733,5 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         "skipped_not_found": skipped_not_found,
         "skipped_not_final": skipped_not_final,
         "skipped_unresolved": skipped_unresolved,
+        "stopped_early": stopped_early,
     }

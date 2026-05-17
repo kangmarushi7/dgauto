@@ -152,7 +152,7 @@ async def bet_log_resolve(bet_id: str, payload: dict):
 
 @app.post("/api/bet-log/auto-resolve")
 async def bet_log_auto_resolve():
-    result = auto_resolve_open_bets("main")
+    result = await run_in_threadpool(auto_resolve_open_bets, "main")
     entries = load_bet_log()
     return JSONResponse({"result": result, "entries": entries, "dashboard": bet_log_dashboard(entries)})
 
@@ -188,6 +188,6 @@ async def lm_bet_log_resolve(bet_id: str, payload: dict):
 
 @app.post("/api/lm-bet-log/auto-resolve")
 async def lm_bet_log_auto_resolve():
-    result = auto_resolve_open_bets("lm")
+    result = await run_in_threadpool(auto_resolve_open_bets, "lm")
     entries = load_lm_bet_log()
     return JSONResponse({"result": result, "entries": entries, "dashboard": lm_dashboard(entries)})

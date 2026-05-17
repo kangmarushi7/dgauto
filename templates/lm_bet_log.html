@@ -167,12 +167,23 @@
         autoResolveBtn.disabled = true;
         try {
           const res = await fetch("/api/lm-bet-log/auto-resolve", { method: "POST" });
-          const data = await res.json();
+          const raw = await res.text();
+          if (!res.ok) {
+            throw new Error(raw || `HTTP ${res.status}`);
+          }
+          const data = JSON.parse(raw);
           renderStats(data.dashboard);
           renderRows(data.entries);
-          statusEl.textContent = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+          if (data.result.skipped_not_found) {
+            msg += ` (${data.result.skipped_not_found} not found)`;
+          }
+          if (data.result.stopped_early) {
+            msg += " — partial run, click again for remaining";
+          }
+          statusEl.textContent = msg;
         } catch (err) {
-          statusEl.textContent = "Auto resolve failed";
+          statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
         } finally {
           autoResolveBtn.disabled = false;
         }
