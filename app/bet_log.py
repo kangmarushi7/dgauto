@@ -107,7 +107,24 @@ def resolve_bet(bet_id: str, result: str) -> dict[str, Any]:
     return updated
 
 
-def _compute_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
+def _avg_odds(entries: list[dict[str, Any]]) -> float | None:
+    odds_vals: list[float] = []
+    for entry in entries:
+        raw = entry.get("odds")
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if val > 0:
+            odds_vals.append(val)
+    if not odds_vals:
+        return None
+    return round(sum(odds_vals) / len(odds_vals), 2)
+
+
+def compute_bet_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
     placed = len(entries)
     won = sum(1 for e in entries if e.get("status") == "won")
     lost = sum(1 for e in entries if e.get("status") == "lost")
@@ -121,6 +138,7 @@ def _compute_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "lost": lost,
         "push": pushes,
         "win_pct": win_pct,
+        "avg_odds": _avg_odds(entries),
         "unit_pnl": pnl,
     }
 
@@ -129,7 +147,7 @@ def bet_log_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
     moneyline = [e for e in entries if e.get("bet_type") == "moneyline"]
     over15 = [e for e in entries if e.get("bet_type") == "over1.5"]
     return {
-        "all": _compute_stats(entries),
-        "moneyline": _compute_stats(moneyline),
-        "over1_5": _compute_stats(over15),
+        "all": compute_bet_stats(entries),
+        "moneyline": compute_bet_stats(moneyline),
+        "over1_5": compute_bet_stats(over15),
     }

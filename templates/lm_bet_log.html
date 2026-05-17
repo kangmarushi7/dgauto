@@ -67,7 +67,8 @@
       }
 
       function renderStats(s) {
-        statsEl.textContent = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | UnitPnL: ${s.unit_pnl}`;
+        const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
+        statsEl.textContent = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
       }
 
       function formatToIst(value) {

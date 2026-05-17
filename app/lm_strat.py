@@ -6,6 +6,7 @@ import uuid
 from urllib.request import urlopen
 from typing import Any
 
+from app.bet_log import compute_bet_stats
 from app.db import insert_bets, list_bets, resolve_bet_entry
 
 TEAM_ACTUALS_URL = "https://www.datagaffer.com/team_actuals.json"
@@ -149,18 +150,4 @@ def resolve_lm_bet(bet_id: str, result: str) -> dict[str, Any]:
 
 
 def lm_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    placed = len(entries)
-    won = sum(1 for e in entries if e.get("status") == "won")
-    lost = sum(1 for e in entries if e.get("status") == "lost")
-    push = sum(1 for e in entries if e.get("status") == "push")
-    decided = won + lost
-    win_pct = round((won / decided) * 100, 1) if decided else 0.0
-    pnl = round(sum(float(e.get("pnl_units") or 0.0) for e in entries), 3)
-    return {
-        "placed": placed,
-        "won": won,
-        "lost": lost,
-        "push": push,
-        "win_pct": win_pct,
-        "unit_pnl": pnl,
-    }
+    return compute_bet_stats(entries)
