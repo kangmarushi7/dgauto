@@ -215,16 +215,25 @@
 
       const actions = document.createElement("td");
       actions.className = "resolve-actions";
-      for (const [label, result] of [
-        ["Won", "won"],
-        ["Lost", "lost"],
-        ["Push", "push"],
-      ]) {
-        const btn = document.createElement("button");
-        btn.className = "small-btn";
-        btn.textContent = label;
-        btn.onclick = () => resolveBet(e.id, result);
-        actions.appendChild(btn);
+      const status = (e.status || "open").toLowerCase();
+      if (status === "open") {
+        for (const [label, result] of [
+          ["Won", "won"],
+          ["Lost", "lost"],
+          ["Push", "push"],
+        ]) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `betlog-resolve-btn betlog-resolve-btn--${result}`;
+          btn.textContent = label;
+          btn.onclick = () => resolveBet(e.id, result);
+          actions.appendChild(btn);
+        }
+      } else {
+        const settled = document.createElement("span");
+        settled.className = "resolve-settled";
+        settled.textContent = "Settled";
+        actions.appendChild(settled);
       }
       tr.appendChild(actions);
       betRowsEl.appendChild(tr);

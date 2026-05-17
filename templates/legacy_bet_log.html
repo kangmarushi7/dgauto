@@ -66,7 +66,7 @@
           <span class="betlog-panel-meta" id="betsPanelMeta"></span>
         </summary>
         <div class="betlog-panel-body betlog-panel-body--bets">
-          <div class="betlog-bets-scroll" aria-label="All bets table">
+          <div class="betlog-bets-table-wrap" aria-label="All bets table">
             <table class="betlog-bets-table">
             <thead>
               <tr>
@@ -97,7 +97,7 @@
         emptyBetsMsg: "No legacy bets in the log.",
       };
     </script>
-    <script src="/static/bet_log.js?v=2" defer></script>
+    <script src="/static/bet_log.js?v=3" defer></script>
     <script>
       (function () {
         const initialDashboard = {{ dashboard | tojson }};
