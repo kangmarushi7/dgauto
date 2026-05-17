@@ -21,6 +21,7 @@ class Settings:
     dg_password_selector: str = os.getenv("DG_PASSWORD_SELECTOR", "input[type='password']")
     dg_submit_selector: str = os.getenv("DG_SUBMIT_SELECTOR", "button[type='submit']")
     app_env: str = os.getenv("APP_ENV", "dev")
+    api_football_key: str = os.getenv("API_FOOTBALL_KEY", "") or os.getenv("APISPORTS_KEY", "")
 
 
 settings = Settings()

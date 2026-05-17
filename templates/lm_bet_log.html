@@ -173,6 +173,10 @@
             throw new Error(raw || `HTTP ${res.status}`);
           }
           const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
           renderStats(data.dashboard);
           renderRows(data.entries);
           let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;

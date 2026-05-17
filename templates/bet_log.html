@@ -8,42 +8,87 @@
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
-    <main class="container">
+    <main class="container betlog-page">
       <h1>Bet Log</h1>
-      <p class="subtitle">Paper-trade all DataGaffer goal scenarios (totals, team props, BTTS, moneyline). Sync from Home, then resolve won/lost.</p>
-      <p class="top-links"><a href="/">Back to Home</a> | <a href="/todays-bets">Go to Today's Bets</a></p>
+      <p class="subtitle">Paper-trade DataGaffer scenarios. Sync from Home, then auto-resolve or mark results manually.</p>
+      <p class="top-links"><a href="/">Back to Home</a> | <a href="/todays-bets">Today's Bets</a></p>
 
       <div class="actions">
-        <button id="syncBtn">Sync Recommended Bets From Home</button>
-        <button id="autoResolveBtn">Auto Resolve Open Bets</button>
-        <span id="status"></span>
+        <button id="syncBtn">Sync Recommended Bets</button>
+        <button id="autoResolveBtn">Auto Resolve Open</button>
+        <span id="status" class="meta"></span>
       </div>
 
-      <section class="recommendations stats-dashboard">
-        <div class="recommendation-card recommendation-card--overall">
-          <h2>Overall</h2>
-          <p class="hit-note" id="overallStats"></p>
-        </div>
-        <div id="typeStatsGrid" class="stats-type-grid"></div>
+      <section class="betlog-summary">
+        <div id="overallKpis" class="betlog-kpi-grid" aria-label="Overall stats"></div>
       </section>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Fixture Date</th>
-            <th>Fixture</th>
-            <th>League</th>
-            <th>Scenario</th>
-            <th>Team</th>
-            <th>Odds</th>
-            <th>Units</th>
-            <th>Status</th>
-            <th>Unit PnL</th>
-            <th>Resolve</th>
-          </tr>
-        </thead>
-        <tbody id="betRows"></tbody>
-      </table>
+      <details class="accordion-card betlog-panel" open>
+        <summary class="accordion-header">
+          <span class="accordion-title">Scenario breakdown</span>
+          <span class="accordion-meta" id="scenarioPanelMeta"></span>
+        </summary>
+        <div class="accordion-content betlog-panel-body">
+          <div class="betlog-toolbar">
+            <label class="betlog-check">
+              <input type="checkbox" id="hideEmptyScenarios" checked />
+              Hide empty scenarios
+            </label>
+            <label class="betlog-select-wrap">
+              Category
+              <select id="categoryFilter">
+                <option value="">All categories</option>
+              </select>
+            </label>
+          </div>
+          <div class="betlog-nav-chips" id="categoryChips" aria-label="Filter by category"></div>
+          <div class="betlog-table-wrap">
+            <table class="betlog-stats-table" id="scenarioStatsTable">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Outcome</th>
+                  <th>Placed</th>
+                  <th>Won</th>
+                  <th>Lost</th>
+                  <th>Win%</th>
+                  <th>Avg odds</th>
+                  <th>Unit PnL</th>
+                  <th>Hist%</th>
+                </tr>
+              </thead>
+              <tbody id="scenarioStatsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion-card betlog-panel" open>
+        <summary class="accordion-header">
+          <span class="accordion-title">All bets</span>
+          <span class="accordion-meta" id="betsPanelMeta"></span>
+        </summary>
+        <div class="accordion-content">
+          <table class="betlog-bets-table">
+            <thead>
+              <tr>
+                <th>Fixture Date</th>
+                <th>Fixture</th>
+                <th>League</th>
+                <th>Category</th>
+                <th>Outcome</th>
+                <th>Team</th>
+                <th>Odds</th>
+                <th>Units</th>
+                <th>Status</th>
+                <th>Unit PnL</th>
+                <th>Resolve</th>
+              </tr>
+            </thead>
+            <tbody id="betRows"></tbody>
+          </table>
+        </div>
+      </details>
     </main>
 
     <script>
@@ -51,9 +96,18 @@
       const autoResolveBtn = document.getElementById("autoResolveBtn");
       const statusEl = document.getElementById("status");
       const betRowsEl = document.getElementById("betRows");
-      const overallStatsEl = document.getElementById("overallStats");
-      const typeStatsGridEl = document.getElementById("typeStatsGrid");
+      const overallKpisEl = document.getElementById("overallKpis");
+      const scenarioStatsBodyEl = document.getElementById("scenarioStatsBody");
+      const scenarioPanelMetaEl = document.getElementById("scenarioPanelMeta");
+      const betsPanelMetaEl = document.getElementById("betsPanelMeta");
+      const categoryFilterEl = document.getElementById("categoryFilter");
+      const hideEmptyScenariosEl = document.getElementById("hideEmptyScenarios");
+      const categoryChipsEl = document.getElementById("categoryChips");
+
       let scenarioLookup = {};
+      let dashboardCache = null;
+      let activeCategory = "";
+
       const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
@@ -64,19 +118,11 @@
         hour12: false,
       });
 
-      function td(text) {
+      function td(text, className) {
         const el = document.createElement("td");
         el.textContent = text ?? "";
+        if (className) el.className = className;
         return el;
-      }
-
-      function fmtStats(s, showHist = false) {
-        const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
-        let line = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
-        if (showHist && s.hist_hit_pct > 0) {
-          line += ` | Hist: ${s.hist_hit_pct}%`;
-        }
-        return line;
       }
 
       function formatToIst(value) {
@@ -86,62 +132,246 @@
         return IST_DATE_FORMATTER.format(d).replace(",", "");
       }
 
-      function ensureTableTools(maxAttempts = 20) {
-        let attempts = 0;
-        const tick = () => {
-          if (window.TableTools) {
-            window.TableTools.enhanceAll();
-            return;
-          }
-          attempts += 1;
-          if (attempts < maxAttempts) {
-            setTimeout(tick, 150);
-          }
-        };
-        tick();
+      function fmtOdds(val) {
+        return val != null && val !== "" ? val : "—";
       }
 
-      function scenarioDisplay(entry) {
+      function fmtPnl(val) {
+        const n = Number(val);
+        if (Number.isNaN(n)) return "0";
+        return n > 0 ? `+${n}` : String(n);
+      }
+
+      function pnlClass(val) {
+        const n = Number(val);
+        if (n > 0) return "pnl-pos";
+        if (n < 0) return "pnl-neg";
+        return "";
+      }
+
+      function scenarioParts(entry) {
         if (entry.scenario_category && entry.scenario_label) {
-          return `${entry.scenario_category} · ${entry.scenario_label}`;
+          return { category: entry.scenario_category, label: entry.scenario_label };
         }
         const s = scenarioLookup[entry.bet_type];
-        if (s) {
-          return `${s.category} · ${s.label}`;
+        if (s) return { category: s.category, label: s.label };
+        return { category: "", label: entry.bet_type || "" };
+      }
+
+      function renderKpis(all) {
+        const items = [
+          { label: "Placed", value: all.placed },
+          { label: "Won", value: all.won },
+          { label: "Lost", value: all.lost },
+          { label: "Win%", value: `${all.win_pct}%` },
+          { label: "Avg odds", value: fmtOdds(all.avg_odds) },
+          { label: "Unit PnL", value: fmtPnl(all.unit_pnl), cls: pnlClass(all.unit_pnl) },
+        ];
+        overallKpisEl.innerHTML = "";
+        for (const item of items) {
+          const card = document.createElement("div");
+          card.className = "betlog-kpi";
+          const lbl = document.createElement("span");
+          lbl.className = "betlog-kpi-label";
+          lbl.textContent = item.label;
+          const val = document.createElement("span");
+          val.className = "betlog-kpi-value" + (item.cls ? ` ${item.cls}` : "");
+          val.textContent = item.value;
+          card.appendChild(lbl);
+          card.appendChild(val);
+          overallKpisEl.appendChild(card);
         }
-        return entry.bet_type || "";
+      }
+
+      function flattenScenarios(dashboard) {
+        const rows = [];
+        for (const block of dashboard.by_category || []) {
+          for (const s of block.scenarios || []) {
+            rows.push({
+              category: block.category,
+              label: s.label || s.bet_type || "",
+              bet_type: s.bet_type,
+              placed: s.placed,
+              won: s.won,
+              lost: s.lost,
+              push: s.push,
+              win_pct: s.win_pct,
+              avg_odds: s.avg_odds,
+              unit_pnl: s.unit_pnl,
+              hist_hit_pct: s.hist_hit_pct,
+            });
+          }
+        }
+        return rows;
+      }
+
+      function updateCategoryFilterOptions(rows) {
+        const categories = [...new Set(rows.map((r) => r.category).filter(Boolean))];
+        const current = categoryFilterEl.value;
+        categoryFilterEl.innerHTML = '<option value="">All categories</option>';
+        for (const cat of categories) {
+          const opt = document.createElement("option");
+          opt.value = cat;
+          opt.textContent = cat;
+          categoryFilterEl.appendChild(opt);
+        }
+        if (categories.includes(current)) {
+          categoryFilterEl.value = current;
+        } else {
+          categoryFilterEl.value = activeCategory || "";
+        }
+        activeCategory = categoryFilterEl.value;
+      }
+
+      function renderCategoryChips(rows) {
+        const hideEmpty = hideEmptyScenariosEl.checked;
+        const counts = new Map();
+        for (const r of rows) {
+          if (hideEmpty && r.placed === 0) continue;
+          counts.set(r.category, (counts.get(r.category) || 0) + 1);
+        }
+        categoryChipsEl.innerHTML = "";
+        const allBtn = document.createElement("button");
+        allBtn.type = "button";
+        allBtn.className = "betlog-chip" + (!activeCategory ? " is-active" : "");
+        allBtn.textContent = "All";
+        allBtn.onclick = () => {
+          activeCategory = "";
+          categoryFilterEl.value = "";
+          renderScenarioTable();
+        };
+        categoryChipsEl.appendChild(allBtn);
+        for (const [cat, n] of counts) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "betlog-chip" + (activeCategory === cat ? " is-active" : "");
+          btn.textContent = `${cat} (${n})`;
+          btn.onclick = () => {
+            activeCategory = cat;
+            categoryFilterEl.value = cat;
+            renderScenarioTable();
+          };
+          categoryChipsEl.appendChild(btn);
+        }
+      }
+
+      function renderScenarioTable() {
+        if (!dashboardCache) return;
+        const hideEmpty = hideEmptyScenariosEl.checked;
+        activeCategory = categoryFilterEl.value;
+        const rows = flattenScenarios(dashboardCache);
+        updateCategoryFilterOptions(rows);
+        renderCategoryChips(rows);
+
+        let visible = rows;
+        if (hideEmpty) visible = visible.filter((r) => r.placed > 0);
+        if (activeCategory) visible = visible.filter((r) => r.category === activeCategory);
+
+        scenarioStatsBodyEl.innerHTML = "";
+        let lastCat = "";
+        for (const s of visible) {
+          const tr = document.createElement("tr");
+          const isNewCategory = s.category !== lastCat;
+          if (isNewCategory) {
+            tr.className = "stats-row-category-start";
+            lastCat = s.category;
+          }
+          const catCell = td(isNewCategory ? s.category : "");
+          catCell.className = "stats-category-cell";
+          tr.appendChild(catCell);
+          tr.appendChild(td(s.label));
+          tr.appendChild(td(s.placed));
+          tr.appendChild(td(s.won));
+          tr.appendChild(td(s.lost));
+          tr.appendChild(td(`${s.win_pct}%`));
+          tr.appendChild(td(fmtOdds(s.avg_odds)));
+          const pnlCell = td(fmtPnl(s.unit_pnl));
+          pnlCell.className = pnlClass(s.unit_pnl);
+          tr.appendChild(pnlCell);
+          tr.appendChild(td(s.hist_hit_pct > 0 ? `${s.hist_hit_pct}%` : "—", "stats-hist"));
+          scenarioStatsBodyEl.appendChild(tr);
+        }
+
+        if (!visible.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No scenarios match the current filters.");
+          empty.colSpan = 9;
+          empty.className = "stats-empty";
+          tr.appendChild(empty);
+          scenarioStatsBodyEl.appendChild(tr);
+        }
+
+        scenarioPanelMetaEl.textContent = `${visible.length} scenario${visible.length === 1 ? "" : "s"} shown`;
       }
 
       function drawDashboard(dashboard) {
-        overallStatsEl.textContent = fmtStats(dashboard.all);
-        typeStatsGridEl.innerHTML = "";
+        dashboardCache = dashboard;
         scenarioLookup = dashboard.by_scenario || dashboard.by_type || {};
+        renderKpis(dashboard.all || {});
+        renderScenarioTable();
+      }
 
-        for (const block of dashboard.by_category || []) {
-          const blockEl = document.createElement('div');
-          blockEl.className = "stats-category-block";
-          const heading = document.createElement("h3");
-          heading.textContent = block.category;
-          blockEl.appendChild(heading);
+      function statusClass(status) {
+        const s = (status || "open").toLowerCase();
+        if (s === "won") return "status-won";
+        if (s === "lost") return "status-lost";
+        if (s === "push") return "status-push";
+        return "status-open";
+      }
 
-          const grid = document.createElement('div');
-          grid.className = "stats-category-grid";
+      function renderRows(entries) {
+        betRowsEl.innerHTML = "";
+        betsPanelMetaEl.textContent = entries.length
+          ? `${entries.length} bet${entries.length === 1 ? "" : "s"}`
+          : "No bets yet";
 
-          for (const s of block.scenarios || []) {
-            const card = document.createElement('div');
-            card.className = "recommendation-card";
-            const title = document.createElement("h2");
-            title.textContent = s.label || s.bet_type || "";
-            const note = document.createElement("p");
-            note.className = "hit-note";
-            note.textContent = fmtStats(s, true);
-            card.appendChild(title);
-            card.appendChild(note);
-            grid.appendChild(card);
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No bets logged yet. Click Sync Recommended Bets.");
+          empty.colSpan = 11;
+          empty.className = "stats-empty";
+          tr.appendChild(empty);
+          betRowsEl.appendChild(tr);
+          return;
+        }
+
+        for (const e of entries) {
+          const parts = scenarioParts(e);
+          const tr = document.createElement("tr");
+          tr.appendChild(td(formatToIst(e.fixture_date)));
+          tr.appendChild(td(e.fixture || ""));
+          tr.appendChild(td(e.league_name || ""));
+          tr.appendChild(td(parts.category));
+          tr.appendChild(td(parts.label));
+          tr.appendChild(td(e.team_name || ""));
+          tr.appendChild(td(e.odds ?? ""));
+          tr.appendChild(td(e.units ?? 1));
+          const statusCell = td(e.status || "open");
+          statusCell.className = statusClass(e.status);
+          tr.appendChild(statusCell);
+          const pnlCell = td(e.pnl_units ?? "");
+          pnlCell.className = pnlClass(e.pnl_units);
+          tr.appendChild(pnlCell);
+
+          const actions = document.createElement("td");
+          actions.className = "resolve-actions";
+          for (const [label, result] of [
+            ["Won", "won"],
+            ["Lost", "lost"],
+            ["Push", "push"],
+          ]) {
+            const btn = document.createElement("button");
+            btn.className = "small-btn";
+            btn.textContent = label;
+            btn.onclick = () => resolveBet(e.id, result);
+            actions.appendChild(btn);
           }
+          tr.appendChild(actions);
+          betRowsEl.appendChild(tr);
+        }
 
-          blockEl.appendChild(grid);
-          typeStatsGridEl.appendChild(blockEl);
+        if (window.TableTools) {
+          window.TableTools.reapply(betRowsEl.closest("table"));
         }
       }
 
@@ -158,57 +388,6 @@
         statusEl.textContent = `Updated: ${result}`;
       }
 
-      function renderRows(entries) {
-        betRowsEl.innerHTML = "";
-        if (!entries.length) {
-          const tr = document.createElement("tr");
-          const empty = td("No bets logged yet. Click sync button above.");
-          empty.colSpan = 10;
-          tr.appendChild(empty);
-          betRowsEl.appendChild(tr);
-          return;
-        }
-
-        for (const e of entries) {
-          const tr = document.createElement("tr");
-          tr.appendChild(td(formatToIst(e.fixture_date)));
-          tr.appendChild(td(e.fixture || ""));
-          tr.appendChild(td(e.league_name || ""));
-          tr.appendChild(td(scenarioDisplay(e)));
-          tr.appendChild(td(e.team_name || ""));
-          tr.appendChild(td(e.odds ?? ""));
-          tr.appendChild(td(e.units ?? 1));
-          tr.appendChild(td(e.status || "open"));
-          tr.appendChild(td(e.pnl_units ?? ""));
-
-          const actions = document.createElement("td");
-          const won = document.createElement("button");
-          won.className = "small-btn";
-          won.textContent = "Won";
-          won.onclick = () => resolveBet(e.id, "won");
-
-          const lost = document.createElement("button");
-          lost.className = "small-btn";
-          lost.textContent = "Lost";
-          lost.onclick = () => resolveBet(e.id, "lost");
-
-          const push = document.createElement("button");
-          push.className = "small-btn";
-          push.textContent = "Push";
-          push.onclick = () => resolveBet(e.id, "push");
-
-          actions.appendChild(won);
-          actions.appendChild(lost);
-          actions.appendChild(push);
-          tr.appendChild(actions);
-
-          betRowsEl.appendChild(tr);
-        }
-        if (window.TableTools) {
-          window.TableTools.reapply(betRowsEl.closest("table"));
-        }
-      }
-
       async function reloadLog() {
         const res = await fetch("/api/bet-log");
         const data = await res.json();
@@ -216,8 +395,14 @@
         renderRows(data.entries);
       }
 
+      hideEmptyScenariosEl.addEventListener("change", renderScenarioTable);
+      categoryFilterEl.addEventListener("change", () => {
+        activeCategory = categoryFilterEl.value;
+        renderScenarioTable();
+      });
+
       syncBtn.addEventListener("click", async () => {
-        statusEl.textContent = "Syncing recommended bets...";
+        statusEl.textContent = "Syncing...";
         syncBtn.disabled = true;
         try {
           const res = await fetch("/api/bet-log/sync-recommended", { method: "POST" });
@@ -233,24 +418,22 @@
       });
 
       autoResolveBtn.addEventListener("click", async () => {
-        statusEl.textContent = "Auto resolving open bets...";
+        statusEl.textContent = "Auto resolving...";
         autoResolveBtn.disabled = true;
         try {
           const res = await fetch("/api/bet-log/auto-resolve", { method: "POST" });
           const raw = await res.text();
-          if (!res.ok) {
-            throw new Error(raw || `HTTP ${res.status}`);
-          }
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
           const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
           drawDashboard(data.dashboard);
           renderRows(data.entries);
-          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
-          if (data.result.skipped_not_found) {
-            msg += ` (${data.result.skipped_not_found} not found)`;
-          }
-          if (data.result.stopped_early) {
-            msg += " — partial run, click again for remaining";
-          }
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked}`;
+          if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
+          if (data.result.stopped_early) msg += " — run again for remainder";
           statusEl.textContent = msg;
         } catch (err) {
           statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
@@ -262,6 +445,19 @@
       drawDashboard({{ dashboard | tojson }});
       renderRows({{ entries | tojson }});
       ensureTableTools();
+
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) setTimeout(tick, 150);
+        };
+        tick();
+      }
     </script>
   </body>
 </html>

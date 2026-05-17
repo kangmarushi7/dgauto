@@ -69,6 +69,22 @@ Open `http://127.0.0.1:8000`.
    - Visit homepage and click **Refresh from DataGaffer**.
    - Open strategy pages and sync bet logs.
 
+## Auto-resolve (API-Football)
+
+Open bets can be settled automatically using [API-Football](https://www.api-football.com/) (same API as the [beginner's guide](https://www.api-football.com/news/post/how-to-get-started-with-api-football-the-complete-beginners-guide)).
+
+1. Register at [dashboard.api-football.com](https://dashboard.api-football.com/register) (free tier: 100 requests/day).
+2. Copy your key from **Account → My Access**.
+3. Add to `.env`:
+
+```env
+API_FOOTBALL_KEY=your_key_here
+```
+
+4. On the Bet Log page, click **Auto Resolve Open Bets**.
+
+Supports all scenario markets: over/under totals, team goals, BTTS, moneyline, and win-or-draw.
+
 ## API endpoints
 
 - `POST /api/refresh` - refresh latest slate data
