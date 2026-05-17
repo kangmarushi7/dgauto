@@ -57,6 +57,22 @@
             <tbody id="over15Rows"></tbody>
           </table>
         </div>
+
+        <div class="recommendation-card">
+          <h2>Recommended Bets: BTTS (Both Teams Projected 1.5+ Goals)</h2>
+          <p class="hit-note">Historical hit rate for this scenario: <strong>63.0%</strong></p>
+          <table>
+            <thead>
+              <tr>
+                <th>Fixture</th>
+                <th>H Proj / A Proj</th>
+                <th>BTTS %</th>
+                <th>Historical Hit %</th>
+              </tr>
+            </thead>
+            <tbody id="bttsRows"></tbody>
+          </table>
+        </div>
       </section>
 
       <table id="matchesTable">
@@ -98,7 +114,10 @@
       const scrapedAtEl = document.getElementById("scrapedAt");
       const moneylineRowsEl = document.getElementById("moneylineRows");
       const over15RowsEl = document.getElementById("over15Rows");
+      const bttsRowsEl = document.getElementById("bttsRows");
       const OVER_15_HIT_RATE = 86.1;
+      const BTTS_HIT_RATE = 63.0;
+      const BTTS_MIN_TEAM_PROJECTED = 1.5;
       const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
@@ -141,11 +160,15 @@
       function buildRecommendations(matches) {
         const moneyline = [];
         const over15 = [];
+        const btts = [];
 
         for (const m of matches) {
           const homeWin = Number(m.win_pct ?? 0);
           const awayWin = Number(m.away_win_pct ?? 0);
           const projectedGoals = Number(m.projected_total_goals ?? 0);
+          const homeProj = Number(m.home_projected_goals ?? 0);
+          const awayProj = Number(m.away_projected_goals ?? 0);
+          const bttsPct = Number(m.btts_pct ?? 0);
 
           if (homeWin > 61 || awayWin > 61) {
             if (homeWin >= awayWin) {
@@ -171,11 +194,27 @@
               hitRate: OVER_15_HIT_RATE,
             });
           }
+
+          if (
+            m.home_projected_goals != null &&
+            m.away_projected_goals != null &&
+            homeProj >= BTTS_MIN_TEAM_PROJECTED &&
+            awayProj >= BTTS_MIN_TEAM_PROJECTED
+          ) {
+            btts.push({
+              fixture: m.fixture,
+              homeProj,
+              awayProj,
+              bttsPct,
+              hitRate: BTTS_HIT_RATE,
+            });
+          }
         }
 
         moneyline.sort((a, b) => b.winPct - a.winPct);
         over15.sort((a, b) => b.projectedGoals - a.projectedGoals);
-        return { moneyline, over15 };
+        btts.sort((a, b) => b.bttsPct - a.bttsPct);
+        return { moneyline, over15, btts };
       }
 
       function renderMoneylineRows(rows) {
@@ -217,6 +256,26 @@
         }
       }
 
+      function renderBttsRows(rows) {
+        bttsRowsEl.innerHTML = "";
+        if (!rows.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No BTTS recommendations for this slate.");
+          empty.colSpan = 4;
+          tr.appendChild(empty);
+          bttsRowsEl.appendChild(tr);
+          return;
+        }
+        for (const r of rows) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(r.fixture));
+          tr.appendChild(td(`${r.homeProj.toFixed(2)} / ${r.awayProj.toFixed(2)}`));
+          tr.appendChild(td(r.bttsPct ? r.bttsPct.toFixed(1) : ""));
+          tr.appendChild(td(`${r.hitRate.toFixed(1)}%`));
+          bttsRowsEl.appendChild(tr);
+        }
+      }
+
       function renderRows(matches) {
         rowsEl.innerHTML = "";
         for (const m of matches) {
@@ -236,9 +295,11 @@
         const recs = buildRecommendations(matches);
         renderMoneylineRows(recs.moneyline);
         renderOver15Rows(recs.over15);
+        renderBttsRows(recs.btts);
         if (window.TableTools) {
           window.TableTools.reapply(moneylineRowsEl.closest("table"));
           window.TableTools.reapply(over15RowsEl.closest("table"));
+          window.TableTools.reapply(bttsRowsEl.closest("table"));
           window.TableTools.reapply(rowsEl.closest("table"));
         }
       }

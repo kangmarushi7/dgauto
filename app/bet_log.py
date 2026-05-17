@@ -7,6 +7,7 @@ from typing import Any
 from app.db import insert_bets, list_bets, resolve_bet_entry
 
 LOG_TYPE = "main"
+BTTS_MIN_TEAM_PROJECTED_GOALS = 1.5
 
 
 def _now_iso() -> str:
@@ -78,8 +79,45 @@ def _make_over15_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return bets
 
 
+def _make_btts_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    bets: list[dict[str, Any]] = []
+    for m in matches:
+        home_g = m.get("home_projected_goals")
+        away_g = m.get("away_projected_goals")
+        if home_g is None or away_g is None:
+            continue
+        try:
+            home_val = float(home_g)
+            away_val = float(away_g)
+        except (TypeError, ValueError):
+            continue
+        if home_val < BTTS_MIN_TEAM_PROJECTED_GOALS or away_val < BTTS_MIN_TEAM_PROJECTED_GOALS:
+            continue
+
+        btts_pct = m.get("btts_pct")
+        qualifier = btts_pct if btts_pct is not None else min(home_val, away_val)
+
+        bets.append(
+            {
+                "id": str(uuid.uuid4()),
+                "created_at": _now_iso(),
+                "fixture_date": m.get("fixture_date"),
+                "fixture": m.get("fixture", ""),
+                "league_name": m.get("league_name", ""),
+                "bet_type": "btts",
+                "team_name": "",
+                "qualifier_pct": round(float(qualifier), 2),
+                "odds": m.get("btts_yes_odds"),
+                "units": 1.0,
+                "status": "open",
+                "pnl_units": None,
+            }
+        )
+    return bets
+
+
 def sync_recommended_bets(matches: list[dict[str, Any]]) -> dict[str, Any]:
-    candidates = _make_moneyline_bets(matches) + _make_over15_bets(matches)
+    candidates = _make_moneyline_bets(matches) + _make_over15_bets(matches) + _make_btts_bets(matches)
     inserted = insert_bets(LOG_TYPE, candidates)
     return {"inserted": inserted, "total": len(load_bet_log())}
 
@@ -146,8 +184,10 @@ def compute_bet_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
 def bet_log_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
     moneyline = [e for e in entries if e.get("bet_type") == "moneyline"]
     over15 = [e for e in entries if e.get("bet_type") == "over1.5"]
+    btts = [e for e in entries if e.get("bet_type") == "btts"]
     return {
         "all": compute_bet_stats(entries),
         "moneyline": compute_bet_stats(moneyline),
         "over1_5": compute_bet_stats(over15),
+        "btts": compute_bet_stats(btts),
     }

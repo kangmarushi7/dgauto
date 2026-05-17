@@ -661,8 +661,11 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
     home_goals, away_goals = score
     bet_type = str(entry.get("bet_type") or "").strip().lower()
 
-    if bet_type == "over1.5":
+    if bet_type in {"over1.5", "over 1.5"}:
         return "won" if home_goals + away_goals >= 2 else "lost"
+
+    if bet_type == "btts":
+        return "won" if home_goals >= 1 and away_goals >= 1 else "lost"
 
     if bet_type == "moneyline":
         team_name = str(entry.get("team_name") or "")

@@ -43,6 +43,7 @@ def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
                 "away_projected_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("away")),
                 "projected_total_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("total")),
                 "over_1_5_odds": _pct(odds.get("over_1_5")),
+                "btts_yes_odds": _pct(odds.get("btts_yes")),
             }
         )
     return rows

@@ -52,6 +52,7 @@ def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> di
     home_ml_odds = to_pct(win_row.get("home_ml_odds"))
     away_ml_odds = to_pct(win_row.get("away_ml_odds"))
     over_1_5_odds = to_pct(goals_row.get("over_1_5_odds")) if goals_row else None
+    btts_yes_odds = to_pct(goals_row.get("btts_yes_odds")) if goals_row else None
 
     score_inputs = [x for x in [win_pct, over_25_pct, btts_pct] if x is not None]
     score = round(sum(score_inputs) / len(score_inputs), 2) if score_inputs else 0.0
@@ -77,6 +78,7 @@ def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> di
         "home_ml_odds": home_ml_odds,
         "away_ml_odds": away_ml_odds,
         "over_1_5_odds": over_1_5_odds,
+        "btts_yes_odds": btts_yes_odds,
         "over_25_pct": over_25_pct,
         "btts_pct": btts_pct,
         "home_projected_goals": home_projected_goals,
