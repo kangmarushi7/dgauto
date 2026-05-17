@@ -81,9 +81,38 @@ Open bets can be settled automatically using [API-Football](https://www.api-foot
 API_FOOTBALL_KEY=your_key_here
 ```
 
-4. On the Bet Log page, click **Auto Resolve Open Bets**.
+4. On the Bet Log or LM Bet Log page, click **Auto resolve open**, or wait for the daily job.
 
 Supports all scenario markets: over/under totals, team goals, BTTS, moneyline, and win-or-draw.
+
+### Scheduled auto-resolve (04:30 IST)
+
+While the app is running, it automatically resolves open bets on:
+
+- **Main bet log** (scenario + legacy entries share the same `main` log)
+- **LM Strat bet log**
+
+Default schedule: **04:30 Asia/Kolkata** every day. Configure in `.env`:
+
+```env
+AUTO_RESOLVE_SCHEDULE_ENABLED=true
+AUTO_RESOLVE_TIME=04:30
+AUTO_RESOLVE_TIMEZONE=Asia/Kolkata
+API_FOOTBALL_KEY=your_key_here
+```
+
+Manual run (both logs): `POST /api/auto-resolve/all`
+
+External cron (e.g. Railway Cron) if the web process is not always on:
+
+```env
+CRON_SECRET=some-long-random-string
+```
+
+```http
+POST /api/cron/auto-resolve
+X-Cron-Secret: some-long-random-string
+```
 
 ## API endpoints
 
@@ -93,4 +122,8 @@ Supports all scenario markets: over/under totals, team goals, BTTS, moneyline, a
 - `GET /api/lm-strat` - LM Strat filtered picks
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
+- `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
+- `POST /api/lm-bet-log/auto-resolve` - resolve open LM bet log bets
+- `POST /api/auto-resolve/all` - resolve both logs in one call
+- `POST /api/cron/auto-resolve` - same as above (optional `X-Cron-Secret` header)
 - `GET /health` - health check

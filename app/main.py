@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+import os
+
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,6 +18,7 @@ from app.bet_log import (
     sync_recommended_bets,
 )
 from app.auto_resolve import auto_resolve_open_bets
+from app.scheduler import run_all_auto_resolves, start_auto_resolve_scheduler, stop_auto_resolve_scheduler
 from app.db import check_db_health, init_db, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
@@ -40,9 +43,23 @@ def write_latest(payload: dict) -> None:
     save_state("latest_data", payload)
 
 
+def _cron_authorized(x_cron_secret: str | None = Header(default=None)) -> None:
+    expected = os.getenv("CRON_SECRET", "").strip()
+    if not expected:
+        return
+    if x_cron_secret != expected:
+        raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    start_auto_resolve_scheduler()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    stop_auto_resolve_scheduler()
 
 
 @app.get("/")
@@ -214,6 +231,13 @@ async def legacy_bet_log_auto_resolve():
     return JSONResponse({"result": result, **data})
 
 
+@app.post("/api/auto-resolve/all")
+async def auto_resolve_all_logs():
+    """Resolve open bets on main bet log and LM strat bet log (same as the daily job)."""
+    summary = await run_in_threadpool(run_all_auto_resolves)
+    return JSONResponse({"summary": summary})
+
+
 @app.get("/api/lm-strat")
 async def lm_strat_data():
     latest = read_latest()
@@ -248,3 +272,13 @@ async def lm_bet_log_auto_resolve():
     result = await run_in_threadpool(auto_resolve_open_bets, "lm")
     entries = load_lm_bet_log()
     return JSONResponse({"result": result, "entries": entries, "dashboard": lm_dashboard(entries)})
+
+
+@app.post("/api/cron/auto-resolve")
+async def cron_auto_resolve(
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+):
+    """External cron hook (e.g. Railway). Set CRON_SECRET and send header X-Cron-Secret."""
+    _cron_authorized(x_cron_secret)
+    summary = await run_in_threadpool(run_all_auto_resolves)
+    return JSONResponse({"ok": True, "summary": summary})
