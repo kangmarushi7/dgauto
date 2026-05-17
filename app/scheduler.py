@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -13,6 +14,9 @@ from app.auto_resolve import auto_resolve_open_bets
 logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
+
+# Fixed IST when system tzdata / Python tzdata package is unavailable (minimal Linux images).
+IST_FIXED = timezone(timedelta(hours=5, minutes=30), name="IST")
 
 
 def _env_flag(name: str, default: bool = True) -> bool:
@@ -30,6 +34,24 @@ def _parse_hhmm(raw: str) -> tuple[int, int]:
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         raise ValueError(f"Invalid time {raw!r}")
     return hour, minute
+
+
+def _resolve_timezone(tz_name: str):
+    """Return a tzinfo for scheduling. Never raises — falls back to fixed IST or UTC."""
+    name = (tz_name or "Asia/Kolkata").strip() or "Asia/Kolkata"
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ModuleNotFoundError, Exception) as exc:
+        logger.warning("ZoneInfo(%r) unavailable (%s)", name, exc)
+
+    if name in {"Asia/Kolkata", "Asia/Calcutta"}:
+        logger.info("Using fixed IST offset (UTC+5:30) for scheduled auto-resolve")
+        return IST_FIXED
+    if name == "UTC":
+        return timezone.utc
+
+    logger.warning("Falling back to UTC for timezone %r", name)
+    return timezone.utc
 
 
 def run_all_auto_resolves() -> dict[str, Any]:
@@ -59,36 +81,37 @@ def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
         logger.info("Scheduled auto-resolve is disabled (AUTO_RESOLVE_SCHEDULE_ENABLED=false)")
         return None
 
-    tz_name = os.getenv("AUTO_RESOLVE_TIMEZONE", "Asia/Kolkata").strip() or "Asia/Kolkata"
-    try:
-        tz = ZoneInfo(tz_name)
-    except Exception:
-        logger.warning("Unknown timezone %r; falling back to Asia/Kolkata", tz_name)
-        tz = ZoneInfo("Asia/Kolkata")
-
     try:
         hour, minute = _parse_hhmm(os.getenv("AUTO_RESOLVE_TIME", "04:30"))
     except ValueError as exc:
         logger.error("%s — scheduler not started", exc)
         return None
 
-    scheduler = BackgroundScheduler(timezone=tz)
-    scheduler.add_job(
-        run_all_auto_resolves,
-        trigger=CronTrigger(hour=hour, minute=minute, timezone=tz),
-        id="daily_auto_resolve",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True,
-        misfire_grace_time=3600,
-    )
-    scheduler.start()
+    tz_name = os.getenv("AUTO_RESOLVE_TIMEZONE", "Asia/Kolkata").strip() or "Asia/Kolkata"
+    tz = _resolve_timezone(tz_name)
+
+    try:
+        scheduler = BackgroundScheduler(timezone=tz)
+        scheduler.add_job(
+            run_all_auto_resolves,
+            trigger=CronTrigger(hour=hour, minute=minute, timezone=tz),
+            id="daily_auto_resolve",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=3600,
+        )
+        scheduler.start()
+    except Exception as exc:
+        logger.exception("Failed to start auto-resolve scheduler: %s", exc)
+        return None
+
     _scheduler = scheduler
     logger.info(
         "Scheduled auto-resolve daily at %02d:%02d %s (main + lm bet logs)",
         hour,
         minute,
-        tz,
+        getattr(tz, "key", tz),
     )
     return scheduler
 

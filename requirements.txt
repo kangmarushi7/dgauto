@@ -6,3 +6,4 @@ rapidfuzz
 sqlalchemy
 psycopg[binary]
 apscheduler
+tzdata
