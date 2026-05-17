@@ -7,7 +7,13 @@ from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
 from app.models import MatchSignal, RefreshResponse
-from app.bet_log import bet_log_dashboard, load_bet_log, resolve_bet, sync_recommended_bets
+from app.bet_log import (
+    bet_log_dashboard,
+    enrich_bet_entries,
+    load_bet_log,
+    resolve_bet,
+    sync_recommended_bets,
+)
 from app.auto_resolve import auto_resolve_open_bets
 from app.db import check_db_health, init_db, load_state, save_state
 from app.lm_strat import (
@@ -73,7 +79,7 @@ async def bet_log_page(request: Request):
     return templates.TemplateResponse(
         request,
         "bet_log.html",
-        {"entries": entries, "dashboard": dashboard},
+        {"entries": enrich_bet_entries(entries), "dashboard": dashboard},
     )
 
 
@@ -129,32 +135,36 @@ async def todays_bets_data():
     return JSONResponse({"scraped_at": data.get("scraped_at"), "scenarios": scenarios})
 
 
+def _bet_log_payload() -> dict:
+    entries = load_bet_log()
+    return {"entries": enrich_bet_entries(entries), "dashboard": bet_log_dashboard(entries)}
+
+
 @app.get("/api/bet-log")
 async def bet_log_data():
-    entries = load_bet_log()
-    return JSONResponse({"entries": entries, "dashboard": bet_log_dashboard(entries)})
+    return JSONResponse(_bet_log_payload())
 
 
 @app.post("/api/bet-log/sync-recommended")
 async def bet_log_sync_recommended():
     latest = read_latest()
     result = sync_recommended_bets(latest.get("matches", []))
-    entries = load_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": bet_log_dashboard(entries)})
+    payload = _bet_log_payload()
+    return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/bet-log/{bet_id}/resolve")
 async def bet_log_resolve(bet_id: str, payload: dict):
     updated = resolve_bet(bet_id, str(payload.get("result", "")))
-    entries = load_bet_log()
-    return JSONResponse({"updated": updated, "entries": entries, "dashboard": bet_log_dashboard(entries)})
+    data = _bet_log_payload()
+    return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/bet-log/auto-resolve")
 async def bet_log_auto_resolve():
     result = await run_in_threadpool(auto_resolve_open_bets, "main")
-    entries = load_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": bet_log_dashboard(entries)})
+    data = _bet_log_payload()
+    return JSONResponse({"result": result, **data})
 
 
 @app.get("/api/lm-strat")

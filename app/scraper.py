@@ -52,6 +52,8 @@ def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
                 "away_o0_5_odds": _pct(odds.get("away_o0_5")),
                 "home_o1_5_odds": _pct(odds.get("home_o1_5")),
                 "away_o1_5_odds": _pct(odds.get("away_o1_5")),
+                "dc_home_draw_odds": _pct(odds.get("dc_home_draw")),
+                "dc_draw_away_odds": _pct(odds.get("dc_draw_away")),
             }
         )
     return rows
@@ -77,6 +79,8 @@ def _parse_win_rows(fixtures: list[dict]) -> list[dict]:
                 "away_win_pct": _pct(perc.get("away_win_pct")),
                 "home_ml_odds": _pct(odds.get("home_win")),
                 "away_ml_odds": _pct(odds.get("away_win")),
+                "dc_home_draw_odds": _pct(odds.get("dc_home_draw")),
+                "dc_draw_away_odds": _pct(odds.get("dc_draw_away")),
             }
         )
     return rows

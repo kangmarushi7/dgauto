@@ -5,13 +5,18 @@ import uuid
 from typing import Any
 
 from app.bet_scenarios import (
-    BET_TYPE_META,
     BTTS_MIN_TEAM_PROJECTED,
-    TEAM_PROP_MIN,
-    TOTAL_OVER_15_MIN,
-    TOTAL_OVER_25_MIN,
+    CATEGORY_ORDER,
+    SCENARIO_BY_BET_TYPE,
+    SCENARIO_DEFS,
+    TEAM_GOALS_20_MIN,
+    TEAM_GOALS_25_MIN,
     TOTAL_OVER_35_MIN,
-    TOTAL_UNDER_MAX,
+    TOTAL_OVER_40_MIN,
+    TOTAL_UNDER_20_MAX,
+    WIN_MIN_60,
+    WIN_MIN_70,
+    scenario_meta_for_entry,
 )
 from app.db import insert_bets, list_bets, resolve_bet_entry
 
@@ -20,6 +25,20 @@ LOG_TYPE = "main"
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def enrich_bet_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for entry in entries:
+        meta = scenario_meta_for_entry(entry)
+        enriched.append(
+            {
+                **entry,
+                "scenario_category": meta["category"],
+                "scenario_label": meta["label"],
+            }
+        )
+    return enriched
 
 
 def load_bet_log() -> list[dict[str, Any]]:
@@ -49,32 +68,75 @@ def _bet_entry(m: dict[str, Any], **fields: Any) -> dict[str, Any]:
     }
 
 
-def _make_moneyline_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _make_win_outright_bets(
+    matches: list[dict[str, Any]],
+    *,
+    bet_type: str,
+    min_win_pct: float,
+) -> list[dict[str, Any]]:
     bets: list[dict[str, Any]] = []
     for m in matches:
-        home_win = float(m.get("win_pct") or 0)
-        away_win = float(m.get("away_win_pct") or 0)
-        if home_win <= 61 and away_win <= 61:
-            continue
+        home_win = _float_or_none(m.get("win_pct")) or 0.0
+        away_win = _float_or_none(m.get("away_win_pct")) or 0.0
+        home_team = m.get("home_team") or ""
+        away_team = m.get("away_team") or ""
 
-        if home_win >= away_win:
-            team = m.get("home_team") or ""
-            win_pct = home_win
-            odds = m.get("home_ml_odds")
-        else:
-            team = m.get("away_team") or ""
-            win_pct = away_win
-            odds = m.get("away_ml_odds")
-
-        bets.append(
-            _bet_entry(
-                m,
-                bet_type="moneyline",
-                team_name=team,
-                qualifier_pct=round(win_pct, 1),
-                odds=odds,
+        if home_win >= min_win_pct:
+            bets.append(
+                _bet_entry(
+                    m,
+                    bet_type=bet_type,
+                    team_name=home_team,
+                    qualifier_pct=round(home_win, 1),
+                    odds=m.get("home_ml_odds"),
+                )
             )
-        )
+        if away_win >= min_win_pct:
+            bets.append(
+                _bet_entry(
+                    m,
+                    bet_type=bet_type,
+                    team_name=away_team,
+                    qualifier_pct=round(away_win, 1),
+                    odds=m.get("away_ml_odds"),
+                )
+            )
+    return bets
+
+
+def _make_win_or_draw_bets(
+    matches: list[dict[str, Any]],
+    *,
+    bet_type: str,
+    min_win_pct: float,
+) -> list[dict[str, Any]]:
+    bets: list[dict[str, Any]] = []
+    for m in matches:
+        home_win = _float_or_none(m.get("win_pct")) or 0.0
+        away_win = _float_or_none(m.get("away_win_pct")) or 0.0
+        home_team = m.get("home_team") or ""
+        away_team = m.get("away_team") or ""
+
+        if home_win >= min_win_pct:
+            bets.append(
+                _bet_entry(
+                    m,
+                    bet_type=bet_type,
+                    team_name=home_team,
+                    qualifier_pct=round(home_win, 1),
+                    odds=m.get("dc_home_draw_odds"),
+                )
+            )
+        if away_win >= min_win_pct:
+            bets.append(
+                _bet_entry(
+                    m,
+                    bet_type=bet_type,
+                    team_name=away_team,
+                    qualifier_pct=round(away_win, 1),
+                    odds=m.get("dc_draw_away_odds"),
+                )
+            )
     return bets
 
 
@@ -123,7 +185,7 @@ def _make_btts_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
         bets.append(
             _bet_entry(
                 m,
-                bet_type="btts",
+                bet_type="btts_both15",
                 team_name="",
                 qualifier_pct=round(qualifier, 2),
                 odds=m.get("btts_yes_odds"),
@@ -172,51 +234,59 @@ def _make_team_prop_bets(
 
 def build_recommended_bets(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
-        *_make_moneyline_bets(matches),
+        *_make_win_outright_bets(matches, bet_type="ml_win60", min_win_pct=WIN_MIN_60),
+        *_make_win_or_draw_bets(matches, bet_type="dc_win60", min_win_pct=WIN_MIN_60),
+        *_make_win_outright_bets(matches, bet_type="ml_win70", min_win_pct=WIN_MIN_70),
+        *_make_win_or_draw_bets(matches, bet_type="dc_win70", min_win_pct=WIN_MIN_70),
         *_make_match_total_bets(
-            matches,
-            bet_type="over1.5",
-            min_total=TOTAL_OVER_15_MIN,
-            odds_key="over_1_5_odds",
+            matches, bet_type="o15_t35", min_total=TOTAL_OVER_35_MIN, odds_key="over_1_5_odds"
         ),
         *_make_match_total_bets(
-            matches,
-            bet_type="over2.5",
-            min_total=TOTAL_OVER_25_MIN,
-            odds_key="over_2_5_odds",
+            matches, bet_type="o25_t35", min_total=TOTAL_OVER_35_MIN, odds_key="over_2_5_odds"
         ),
         *_make_match_total_bets(
-            matches,
-            bet_type="over3.5",
-            min_total=TOTAL_OVER_35_MIN,
-            odds_key="over_3_5_odds",
+            matches, bet_type="o15_t40", min_total=TOTAL_OVER_40_MIN, odds_key="over_1_5_odds"
         ),
-        *_make_btts_bets(matches),
+        *_make_match_total_bets(
+            matches, bet_type="o25_t40", min_total=TOTAL_OVER_40_MIN, odds_key="over_2_5_odds"
+        ),
+        *_make_match_total_bets(
+            matches, bet_type="o35_t40", min_total=TOTAL_OVER_40_MIN, odds_key="over_3_5_odds"
+        ),
         *_make_team_prop_bets(
             matches,
-            bet_type="team_o0.5",
-            min_team_goals=TEAM_PROP_MIN,
+            bet_type="to05_t20",
+            min_team_goals=TEAM_GOALS_20_MIN,
             odds_key_home="home_o0_5_odds",
             odds_key_away="away_o0_5_odds",
         ),
         *_make_team_prop_bets(
             matches,
-            bet_type="team_o1.5",
-            min_team_goals=TEAM_PROP_MIN,
+            bet_type="to15_t20",
+            min_team_goals=TEAM_GOALS_20_MIN,
             odds_key_home="home_o1_5_odds",
             odds_key_away="away_o1_5_odds",
         ),
-        *_make_match_total_bets(
+        *_make_team_prop_bets(
             matches,
-            bet_type="under2.5",
-            max_total=TOTAL_UNDER_MAX,
-            odds_key="under_2_5_odds",
+            bet_type="to05_t25",
+            min_team_goals=TEAM_GOALS_25_MIN,
+            odds_key_home="home_o0_5_odds",
+            odds_key_away="away_o0_5_odds",
+        ),
+        *_make_team_prop_bets(
+            matches,
+            bet_type="to15_t25",
+            min_team_goals=TEAM_GOALS_25_MIN,
+            odds_key_home="home_o1_5_odds",
+            odds_key_away="away_o1_5_odds",
+        ),
+        *_make_btts_bets(matches),
+        *_make_match_total_bets(
+            matches, bet_type="u25_t20", max_total=TOTAL_UNDER_20_MAX, odds_key="under_2_5_odds"
         ),
         *_make_match_total_bets(
-            matches,
-            bet_type="under3.5",
-            max_total=TOTAL_UNDER_MAX,
-            odds_key="under_3_5_odds",
+            matches, bet_type="u35_t20", max_total=TOTAL_UNDER_20_MAX, odds_key="under_3_5_odds"
         ),
     ]
 
@@ -287,21 +357,49 @@ def compute_bet_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def bet_log_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    by_type: dict[str, dict[str, Any]] = {}
-    for bet_type, label, hist_hit in BET_TYPE_META:
-        stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bet_type])
-        stats["label"] = label
-        stats["hist_hit_pct"] = hist_hit
-        by_type[bet_type] = stats
+    by_scenario: dict[str, dict[str, Any]] = {}
+    for sdef in SCENARIO_DEFS:
+        bt = sdef["bet_type"]
+        stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
+        stats["bet_type"] = bt
+        stats["category"] = sdef["category"]
+        stats["label"] = sdef["label"]
+        stats["hist_hit_pct"] = sdef["hist_hit_pct"]
+        by_scenario[bt] = stats
 
-    moneyline = [e for e in entries if e.get("bet_type") == "moneyline"]
-    over15 = [e for e in entries if e.get("bet_type") == "over1.5"]
-    btts = [e for e in entries if e.get("bet_type") == "btts"]
+    legacy_types = sorted(
+        {str(e.get("bet_type") or "") for e in entries}
+        - set(SCENARIO_BY_BET_TYPE.keys())
+        - {""}
+    )
+    for bt in legacy_types:
+        meta = scenario_meta_for_entry({"bet_type": bt})
+        stats = compute_bet_stats([e for e in entries if e.get("bet_type") == bt])
+        stats["bet_type"] = bt
+        stats["category"] = meta["category"]
+        stats["label"] = meta["label"]
+        stats["hist_hit_pct"] = meta.get("hist_hit_pct", 0.0)
+        by_scenario[bt] = stats
+
+    by_category: list[dict[str, Any]] = []
+    categories = list(CATEGORY_ORDER)
+    extra_cats = sorted({by_scenario[k]["category"] for k in by_scenario} - set(categories))
+    for category in categories + extra_cats:
+        scenario_keys = [k for k, v in by_scenario.items() if v.get("category") == category]
+        if not scenario_keys:
+            continue
+        ordered = [sdef["bet_type"] for sdef in SCENARIO_DEFS if sdef["bet_type"] in scenario_keys]
+        ordered += [k for k in scenario_keys if k not in ordered]
+        by_category.append(
+            {
+                "category": category,
+                "scenarios": [by_scenario[k] for k in ordered],
+            }
+        )
 
     return {
         "all": compute_bet_stats(entries),
-        "by_type": by_type,
-        "moneyline": by_type.get("moneyline", compute_bet_stats(moneyline)),
-        "over1_5": by_type.get("over1.5", compute_bet_stats(over15)),
-        "btts": by_type.get("btts", compute_bet_stats(btts)),
+        "by_scenario": by_scenario,
+        "by_category": by_category,
+        "by_type": by_scenario,
     }

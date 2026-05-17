@@ -12,6 +12,7 @@ from typing import Any
 API_THROTTLE_SEC = 0.4
 MAX_RUNTIME_SEC = 50
 
+from app.bet_scenarios import resolve_kind_for_entry
 from app.db import list_bets, resolve_bet_entry
 
 SEARCH_URL = "https://www.thesportsdb.com/api/v1/json/123/searchevents.php?e="
@@ -671,39 +672,39 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
         return None
     home_goals, away_goals = score
     total = home_goals + away_goals
-    bet_type = str(entry.get("bet_type") or "").strip().lower()
+    kind = resolve_kind_for_entry(entry).lower()
 
-    if bet_type in {"over1.5", "over 1.5"}:
+    if kind in {"over1.5", "over 1.5"}:
         return "won" if total >= 2 else "lost"
 
-    if bet_type in {"over2.5", "over 2.5"}:
+    if kind in {"over2.5", "over 2.5"}:
         return "won" if total >= 3 else "lost"
 
-    if bet_type in {"over3.5", "over 3.5"}:
+    if kind in {"over3.5", "over 3.5"}:
         return "won" if total >= 4 else "lost"
 
-    if bet_type in {"under2.5", "under 2.5"}:
+    if kind in {"under2.5", "under 2.5"}:
         return "won" if total <= 2 else "lost"
 
-    if bet_type in {"under3.5", "under 3.5"}:
+    if kind in {"under3.5", "under 3.5"}:
         return "won" if total <= 3 else "lost"
 
-    if bet_type == "btts":
+    if kind == "btts":
         return "won" if home_goals >= 1 and away_goals >= 1 else "lost"
 
-    if bet_type in {"team_o0.5", "team o0.5"}:
+    if kind in {"team_o0.5", "team o0.5"}:
         scored = _team_goals_scored(entry, event)
         if scored is None:
             return None
         return "won" if scored >= 1 else "lost"
 
-    if bet_type in {"team_o1.5", "team o1.5"}:
+    if kind in {"team_o1.5", "team o1.5"}:
         scored = _team_goals_scored(entry, event)
         if scored is None:
             return None
         return "won" if scored >= 2 else "lost"
 
-    if bet_type == "moneyline":
+    if kind == "moneyline":
         team_name = str(entry.get("team_name") or "")
         home_team = str(event.get("strHomeTeam") or "")
         away_team = str(event.get("strAwayTeam") or "")
@@ -711,6 +712,16 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
             return "lost"
         winner = home_team if home_goals > away_goals else away_team
         return "won" if _team_match(team_name, winner) else "lost"
+
+    if kind == "win_or_draw":
+        team_name = str(entry.get("team_name") or "")
+        home_team = str(event.get("strHomeTeam") or "")
+        away_team = str(event.get("strAwayTeam") or "")
+        if _team_match(team_name, home_team):
+            return "won" if home_goals >= away_goals else "lost"
+        if _team_match(team_name, away_team):
+            return "won" if away_goals >= home_goals else "lost"
+        return None
 
     return None
 
