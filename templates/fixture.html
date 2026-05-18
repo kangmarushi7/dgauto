@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/fixture.css?v=5" />
+    <link rel="stylesheet" href="/static/fixture.css?v=6" />
   </head>
   <body class="quant-body">
     <div class="quant-shell">
@@ -152,10 +152,15 @@
           <div class="odds-group">
             <h3>{{ g.title }}</h3>
             <table class="odds-table">
-              <thead><tr><th>Market</th><th>Odds</th><th>Implied</th></tr></thead>
+              <thead><tr><th>Market</th><th>Odds</th><th>Implied</th><th>Simulated</th></tr></thead>
               <tbody>
                 {% for r in g.rows %}
-                <tr><td>{{ r.market }}</td><td class="mono">{{ r.odds }}</td><td>{{ r.implied }}</td></tr>
+                <tr>
+                  <td>{{ r.market }}</td>
+                  <td class="mono">{{ r.odds }}</td>
+                  <td>{{ r.implied }}</td>
+                  <td class="{% if r.sim_highlight %}sim-edge{% endif %}">{{ r.simulated }}</td>
+                </tr>
                 {% endfor %}
               </tbody>
             </table>

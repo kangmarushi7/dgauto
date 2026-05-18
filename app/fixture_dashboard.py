@@ -260,7 +260,31 @@ def _build_prop_analysis(
     return [p for p in props if p.get("full")]
 
 
-def _build_book_odds_groups(book: dict[str, Any]) -> list[dict[str, Any]]:
+_BOOK_SIM_PCT: dict[str, str] = {
+    "home_win": "home_win_pct",
+    "draw": "draw_pct",
+    "away_win": "away_win_pct",
+    "dc_home_draw": "dc_1x_pct",
+    "dc_home_away": "dc_12_pct",
+    "dc_draw_away": "dc_x2_pct",
+    "over_1_5": "over_1_5_pct",
+    "under_1_5": "under_1_5_pct",
+    "over_2_5": "over_2_5_pct",
+    "under_2_5": "under_2_5_pct",
+    "over_3_5": "over_3_5_pct",
+    "under_3_5": "under_3_5_pct",
+    "btts_yes": "btts_pct",
+    "btts_no": "btts_no_pct",
+    "home_o0_5": "home_o0_5_pct",
+    "home_o1_5": "home_o1_5_pct",
+    "home_o2_5": "home_o2_5_pct",
+    "away_o0_5": "away_o0_5_pct",
+    "away_o1_5": "away_o1_5_pct",
+    "away_o2_5": "away_o2_5_pct",
+}
+
+
+def _build_book_odds_groups(book: dict[str, Any], perc: dict[str, Any]) -> list[dict[str, Any]]:
     groups = [
         (
             "Match result",
@@ -318,11 +342,16 @@ def _build_book_odds_groups(book: dict[str, Any]) -> list[dict[str, Any]]:
             if odds is None:
                 continue
             imp = _implied_prob(odds)
+            sim_key = _BOOK_SIM_PCT.get(key)
+            sim = _num(perc.get(sim_key)) if sim_key else None
+            sim_highlight = sim is not None and imp is not None and sim > imp
             rows.append(
                 {
                     "market": label,
                     "odds": _fmt(odds, digits=2),
                     "implied": _fmt(imp, suffix="%"),
+                    "simulated": _fmt(sim, suffix="%") if sim is not None else "—",
+                    "sim_highlight": sim_highlight,
                 }
             )
         if rows:
@@ -711,7 +740,7 @@ def build_fixture_dashboard(
         extra.get("home_trends"),
         extra.get("away_trends"),
     )
-    book_odds_groups = _build_book_odds_groups(book)
+    book_odds_groups = _build_book_odds_groups(book, perc)
     profiles = _historical_profiles(perc, xg, home_name, away_name, sim)
     qualified = [p for p in profiles if p.get("qualifies")]
 

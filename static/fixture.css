@@ -902,6 +902,13 @@
   font-family: var(--mono);
 }
 
+.odds-table .sim-edge {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-dim);
+  border-radius: 4px;
+}
+
 .quant-footer {
   text-align: center;
   padding: 24px;
