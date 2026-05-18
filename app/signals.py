@@ -52,8 +52,8 @@ def _pick_odds(*values: Any) -> float | None:
 def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> dict[str, Any]:
     home = win_row.get("home") or ""
     away = win_row.get("away") or ""
-    home_logo = win_row.get("home_logo") or (goal_row.get("home_logo") if goal_row else "") or ""
-    away_logo = win_row.get("away_logo") or (goal_row.get("away_logo") if goal_row else "") or ""
+    home_logo = win_row.get("home_logo") or (goals_row.get("home_logo") if goals_row else "") or ""
+    away_logo = win_row.get("away_logo") or (goals_row.get("away_logo") if goals_row else "") or ""
     fixture = f"{home} vs {away}".strip(" vs ")
     fixture_id = win_row.get("fixture_id") or (goals_row.get("fixture_id") if goals_row else None)
     home_team_id = win_row.get("home_team_id") or (goals_row.get("home_team_id") if goals_row else None)
