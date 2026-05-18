@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ detail.fixture }} · DG</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/fixture.css?v=1" />
+  </head>
+  <body class="fixture-page-wrap">
+    <main class="fixture-page">
+      <nav class="fixture-nav">
+        <a href="/">← Back to Today's Slate</a>
+        <a href="/bet-log">Bet Log</a>
+        <a href="/todays-bets">Today's Bets</a>
+      </nav>
+
+      <header class="fixture-hero">
+        <div class="fixture-hero__teams">
+          {% if detail.home_logo %}
+          <img src="{{ detail.home_logo }}" alt="{{ detail.home_team }}" class="fixture-hero__logo" />
+          {% endif %}
+          <div class="fixture-hero__vs">
+            <p class="fixture-hero__league">{{ detail.league_name }}{% if detail.round %} · {{ detail.round }}{% endif %}</p>
+            <h1>{{ detail.home_team }} <span>vs</span> {{ detail.away_team }}</h1>
+            <p class="fixture-hero__meta">{{ detail.kickoff }}{% if detail.is_neutral %} · Neutral venue{% endif %}</p>
+          </div>
+          {% if detail.away_logo %}
+          <img src="{{ detail.away_logo }}" alt="{{ detail.away_team }}" class="fixture-hero__logo" />
+          {% endif %}
+        </div>
+        <div class="fixture-hero__badges">
+          <span class="badge badge--signal-{{ detail.match.signal }}">Signal: {{ detail.match.signal }}</span>
+          <span class="badge">Score {{ detail.match.score }}</span>
+        </div>
+        {% if detail.picks %}
+        <div class="fixture-hero__picks">
+          {% for p in detail.picks %}
+          <span class="pick-chip pick-chip--{{ p.tone }}">{{ p.label }} <small>{{ p.detail }}</small></span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </header>
+
+      <nav class="fixture-toc" aria-label="Sections">
+        {% for section in detail.sections %}
+        <a href="#section-{{ section.key }}">{{ section.title }}</a>
+        {% endfor %}
+      </nav>
+
+      {% for section in detail.sections %}
+      <section id="section-{{ section.key }}" class="fx-section">
+        <p class="fx-section__cat">{{ section.category }}</p>
+        <h2 class="fx-section__title">{{ section.title }}</h2>
+
+        {% for block in section.blocks %}
+        <div class="fx-block">
+          {% if block.title %}<h3 class="fx-block__title">{{ block.title }}</h3>{% endif %}
+
+          {% if block.type == 'split' %}
+          <div class="fx-split">
+            {% for row in block.rows %}
+            <div class="fx-split__cell">
+              <span class="fx-split__label">{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+
+          {% elif block.type == 'kv' %}
+          <table class="fx-table">
+            <tbody>
+              {% for row in block.rows %}
+              <tr><th>{{ row.label }}</th><td>{{ row.value }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% elif block.type == 'odds' %}
+          <table class="fx-table fx-table--odds">
+            <thead>
+              <tr><th>Market</th><th>Odds</th><th>Implied</th></tr>
+            </thead>
+            <tbody>
+              {% for row in block.rows %}
+              <tr>
+                <td>{{ row.market }}</td>
+                <td>{{ row.odds }}</td>
+                <td>{{ row.implied }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% elif block.type == 'edges' %}
+          <table class="fx-table fx-table--edges">
+            <thead>
+              <tr><th>Market</th><th>Sim</th><th>Odds</th><th>Implied</th><th>Edge</th></tr>
+            </thead>
+            <tbody>
+              {% for row in block.rows %}
+              <tr>
+                <td>{{ row.market }}</td>
+                <td>{{ row.sim }}</td>
+                <td>{{ row.odds }}</td>
+                <td>{{ row.implied }}</td>
+                <td class="{% if row.edge_val and row.edge_val > 0 %}edge-pos{% elif row.edge_val and row.edge_val < 0 %}edge-neg{% endif %}">{{ row.edge }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% elif block.type == 'compare' %}
+          <div class="fx-compare-list">
+            {% for m in block.metrics %}
+            <div class="fx-compare">
+              <div class="fx-compare__label">{{ m.label }}</div>
+              <div class="fx-compare__bar">
+                <span class="fx-compare__home" style="width: {{ m.home_pct }}%">{{ m.home }}</span>
+                <span class="fx-compare__away" style="width: {{ m.away_pct }}%">{{ m.away }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          {% elif block.type == 'picks' %}
+          <div class="fixture-hero__picks">
+            {% for p in block.picks %}
+            <span class="pick-chip pick-chip--{{ p.tone }}">{{ p.label }} <small>{{ p.detail }}</small></span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
+
+      {% if detail.unavailable %}
+      <section class="fx-section fx-section--muted">
+        <h2 class="fx-section__title">Not in public data feed</h2>
+        <p class="fx-muted">These DataGaffer tools require their logged-in app and are not included in fixtures.json:</p>
+        <ul class="fx-unavail">
+          {% for name in detail.unavailable %}
+          <li>{{ name }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
+

@@ -8,6 +8,8 @@ class MatchSignal(BaseModel):
     fixture_id: int | None = None
     home_team: str = ""
     away_team: str = ""
+    home_logo: str = ""
+    away_logo: str = ""
     home_team_id: int | None = None
     away_team_id: int | None = None
     fixture_date: str | None = None
@@ -29,7 +31,12 @@ class MatchSignal(BaseModel):
     away_o0_5_odds: float | None = None
     home_o1_5_odds: float | None = None
     away_o1_5_odds: float | None = None
+    over_1_5_pct: float | None = None
+    under_1_5_pct: float | None = None
     over_25_pct: float | None = None
+    over_3_5_pct: float | None = None
+    under_2_5_pct: float | None = None
+    under_3_5_pct: float | None = None
     btts_pct: float | None = None
     home_projected_goals: float | None = None
     away_projected_goals: float | None = None

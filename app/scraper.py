@@ -44,6 +44,14 @@ def _team_name(team_val) -> str:
     return str(team_val or "").strip()
 
 
+def _team_logo(team_val, fallback: str | None = None) -> str:
+    if isinstance(team_val, dict):
+        logo = str(team_val.get("logo") or "").strip()
+        if logo:
+            return logo
+    return str(fallback or "").strip()
+
+
 def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
     rows: list[dict] = []
     for fx in fixtures:
@@ -55,11 +63,18 @@ def _parse_goal_rows(fixtures: list[dict]) -> list[dict]:
                 "fixture_id": fx.get("fixture_id"),
                 "home": _team_name(fx.get("home")),
                 "away": _team_name(fx.get("away")),
+                "home_logo": _team_logo(fx.get("home"), fx.get("home_logo")),
+                "away_logo": _team_logo(fx.get("away"), fx.get("away_logo")),
                 "home_team_id": fx.get("home_id"),
                 "away_team_id": fx.get("away_id"),
                 "fixture_date": fx.get("date"),
                 "league_name": league.get("name") or "",
+                "over_1_5_pct": _pct(perc.get("over_1_5_pct")),
+                "under_1_5_pct": _pct(perc.get("under_1_5_pct")),
                 "over_25_pct": _pct(perc.get("over_2_5_pct")),
+                "over_3_5_pct": _pct(perc.get("over_3_5_pct")),
+                "under_2_5_pct": _pct(perc.get("under_2_5_pct")),
+                "under_3_5_pct": _pct(perc.get("under_3_5_pct")),
                 "btts_pct": _pct(perc.get("btts_pct")),
                 "home_projected_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("home")),
                 "away_projected_goals": _pct(((fx.get("sim_stats") or {}).get("xg") or {}).get("away")),
@@ -81,6 +96,8 @@ def _parse_win_rows(fixtures: list[dict]) -> list[dict]:
                 "fixture_id": fx.get("fixture_id"),
                 "home": _team_name(fx.get("home")),
                 "away": _team_name(fx.get("away")),
+                "home_logo": _team_logo(fx.get("home"), fx.get("home_logo")),
+                "away_logo": _team_logo(fx.get("away"), fx.get("away_logo")),
                 "home_team_id": fx.get("home_id"),
                 "away_team_id": fx.get("away_id"),
                 "fixture_date": fx.get("date"),
@@ -88,6 +105,13 @@ def _parse_win_rows(fixtures: list[dict]) -> list[dict]:
                 "home_win_pct": _pct(perc.get("home_win_pct")),
                 "draw_pct": _pct(perc.get("draw_pct")),
                 "away_win_pct": _pct(perc.get("away_win_pct")),
+                "over_1_5_pct": _pct(perc.get("over_1_5_pct")),
+                "under_1_5_pct": _pct(perc.get("under_1_5_pct")),
+                "over_25_pct": _pct(perc.get("over_2_5_pct")),
+                "over_3_5_pct": _pct(perc.get("over_3_5_pct")),
+                "under_2_5_pct": _pct(perc.get("under_2_5_pct")),
+                "under_3_5_pct": _pct(perc.get("under_3_5_pct")),
+                "btts_pct": _pct(perc.get("btts_pct")),
                 **book,
             }
         )
@@ -104,8 +128,16 @@ def scrape_datagaffer_sync() -> dict:
     goal_rows = _parse_goal_rows(fixtures)
     win_rows = _parse_win_rows(fixtures)
 
+    fixtures_by_id: dict[str, dict] = {}
+    for fx in fixtures:
+        fid = fx.get("fixture_id")
+        if fid is not None:
+            fixtures_by_id[str(fid)] = fx
+
     return {
         "scraped_at": datetime.now(timezone.utc).isoformat(),
         "goal_rows": goal_rows,
         "win_rows": win_rows,
+        "fixtures": fixtures,
+        "fixtures_by_id": fixtures_by_id,
     }

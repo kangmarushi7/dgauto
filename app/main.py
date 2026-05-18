@@ -29,6 +29,8 @@ from app.lm_strat import (
 )
 from app.scraper import scrape_datagaffer_sync
 from app.signals import merge_outlooks
+from app.fixture_detail import get_fixture_detail_from_state
+from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 
 app = FastAPI(title="DG Bet Automation")
@@ -41,6 +43,18 @@ def read_latest() -> dict:
 
 def write_latest(payload: dict) -> None:
     save_state("latest_data", payload)
+
+
+def _write_scrape_result(scraped: dict) -> list[dict]:
+    merged = merge_outlooks(scraped["win_rows"], scraped["goal_rows"])
+    write_latest(
+        {
+            "scraped_at": scraped["scraped_at"],
+            "matches": merged,
+            "fixtures_by_id": scraped.get("fixtures_by_id") or {},
+        }
+    )
+    return merged
 
 
 def _cron_authorized(x_cron_secret: str | None = Header(default=None)) -> None:
@@ -62,10 +76,50 @@ async def shutdown_event():
     stop_auto_resolve_scheduler()
 
 
+def _home_context() -> dict:
+    data = read_latest()
+    matches = data.get("matches", [])
+    slate = build_fixture_slate(matches)
+    return {"data": data, "slate": slate, "matches": matches}
+
+
 @app.get("/")
 async def dashboard(request: Request):
+    return templates.TemplateResponse(request, "index.html", _home_context())
+
+
+@app.get("/fixture/{fixture_id}")
+async def fixture_page(request: Request, fixture_id: int):
     data = read_latest()
-    return templates.TemplateResponse(request, "index.html", {"data": data})
+    detail = get_fixture_detail_from_state(data, fixture_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Fixture not found. Refresh from DataGaffer first.")
+    return templates.TemplateResponse(
+        request,
+        "fixture.html",
+        {"detail": detail, "data": data},
+    )
+
+
+@app.get("/api/fixture/{fixture_id}")
+async def fixture_api(fixture_id: int):
+    data = read_latest()
+    detail = get_fixture_detail_from_state(data, fixture_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Fixture not found")
+    return JSONResponse(detail)
+
+
+@app.get("/api/slate")
+async def slate_data():
+    ctx = _home_context()
+    return JSONResponse(
+        {
+            "scraped_at": ctx["data"].get("scraped_at"),
+            "slate": ctx["slate"],
+            "match_count": len(ctx["matches"]),
+        }
+    )
 
 
 @app.get("/health")
@@ -132,9 +186,7 @@ async def lm_bet_log_page(request: Request):
 async def refresh():
     try:
         scraped = await run_in_threadpool(scrape_datagaffer_sync)
-        merged = merge_outlooks(scraped["win_rows"], scraped["goal_rows"])
-        payload = {"scraped_at": scraped["scraped_at"], "matches": merged}
-        write_latest(payload)
+        merged = _write_scrape_result(scraped)
         return RefreshResponse(
             success=True,
             message="Scrape + analysis completed.",
@@ -196,8 +248,7 @@ async def legacy_bet_log_data():
 @app.post("/api/bet-log/sync-recommended")
 async def bet_log_sync_recommended():
     scraped = await run_in_threadpool(scrape_datagaffer_sync)
-    merged = merge_outlooks(scraped["win_rows"], scraped["goal_rows"])
-    write_latest({"scraped_at": scraped["scraped_at"], "matches": merged})
+    merged = _write_scrape_result(scraped)
     result = sync_recommended_bets(merged)
     payload = _bet_log_payload(legacy=False)
     return JSONResponse({"result": result, **payload})

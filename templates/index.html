@@ -5,329 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DG Bet Automation</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <script src="/static/table_tools.js" defer></script>
+    <link rel="stylesheet" href="/static/home.css?v=1" />
   </head>
-  <body>
-    <main class="container">
-      <h1>DG Bet Automation</h1>
-      <p class="subtitle">
-        Pulls Goal Zone + Win Outlook data and creates high-probability shortlists.
-      </p>
-      <p class="top-links">
-        <a href="/todays-bets">Go to Today's Bets</a> |
-        <a href="/bet-log">Go to Bet Log</a> |
-        <a href="/legacy-bet-log">Legacy Bet Log</a> |
-        <a href="/lm-strat">Go to LM Strat</a> |
-        <a href="/lm-bet-log">Go to LM Bet Log</a>
-      </p>
-
-      <div class="actions">
-        <button id="refreshBtn">Refresh from DataGaffer</button>
-        <span id="status"></span>
-      </div>
-
-      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
-
-      <section class="recommendations">
-        <div class="recommendation-card">
-          <h2>Recommended Bets: Moneyline (Win % > 61)</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Fixture</th>
-                <th>Team</th>
-                <th>Win %</th>
-              </tr>
-            </thead>
-            <tbody id="moneylineRows"></tbody>
-          </table>
+  <body class="home-page-wrap">
+    <main class="home-page">
+      <header class="home-header">
+        <h1>DG Bet Automation</h1>
+        <p class="subtitle">Today's fixture slate from DataGaffer — win outlook, goals, and recommended angles per match.</p>
+        <nav class="home-nav" aria-label="Main">
+          <a href="/todays-bets">Today's Bets</a>
+          <a href="/bet-log">Bet Log</a>
+          <a href="/legacy-bet-log">Legacy Bet Log</a>
+          <a href="/lm-strat">LM Strat</a>
+          <a href="/lm-bet-log">LM Bet Log</a>
+        </nav>
+        <div class="home-toolbar">
+          <button type="button" id="refreshBtn">Refresh from DataGaffer</button>
+          <span id="status"></span>
         </div>
+        <p class="home-meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+      </header>
 
-        <div class="recommendation-card">
-          <h2>Recommended Bets: Over 1.5 Goals (Projected Goals >= 3.51)</h2>
-          <p class="hit-note">Historical hit rate for this scenario: <strong>86.1%</strong></p>
-          <table>
-            <thead>
-              <tr>
-                <th>Fixture</th>
-                <th>Projected Goals</th>
-                <th>Recommended Bet</th>
-                <th>Historical Hit %</th>
-              </tr>
-            </thead>
-            <tbody id="over15Rows"></tbody>
-          </table>
-        </div>
-
-        <div class="recommendation-card">
-          <h2>Recommended Bets: BTTS (Both Teams Projected 1.5+ Goals)</h2>
-          <p class="hit-note">Historical hit rate for this scenario: <strong>63.0%</strong></p>
-          <table>
-            <thead>
-              <tr>
-                <th>Fixture</th>
-                <th>H Proj / A Proj</th>
-                <th>BTTS %</th>
-                <th>Historical Hit %</th>
-              </tr>
-            </thead>
-            <tbody id="bttsRows"></tbody>
-          </table>
-        </div>
+      <section class="slate-section" aria-label="Today's slate">
+        <h2 class="slate-section-title">Today's Slate</h2>
+        <div id="slateCarousel" class="slate-carousel"></div>
       </section>
 
-      <table id="matchesTable">
-        <thead>
-          <tr>
-            <th>Fixture</th>
-            <th>Win %</th>
-            <th>Draw %</th>
-            <th>Away Win %</th>
-            <th>Proj Goals</th>
-            <th>Over 2.5 %</th>
-            <th>BTTS %</th>
-            <th>Score</th>
-            <th>Signal</th>
-          </tr>
-        </thead>
-        <tbody id="rows">
-          {% for m in data.matches %}
-          <tr class="signal-{{ m.signal }}">
-            <td>{{ m.fixture }}</td>
-            <td>{{ m.win_pct or "" }}</td>
-            <td>{{ m.draw_pct or "" }}</td>
-            <td>{{ m.away_win_pct or "" }}</td>
-            <td>{{ m.projected_total_goals or "" }}</td>
-            <td>{{ m.over_25_pct or "" }}</td>
-            <td>{{ m.btts_pct or "" }}</td>
-            <td>{{ m.score }}</td>
-            <td>{{ m.signal }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <section class="analysis-section" aria-label="Fixture analysis">
+        <h2>Fixture analysis</h2>
+        <div id="fixtureAnalysis" class="fixture-grid"></div>
+      </section>
     </main>
 
     <script>
-      const refreshBtn = document.getElementById("refreshBtn");
-      const statusEl = document.getElementById("status");
-      const rowsEl = document.getElementById("rows");
-      const scrapedAtEl = document.getElementById("scrapedAt");
-      const moneylineRowsEl = document.getElementById("moneylineRows");
-      const over15RowsEl = document.getElementById("over15Rows");
-      const bttsRowsEl = document.getElementById("bttsRows");
-      const OVER_15_HIT_RATE = 86.1;
-      const BTTS_HIT_RATE = 63.0;
-      const BTTS_MIN_TEAM_PROJECTED = 1.5;
-      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-
-      function td(text) {
-        const el = document.createElement("td");
-        el.textContent = text ?? "";
-        return el;
-      }
-
-      function formatToIst(value) {
-        if (!value) return "Unknown";
-        if (value === "Never") return value;
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return value;
-        return IST_DATE_FORMATTER.format(d).replace(",", "");
-      }
-
-      function ensureTableTools(maxAttempts = 20) {
-        let attempts = 0;
-        const tick = () => {
-          if (window.TableTools) {
-            window.TableTools.enhanceAll();
-            return;
-          }
-          attempts += 1;
-          if (attempts < maxAttempts) {
-            setTimeout(tick, 150);
-          }
-        };
-        tick();
-      }
-
-      function buildRecommendations(matches) {
-        const moneyline = [];
-        const over15 = [];
-        const btts = [];
-
-        for (const m of matches) {
-          const homeWin = Number(m.win_pct ?? 0);
-          const awayWin = Number(m.away_win_pct ?? 0);
-          const projectedGoals = Number(m.projected_total_goals ?? 0);
-          const homeProj = Number(m.home_projected_goals ?? 0);
-          const awayProj = Number(m.away_projected_goals ?? 0);
-          const bttsPct = Number(m.btts_pct ?? 0);
-
-          if (homeWin > 61 || awayWin > 61) {
-            if (homeWin >= awayWin) {
-              moneyline.push({
-                fixture: m.fixture,
-                team: m.home_team || "",
-                winPct: homeWin,
-              });
-            } else {
-              moneyline.push({
-                fixture: m.fixture,
-                team: m.away_team || "",
-                winPct: awayWin,
-              });
-            }
-          }
-
-          if (projectedGoals >= 3.51) {
-            over15.push({
-              fixture: m.fixture,
-              projectedGoals: projectedGoals,
-              bet: "Over 1.5 Goals",
-              hitRate: OVER_15_HIT_RATE,
-            });
-          }
-
-          if (
-            m.home_projected_goals != null &&
-            m.away_projected_goals != null &&
-            homeProj >= BTTS_MIN_TEAM_PROJECTED &&
-            awayProj >= BTTS_MIN_TEAM_PROJECTED
-          ) {
-            btts.push({
-              fixture: m.fixture,
-              homeProj,
-              awayProj,
-              bttsPct,
-              hitRate: BTTS_HIT_RATE,
-            });
-          }
+      window.INITIAL_SLATE = {{ slate | tojson }};
+    </script>
+    <script src="/static/home.js?v=1" defer></script>
+    <script>
+      (function () {
+        function boot() {
+          if (!window.HomeApp) return;
+          HomeApp.init(window.INITIAL_SLATE || []);
         }
-
-        moneyline.sort((a, b) => b.winPct - a.winPct);
-        over15.sort((a, b) => b.projectedGoals - a.projectedGoals);
-        btts.sort((a, b) => b.bttsPct - a.bttsPct);
-        return { moneyline, over15, btts };
-      }
-
-      function renderMoneylineRows(rows) {
-        moneylineRowsEl.innerHTML = "";
-        if (!rows.length) {
-          const tr = document.createElement("tr");
-          const empty = td("No moneyline recommendations for this slate.");
-          empty.colSpan = 3;
-          tr.appendChild(empty);
-          moneylineRowsEl.appendChild(tr);
-          return;
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", boot);
+        } else {
+          boot();
         }
-        for (const r of rows) {
-          const tr = document.createElement("tr");
-          tr.appendChild(td(r.fixture));
-          tr.appendChild(td(r.team));
-          tr.appendChild(td(r.winPct.toFixed(1)));
-          moneylineRowsEl.appendChild(tr);
-        }
-      }
-
-      function renderOver15Rows(rows) {
-        over15RowsEl.innerHTML = "";
-        if (!rows.length) {
-          const tr = document.createElement("tr");
-          const empty = td("No Over 1.5 recommendations for this slate.");
-          empty.colSpan = 4;
-          tr.appendChild(empty);
-          over15RowsEl.appendChild(tr);
-          return;
-        }
-        for (const r of rows) {
-          const tr = document.createElement("tr");
-          tr.appendChild(td(r.fixture));
-          tr.appendChild(td(r.projectedGoals.toFixed(2)));
-          tr.appendChild(td(r.bet));
-          tr.appendChild(td(`${r.hitRate.toFixed(1)}%`));
-          over15RowsEl.appendChild(tr);
-        }
-      }
-
-      function renderBttsRows(rows) {
-        bttsRowsEl.innerHTML = "";
-        if (!rows.length) {
-          const tr = document.createElement("tr");
-          const empty = td("No BTTS recommendations for this slate.");
-          empty.colSpan = 4;
-          tr.appendChild(empty);
-          bttsRowsEl.appendChild(tr);
-          return;
-        }
-        for (const r of rows) {
-          const tr = document.createElement("tr");
-          tr.appendChild(td(r.fixture));
-          tr.appendChild(td(`${r.homeProj.toFixed(2)} / ${r.awayProj.toFixed(2)}`));
-          tr.appendChild(td(r.bttsPct ? r.bttsPct.toFixed(1) : ""));
-          tr.appendChild(td(`${r.hitRate.toFixed(1)}%`));
-          bttsRowsEl.appendChild(tr);
-        }
-      }
-
-      function renderRows(matches) {
-        rowsEl.innerHTML = "";
-        for (const m of matches) {
-          const tr = document.createElement("tr");
-          tr.className = `signal-${m.signal}`;
-          tr.appendChild(td(m.fixture));
-          tr.appendChild(td(m.win_pct));
-          tr.appendChild(td(m.draw_pct));
-          tr.appendChild(td(m.away_win_pct));
-          tr.appendChild(td(m.projected_total_goals));
-          tr.appendChild(td(m.over_25_pct));
-          tr.appendChild(td(m.btts_pct));
-          tr.appendChild(td(m.score));
-          tr.appendChild(td(m.signal));
-          rowsEl.appendChild(tr);
-        }
-        const recs = buildRecommendations(matches);
-        renderMoneylineRows(recs.moneyline);
-        renderOver15Rows(recs.over15);
-        renderBttsRows(recs.btts);
-        if (window.TableTools) {
-          window.TableTools.reapply(moneylineRowsEl.closest("table"));
-          window.TableTools.reapply(over15RowsEl.closest("table"));
-          window.TableTools.reapply(bttsRowsEl.closest("table"));
-          window.TableTools.reapply(rowsEl.closest("table"));
-        }
-      }
-
-      renderRows({{ data.matches | tojson }});
-      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
-      ensureTableTools();
-
-      refreshBtn.addEventListener("click", async () => {
-        statusEl.textContent = "Refreshing...";
-        refreshBtn.disabled = true;
-        try {
-          const res = await fetch("/api/refresh", { method: "POST" });
-          const data = await res.json();
-          if (!data.success) {
-            statusEl.textContent = `Failed: ${data.message}`;
-          } else {
-            statusEl.textContent = "Done";
-            scrapedAtEl.textContent = formatToIst(data.scraped_at);
-            renderRows(data.matches || []);
-          }
-        } catch (err) {
-          statusEl.textContent = "Failed: network/server error";
-        } finally {
-          refreshBtn.disabled = false;
-        }
-      });
+      })();
     </script>
   </body>
 </html>

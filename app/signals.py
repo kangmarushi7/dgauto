@@ -52,6 +52,8 @@ def _pick_odds(*values: Any) -> float | None:
 def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> dict[str, Any]:
     home = win_row.get("home") or ""
     away = win_row.get("away") or ""
+    home_logo = win_row.get("home_logo") or (goal_row.get("home_logo") if goal_row else "") or ""
+    away_logo = win_row.get("away_logo") or (goal_row.get("away_logo") if goal_row else "") or ""
     fixture = f"{home} vs {away}".strip(" vs ")
     fixture_id = win_row.get("fixture_id") or (goals_row.get("fixture_id") if goals_row else None)
     home_team_id = win_row.get("home_team_id") or (goals_row.get("home_team_id") if goals_row else None)
@@ -60,8 +62,17 @@ def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> di
     win_pct = to_pct(win_row.get("home_win_pct"))
     draw_pct = to_pct(win_row.get("draw_pct"))
     away_win_pct = to_pct(win_row.get("away_win_pct"))
-    over_25_pct = to_pct(goals_row.get("over_25_pct")) if goals_row else None
-    btts_pct = to_pct(goals_row.get("btts_pct")) if goals_row else None
+    over_1_5_pct = to_pct(
+        (goals_row or {}).get("over_1_5_pct") or win_row.get("over_1_5_pct")
+    )
+    under_1_5_pct = to_pct(
+        (goals_row or {}).get("under_1_5_pct") or win_row.get("under_1_5_pct")
+    )
+    over_25_pct = to_pct((goals_row or {}).get("over_25_pct") or win_row.get("over_25_pct"))
+    over_3_5_pct = to_pct((goals_row or {}).get("over_3_5_pct") or win_row.get("over_3_5_pct"))
+    under_2_5_pct = to_pct((goals_row or {}).get("under_2_5_pct") or win_row.get("under_2_5_pct"))
+    under_3_5_pct = to_pct((goals_row or {}).get("under_3_5_pct") or win_row.get("under_3_5_pct"))
+    btts_pct = to_pct((goals_row or {}).get("btts_pct") or win_row.get("btts_pct"))
     home_projected_goals = to_pct(goals_row.get("home_projected_goals")) if goals_row else None
     away_projected_goals = to_pct(goals_row.get("away_projected_goals")) if goals_row else None
     projected_total_goals = to_pct(goals_row.get("projected_total_goals")) if goals_row else None
@@ -97,6 +108,8 @@ def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> di
         "fixture_id": fixture_id,
         "home_team": home,
         "away_team": away,
+        "home_logo": home_logo,
+        "away_logo": away_logo,
         "home_team_id": home_team_id,
         "away_team_id": away_team_id,
         "fixture_date": fixture_date,
@@ -118,7 +131,12 @@ def score_match(win_row: dict[str, Any], goals_row: dict[str, Any] | None) -> di
         "away_o1_5_odds": away_o1_5_odds,
         "dc_home_draw_odds": dc_home_draw_odds,
         "dc_draw_away_odds": dc_draw_away_odds,
+        "over_1_5_pct": over_1_5_pct,
+        "under_1_5_pct": under_1_5_pct,
         "over_25_pct": over_25_pct,
+        "over_3_5_pct": over_3_5_pct,
+        "under_2_5_pct": under_2_5_pct,
+        "under_3_5_pct": under_3_5_pct,
         "btts_pct": btts_pct,
         "home_projected_goals": home_projected_goals,
         "away_projected_goals": away_projected_goals,
