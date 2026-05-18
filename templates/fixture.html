@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/fixture.css?v=4" />
+    <link rel="stylesheet" href="/static/fixture.css?v=5" />
   </head>
   <body class="quant-body">
     <div class="quant-shell">
@@ -88,6 +88,82 @@
         <h2 class="panel-title">Executive Summary</h2>
         <p class="exec-summary">{{ detail.executive_summary }}</p>
       </section>
+
+      {% if detail.prop_analysis %}
+      <section class="glass panel panel--wide prop-section">
+        <h2 class="panel-title">Simulation · Corners · Shots · Cards</h2>
+        <p class="panel-lead muted">Poisson lines from projected totals · H2H &amp; L6 trends where available</p>
+        <div class="prop-grid">
+          {% for p in detail.prop_analysis %}
+          <article class="prop-card">
+            <header class="prop-card__head">
+              <h3>{{ p.title }}</h3>
+              {% if p.full.total %}<span class="prop-total mono">{{ p.full.total }} projected</span>{% endif %}
+            </header>
+
+            {% if p.full.home is defined %}
+            <div class="prop-split">
+              <div class="prop-bar">
+                <span class="prop-bar__home" style="width: {{ p.full.home_pct }}%">{{ detail.home_team }} {{ p.full.home }}</span>
+                <span class="prop-bar__away" style="width: {{ p.full.away_pct }}%">{{ detail.away_team }} {{ p.full.away }}</span>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if p.first_half and p.first_half.total %}
+            <p class="prop-fh muted">1H: {{ p.first_half.total }} ({{ p.first_half.home }} / {{ p.first_half.away }})</p>
+            {% endif %}
+
+            {% if p.lines %}
+            <div class="prop-lines">
+              {% for ln in p.lines %}
+              <div class="prop-line">
+                <span>{{ ln.label }}</span>
+                <strong class="grade-{{ ln.grade | replace('+', 'plus') }}">{{ ln.model_pct_fmt }}</strong>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if p.h2h and p.h2h.meetings %}
+            <p class="prop-h2h muted">
+              H2H ({{ p.h2h.meetings }}):
+              {% if p.key == 'corners' and p.h2h.avg_corners %}avg {{ p.h2h.avg_corners }} corners
+              {% elif p.key == 'shots' and p.h2h.avg_shots %}avg {{ p.h2h.avg_shots }} shots
+              {% elif p.key == 'shots_on_target' and p.h2h.avg_sot %}avg {{ p.h2h.avg_sot }} SOT
+              {% endif %}
+            </p>
+            {% endif %}
+
+            {% if p.heat_note %}<p class="prop-note">{{ p.heat_note }}</p>{% endif %}
+            {% for n in p.hist_notes %}<p class="prop-note muted">{{ n }}</p>{% endfor %}
+            {% for i in p.insights %}<p class="prop-insight">{{ i }}</p>{% endfor %}
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if detail.book_odds_groups %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Book Odds</h2>
+        <div class="odds-groups">
+          {% for g in detail.book_odds_groups %}
+          <div class="odds-group">
+            <h3>{{ g.title }}</h3>
+            <table class="odds-table">
+              <thead><tr><th>Market</th><th>Odds</th><th>Implied</th></tr></thead>
+              <tbody>
+                {% for r in g.rows %}
+                <tr><td>{{ r.market }}</td><td class="mono">{{ r.odds }}</td><td>{{ r.implied }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
 
       <div class="quant-grid">
         <!-- RECOMMENDED BETS -->
@@ -288,6 +364,6 @@
     </div>
 
     <script id="radarData" type="application/json">{{ detail.team_comparison.radar | tojson }}</script>
-    <script src="/static/fixture.js?v=2"></script>
+    <script src="/static/fixture.js?v=3"></script>
   </body>
 </html>

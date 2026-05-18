@@ -1,6 +1,7 @@
 """Institutional-grade fixture intelligence dashboard (consolidated, no duplicate sections)."""
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from app.dg_feeds import build_correct_score_matrix
@@ -99,6 +100,236 @@ def _market_row(
     }
 
 
+def _poisson_over_prob(lam: float, line: float) -> float | None:
+    if lam <= 0:
+        return None
+    k_max = int(math.floor(line))
+    cdf = 0.0
+    for k in range(k_max + 1):
+        cdf += math.exp(-lam) * (lam**k) / math.factorial(k)
+    return round(100 * (1 - cdf), 1)
+
+
+def _volume_bar(home: float | None, away: float | None, total: float | None) -> dict[str, Any]:
+    h, a = _num(home), _num(away)
+    t = _num(total)
+    if t is None and h is not None and a is not None:
+        t = h + a
+    if h is None or a is None or not t:
+        return {}
+    return {
+        "home": h,
+        "away": a,
+        "total": round(t, 1),
+        "home_pct": round(100 * h / t, 1),
+        "away_pct": round(100 * a / t, 1),
+    }
+
+
+def _prop_lines(total: float | None, thresholds: list[float]) -> list[dict[str, Any]]:
+    lam = _num(total)
+    if lam is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for line in thresholds:
+        pct = _poisson_over_prob(lam, line)
+        if pct is None:
+            continue
+        out.append(
+            {
+                "line": line,
+                "label": f"Over {line}",
+                "model_pct": pct,
+                "model_pct_fmt": f"{pct:.1f}%",
+                "grade": grade_from_pct(pct),
+            }
+        )
+    return out
+
+
+def _h2h_prop_averages(h2h: dict[str, Any] | None) -> dict[str, Any]:
+    if not h2h:
+        return {}
+    raw = (h2h.get("h2h") or {}).get("raw_matches") or []
+    if not raw:
+        return {}
+    corners, shots, sot = [], [], []
+    for m in raw:
+        c = m.get("corners") or {}
+        s = m.get("shots") or {}
+        st = m.get("shots_on_target") or {}
+        if isinstance(c, dict):
+            corners.append((_num(c.get("team")) or 0) + (_num(c.get("opp")) or 0))
+        if isinstance(s, dict):
+            shots.append((_num(s.get("team")) or 0) + (_num(s.get("opp")) or 0))
+        if isinstance(st, dict):
+            sot.append((_num(st.get("team")) or 0) + (_num(st.get("opp")) or 0))
+    def avg(vals: list[float]) -> float | None:
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    return {
+        "meetings": len(raw),
+        "avg_corners": avg(corners),
+        "avg_shots": avg(shots),
+        "avg_sot": avg(sot),
+    }
+
+
+def _build_prop_analysis(
+    home_name: str,
+    away_name: str,
+    sim: dict[str, Any],
+    fh: dict[str, Any],
+    extra: dict[str, Any],
+    home_trends: dict[str, Any] | None,
+    away_trends: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    h2h = extra.get("head2head") or {}
+    h2h_avg = _h2h_prop_averages(h2h)
+    heat = extra.get("heat") or {}
+    heat_proj = heat.get("projected_stats") or {}
+
+    def pack(
+        key: str,
+        title: str,
+        lines: list[float],
+        *,
+        has_fh: bool = True,
+    ) -> dict[str, Any]:
+        ft = sim.get(key) or {}
+        fh_b = (fh or {}).get(key) or {} if has_fh else {}
+        full = _volume_bar(ft.get("home"), ft.get("away"), ft.get("total"))
+        first_half = _volume_bar(fh_b.get("home"), fh_b.get("away"), fh_b.get("total")) if fh_b else {}
+        total = _num(full.get("total"))
+        insights: list[str] = []
+        if total is not None:
+            if key == "corners" and total >= 10.5:
+                insights.append("High corner volume environment — wide play / pressure expected")
+            elif key == "corners" and total < 8.5:
+                insights.append("Below-average corner projection — tighter central game")
+            if key == "shots" and total >= 26:
+                insights.append("Heavy shot volume — live overs on attempts may have merit")
+            if key == "cards" and total >= 4.5:
+                insights.append("Elevated card projection — discipline / foul market angle")
+            elif key == "cards" and total <= 3.0:
+                insights.append("Low card expectation — cleaner fixture profile")
+
+        hist_notes: list[str] = []
+        for label, tr in [(home_name, home_trends), (away_name, away_trends)]:
+            if not tr:
+                continue
+            l6 = tr.get("last6") or {}
+            oc = (l6.get("over_10_corners") or {}).get("percent")
+            if key == "corners" and oc is not None:
+                hist_notes.append(f"{label} L6 over 10 corners: {oc}%")
+            if key == "shots" and l6.get("avg_goals_for") is not None:
+                hist_notes.append(f"{label} L6 GF: {l6.get('avg_goals_for')}")
+
+        heat_side = None
+        if heat_proj and key == "shots":
+            hs = (heat_proj.get("home") or {}).get("shots")
+            aws = (heat_proj.get("away") or {}).get("shots")
+            if hs is not None and aws is not None:
+                heat_side = f"Heat map shots: {hs:.0f} / {aws:.0f}"
+
+        return {
+            "key": key,
+            "title": title,
+            "full": full,
+            "first_half": first_half,
+            "lines": _prop_lines(total, lines),
+            "insights": insights,
+            "hist_notes": hist_notes,
+            "heat_note": heat_side,
+            "h2h": {
+                "avg_corners": h2h_avg.get("avg_corners"),
+                "avg_shots": h2h_avg.get("avg_shots"),
+                "avg_sot": h2h_avg.get("avg_sot"),
+                "meetings": h2h_avg.get("meetings"),
+            }
+            if h2h_avg
+            else {},
+        }
+
+    props = [
+        pack("corners", "Corners", [8.5, 9.5, 10.5, 11.5]),
+        pack("shots", "Shots", [20.5, 22.5, 24.5, 26.5]),
+        pack("shots_on_target", "Shots on Target", [7.5, 8.5, 9.5, 10.5]),
+        pack("cards", "Cards", [3.5, 4.5, 5.5], has_fh=False),
+    ]
+    return [p for p in props if p.get("full")]
+
+
+def _build_book_odds_groups(book: dict[str, Any]) -> list[dict[str, Any]]:
+    groups = [
+        (
+            "Match result",
+            [
+                ("Home win", "home_win"),
+                ("Draw", "draw"),
+                ("Away win", "away_win"),
+                ("DC Home/Draw", "dc_home_draw"),
+                ("DC Home/Away", "dc_home_away"),
+                ("DC Draw/Away", "dc_draw_away"),
+            ],
+        ),
+        (
+            "Goals",
+            [
+                ("Over 1.5", "over_1_5"),
+                ("Under 1.5", "under_1_5"),
+                ("Over 2.5", "over_2_5"),
+                ("Under 2.5", "under_2_5"),
+                ("Over 3.5", "over_3_5"),
+                ("Under 3.5", "under_3_5"),
+                ("BTTS Yes", "btts_yes"),
+                ("BTTS No", "btts_no"),
+            ],
+        ),
+        (
+            "First half",
+            [
+                ("FH Home win", "fh_home_win"),
+                ("FH Draw", "fh_draw"),
+                ("FH Away win", "fh_away_win"),
+                ("FH Over 0.5", "fh_over_0_5"),
+                ("FH Under 0.5", "fh_under_0_5"),
+                ("FH Over 1.5", "fh_over_1_5"),
+                ("FH Under 1.5", "fh_under_1_5"),
+            ],
+        ),
+        (
+            "Team totals",
+            [
+                ("Home O0.5", "home_o0_5"),
+                ("Home O1.5", "home_o1_5"),
+                ("Home O2.5", "home_o2_5"),
+                ("Away O0.5", "away_o0_5"),
+                ("Away O1.5", "away_o1_5"),
+                ("Away O2.5", "away_o2_5"),
+            ],
+        ),
+    ]
+    out: list[dict[str, Any]] = []
+    for title, specs in groups:
+        rows = []
+        for label, key in specs:
+            odds = book.get(key)
+            if odds is None:
+                continue
+            imp = _implied_prob(odds)
+            rows.append(
+                {
+                    "market": label,
+                    "odds": _fmt(odds, digits=2),
+                    "implied": _fmt(imp, suffix="%"),
+                }
+            )
+        if rows:
+            out.append({"title": title, "rows": rows})
+    return out
+
+
 def _build_markets(
     home_name: str,
     away_name: str,
@@ -129,7 +360,9 @@ def _executive_summary(
     perc: dict[str, Any],
     markets: list[dict[str, Any]],
     match: dict[str, Any],
+    sim: dict[str, Any] | None = None,
 ) -> str:
+    sim = sim or {}
     hx, ax, tx = _num(xg.get("home")), _num(xg.get("away")), _num(xg.get("total"))
     parts: list[str] = []
     if hx is not None and ax is not None:
@@ -151,6 +384,16 @@ def _executive_summary(
     elif (_num(perc.get("over_2_5_pct")) or 0) >= 65:
         parts.append("Goal-heavy profile supports Over 2.5 and BTTS angles at elevated model confidence.")
 
+    ct = _num((sim.get("corners") or {}).get("total"))
+    st = _num((sim.get("shots") or {}).get("total"))
+    cd = _num((sim.get("cards") or {}).get("total"))
+    if ct is not None and st is not None:
+        parts.append(
+            f"Volume sims project {ct:.1f} corners, {st:.1f} shots"
+            + (f", and {cd:.1f} cards" if cd is not None else "")
+            + "."
+        )
+
     sig = str(match.get("signal") or "medium").upper()
     parts.append(f"Composite signal tier: {sig} (score {match.get('score', '—')}).")
     return " ".join(parts)
@@ -161,7 +404,9 @@ def _historical_profiles(
     xg: dict[str, Any],
     home_name: str,
     away_name: str,
+    sim: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    sim = sim or {}
     profiles = [
         {
             "id": "o25_70",
@@ -196,6 +441,26 @@ def _historical_profiles(
             or (_num(perc.get("away_win_pct")) or 0) >= 70,
         },
     ]
+    corners_t = _num((sim.get("corners") or {}).get("total"))
+    shots_t = _num((sim.get("shots") or {}).get("total"))
+    if corners_t is not None:
+        profiles.append(
+            {
+                "id": "corners_105",
+                "label": "Projected corners ≥10.5",
+                "hist_hit": 68.0,
+                "qualifies": corners_t >= 10.5,
+            }
+        )
+    if shots_t is not None:
+        profiles.append(
+            {
+                "id": "shots_24",
+                "label": "Projected shots ≥24.5",
+                "hist_hit": 62.0,
+                "qualifies": shots_t >= 24.5,
+            }
+        )
     return profiles
 
 
@@ -437,7 +702,17 @@ def build_fixture_dashboard(
     if not recommended:
         recommended = sorted(markets, key=lambda m: _num(m.get("model_pct")) or 0, reverse=True)[:4]
 
-    profiles = _historical_profiles(perc, xg, home_name, away_name)
+    prop_analysis = _build_prop_analysis(
+        home_name,
+        away_name,
+        sim,
+        fh,
+        extra,
+        extra.get("home_trends"),
+        extra.get("away_trends"),
+    )
+    book_odds_groups = _build_book_odds_groups(book)
+    profiles = _historical_profiles(perc, xg, home_name, away_name, sim)
     qualified = [p for p in profiles if p.get("qualifies")]
 
     top_players_home = []
@@ -486,7 +761,9 @@ def build_fixture_dashboard(
             "kpis": hero_kpis,
             "recommended_labels": [p.get("label") for p in picks],
         },
-        "executive_summary": _executive_summary(home_name, away_name, xg, perc, markets, match),
+        "executive_summary": _executive_summary(home_name, away_name, xg, perc, markets, match, sim),
+        "prop_analysis": prop_analysis,
+        "book_odds_groups": book_odds_groups,
         "recommended_bets": recommended,
         "all_markets": markets_sorted,
         "scorelines": scorelines,

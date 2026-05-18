@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DG Bet Automation</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/home.css?v=1" />
+    <link rel="stylesheet" href="/static/home.css?v=2" />
   </head>
   <body class="home-page-wrap">
     <main class="home-page">
       <header class="home-header">
         <h1>DG Bet Automation</h1>
-        <p class="subtitle">Today's fixture slate from DataGaffer — win outlook, goals, and recommended angles per match.</p>
+        <p class="subtitle">Today's fixture slate from DataGaffer — tap a match for full intelligence.</p>
         <nav class="home-nav" aria-label="Main">
           <a href="/todays-bets">Today's Bets</a>
           <a href="/bet-log">Bet Log</a>
@@ -30,17 +30,12 @@
         <h2 class="slate-section-title">Today's Slate</h2>
         <div id="slateCarousel" class="slate-carousel"></div>
       </section>
-
-      <section class="analysis-section" aria-label="Fixture analysis">
-        <h2>Fixture analysis</h2>
-        <div id="fixtureAnalysis" class="fixture-grid"></div>
-      </section>
     </main>
 
     <script>
       window.INITIAL_SLATE = {{ slate | tojson }};
     </script>
-    <script src="/static/home.js?v=1" defer></script>
+    <script src="/static/home.js?v=3" defer></script>
     <script>
       (function () {
         function boot() {

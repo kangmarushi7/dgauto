@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
+# Today's slate: midnight IST today through 09:00 IST tomorrow (DataGaffer-style).
+SLATE_END_HOUR = 9
 
 OVER_15_GOALS_MIN = 3.51
 MONEYLINE_MIN_WIN = 61.0
@@ -23,11 +25,27 @@ def _parse_dt(value: str | None) -> datetime | None:
         return None
 
 
-def _is_today_ist(dt: datetime | None) -> bool:
+def _slate_window_ist(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Inclusive start, exclusive end in IST."""
+    now = now or datetime.now(IST)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=IST)
+    else:
+        now = now.astimezone(IST)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = (start + timedelta(days=1)).replace(
+        hour=SLATE_END_HOUR, minute=0, second=0, microsecond=0
+    )
+    return start, end
+
+
+def _is_in_todays_slate_ist(dt: datetime | None, *, now: datetime | None = None) -> bool:
+    """Kickoff from 00:00 IST today until 09:00 IST tomorrow."""
     if dt is None:
         return True
     local = dt.astimezone(IST)
-    return local.date() == datetime.now(IST).date()
+    start, end = _slate_window_ist(now)
+    return start <= local < end
 
 
 def _fmt_kickoff(dt: datetime | None) -> str:
@@ -133,7 +151,7 @@ def build_fixture_slate(
 
     for m in matches:
         dt = _parse_dt(m.get("fixture_date"))
-        if today_only and not _is_today_ist(dt):
+        if today_only and not _is_in_todays_slate_ist(dt):
             continue
 
         picks = _build_picks(m)
