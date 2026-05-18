@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ detail.fixture }} · DG</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/fixture.css?v=1" />
+    <link rel="stylesheet" href="/static/fixture.css?v=2" />
   </head>
   <body class="fixture-page-wrap">
     <main class="fixture-page">
@@ -129,6 +129,54 @@
             <span class="pick-chip pick-chip--{{ p.tone }}">{{ p.label }} <small>{{ p.detail }}</small></span>
             {% endfor %}
           </div>
+
+          {% elif block.type == 'sim_card' %}
+          <table class="fx-table fx-table--odds">
+            <thead><tr><th>Market</th><th>Sim</th><th>Book</th></tr></thead>
+            <tbody>
+              {% for row in block.rows %}
+              <tr><td>{{ row.market }}</td><td>{{ row.sim }}</td><td>{{ row.book }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% elif block.type == 'score_matrix' %}
+          <p class="fx-muted">xG {{ block.home_xg }} – {{ block.away_xg }} (independent Poisson)</p>
+          <div class="fx-matrix-wrap">
+            <table class="fx-matrix">
+              <thead>
+                <tr><th></th>{% for a in range(block.max_goals + 1) %}<th>{{ a }}</th>{% endfor %}</tr>
+              </thead>
+              <tbody>
+                {% for row in block.matrix %}
+                <tr>
+                  <th>{{ row[0].home }}</th>
+                  {% for cell in row %}<td>{{ cell.pct }}%</td>{% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if block.top_scores %}
+          <p class="fx-matrix-top"><strong>Most likely:</strong>
+            {% for s in block.top_scores %}{{ s.score }} ({{ s.pct }}%){% if not loop.last %} · {% endif %}{% endfor %}
+          </p>
+          {% endif %}
+
+          {% elif block.type == 'players' %}
+          <table class="fx-table fx-table--players">
+            <thead><tr><th>Player</th><th>Pos</th><th>G/90</th><th>Sh/90</th><th>SOT/90</th></tr></thead>
+            <tbody>
+              {% for p in block.players %}
+              <tr><td>{{ p.name }}</td><td>{{ p.position }}</td><td>{{ p.goals90 }}</td><td>{{ p.shots90 }}</td><td>{{ p.sot90 }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% elif block.type == 'insight' %}
+          <div class="fx-insight">
+            {% for line in block.lines %}<p>{{ line }}</p>{% endfor %}
+          </div>
           {% endif %}
         </div>
         {% endfor %}
@@ -137,8 +185,8 @@
 
       {% if detail.unavailable %}
       <section class="fx-section fx-section--muted">
-        <h2 class="fx-section__title">Not in public data feed</h2>
-        <p class="fx-muted">These DataGaffer tools require their logged-in app and are not included in fixtures.json:</p>
+        <h2 class="fx-section__title">Not available</h2>
+        <p class="fx-muted">These DataGaffer tools are not loaded for this fixture:</p>
         <ul class="fx-unavail">
           {% for name in detail.unavailable %}
           <li>{{ name }}</li>
@@ -149,4 +197,3 @@
     </main>
   </body>
 </html>
-

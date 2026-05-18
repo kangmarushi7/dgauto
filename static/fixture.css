@@ -336,6 +336,55 @@ body.fixture-page-wrap {
   color: #5a7a8a;
 }
 
+.fx-matrix-wrap {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.fx-matrix {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 280px;
+}
+
+.fx-matrix th,
+.fx-matrix td {
+  border: 1px solid #c5d4ce;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.fx-matrix thead th {
+  background: #e8f0eb;
+  font-weight: 600;
+}
+
+.fx-matrix tbody th {
+  background: #f4f8f5;
+}
+
+.fx-matrix td {
+  background: #fff;
+}
+
+.fx-matrix-top {
+  font-size: 0.85rem;
+  color: #2d4a3e;
+  margin: 8px 0 0;
+}
+
+.fx-insight p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #2d4a3e;
+}
+
+.fx-table--players th,
+.fx-table--players td {
+  font-size: 0.85rem;
+}
+
 @media (max-width: 600px) {
   .fx-split {
     grid-template-columns: 1fr;

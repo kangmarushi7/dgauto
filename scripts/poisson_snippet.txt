@@ -1,0 +1,131 @@
+poissonPMF(k, lambda) { return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k); }
+function probAtLeast(n, lambda) {
+  if (n <= 0) return 1;
+  let cdf = 0;
+  for (let k = 0; k <= n - 1; k++) cdf += poissonPMF(k, lambda);
+  return 1 - cdf;
+}
+/* ======= /Poisson helpers ======= */
+
+/* ======= Core render function (unchanged) ======= */
+function renderEverything(fixtures) {
+
+// ====== BANNER STATS ======
+const totalGames = fixtures.length;
+
+let totalGoals = 0;
+
+fixtures.forEach(f => {
+  const xg = parseFloat(f.sim_stats?.xg?.total);
+  if (isFinite(xg)) totalGoals += xg;
+});
+
+const avgGoals = totalGames > 0 
+  ? (totalGoals / totalGames).toFixed(2) 
+  : "0.00";
+
+// update banner
+const banner = document.getElementById("goalzone-banner");
+
+if (banner) {
+  banner.innerHTML = `
+    Goal totals, player goals and scoring probabilities from 10,000 match simulations
+    <br><br>
+    ${totalGames} Matches • ${totalGoals.toFixed(1)} Expected Goals • ${avgGoals} Avg Goals / Match
+  `;
+}
+
+  const matchBody = document.getElementById("match-body");
+  const awayBody = document.getElementById("away-body");
+  const homeBody = document.getElementById("home-body");
+  const match2Body = document.getElementById("match2-body");
+  const goalprobBody = document.getElementById("goalprob-body");
+  const teamBody = document.getElementById("team-body");
+  const teamProbBody = document.getElementById("teamprob-body");
+
+  matchBody.innerHTML = "";
+  awayBody.innerHTML = "";
+  homeBody.innerHTML = "";
+  match2Body.innerHTML = "";
+  goalprobBody.innerHTML = "";
+  teamBody.innerHTML = "";
+  teamProbBody.innerHTML = "";
+
+  const matches = fixtures.map(f => ({
+  match: `${f.home.name} vs ${f.away.name}`,
+  total: parseFloat(f.sim_stats.xg.total),
+
+  home: {
+    id: f.home.id, // ⭐ ADD
+    name: f.home.name,
+    logo: f.home_logo,
+    val: parseFloat(f.sim_stats.xg.home)
+  },
+
+  away: {
+    id: f.away.id, // ⭐ ADD
+    name: f.away.name,
+    logo: f.away_logo,
+    val: parseFloat(f.sim_stats.xg.away)
+  }
+}));
+
+  const sortedMatches = [...matches].sort((a, b) => b.total - a.total);
+
+  // Always use global dataset for gradients
+  const allMatchesFull = allFixtures.map(f => ({
+    total: parseFloat(f.sim_stats.xg.total),
+    homeVal: parseFloat(f.sim_stats.xg.home),
+    awayVal: parseFloat(f.sim_stats.xg.away)
+  }));
+
+  const totalMin = Math.min(...allMatchesFull.map(m => m.total));
+  const totalMax = Math.max(...allMatchesFull.map(m => m.total));
+  const homeMin  = Math.min(...allMatchesFull.map(m => m.homeVal));
+  const homeMax  = Math.max(...allMatchesFull.map(m => m.homeVal));
+  const awayMin  = Math.min(...allMatchesFull.map(m => m.awayVal));
+  const awayMax  = Math.max(...allMatchesFull.map(m => m.awayVal));
+
+  // Totals tab
+  sortedMatches.forEach(m => {
+    matchBody.innerHTML += `
+      <tr>
+        <td>
+          <span class="match-text">${m.match}</span>
+          <span class="match-logos" style="display:none;">
+            <img src="${m.home.logo}" class="team-logo">
+            <img src="${m.away.logo}" class="team-logo">
+          </span>
+        </td>
+        <td style="background:${getValueGradient(m.total,totalMin,totalMax)}">${m.total.toFixed(2)}</td>
+      </tr>`;
+
+    awayBody.innerHTML += `
+      <tr>
+        <td><img src="${m.away.logo}" class="team-logo"></td>
+        <td>
+  <a href="team_pages/${m.away.id}.html" class="team-link">
+    ${m.away.name}
+  </a>
+</td>
+        <td style="background:${getValueGradient(m.away.val,awayMin,awayMax)}">${m.away.val.toFixed(2)}</td>
+      </tr>`;
+
+    homeBody.innerHTML += `
+      <tr>
+        <td><img src="${m.home.logo}" class="team-logo"></td>
+        <td>
+  <a href="team_pages/${m.home.id}.html" class="team-link">
+    ${m.home.name}
+  </a>
+</td>
+        <td style="background:${getValueGradient(m.home.val,homeMin,homeMax)}">${m.home.val.toFixed(2)}</td>
+      </tr>`;
+  });
+
+  // Match tab - Left table
+  matches.forEach(m => {
+    match2Body.innerHTML += `
+      <tr>
+        <td>
+  <a href="team_pages/

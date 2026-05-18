@@ -4,19 +4,15 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app.dg_feeds import lookup_extra_for_fixture
 from app.signals import score_match
 from app.slate import _build_picks, _fmt_kickoff, _parse_dt
 
 IST = ZoneInfo("Asia/Kolkata")
 
-# DataGaffer UI labels not present in the public fixtures.json feed.
+# Tools with no public feed (parlay is built interactively on DataGaffer).
 UNAVAILABLE_FEATURES = [
-    "Sim Cards",
-    "Player Sims",
-    "Head2Head",
-    "Heat Maps",
-    "Parlay Builder",
-    "Correct Score matrix",
+    "Parlay Builder (interactive - use Top Edges / Value Finder here)",
 ]
 
 
@@ -97,7 +93,271 @@ def _comparison_block(title: str, metrics: list[dict[str, Any]]) -> dict[str, An
     return {"type": "compare", "title": title, "metrics": metrics}
 
 
-def build_fixture_detail(raw: dict[str, Any], match: dict[str, Any] | None = None) -> dict[str, Any]:
+def _synthesize_sim_card(raw: dict[str, Any]) -> dict[str, Any]:
+    """Build sim-card style rows from fixtures.json when sim_cards.json has no row."""
+    perc = (raw.get("sim_stats") or {}).get("percents") or {}
+    book = raw.get("book_odds") or {}
+    home = raw.get("home") or {}
+    away = raw.get("away") or {}
+    xg = (raw.get("sim_stats") or {}).get("xg") or {}
+
+    def _cell(sim_pct: Any, odds_key: str) -> dict[str, Any]:
+        sp = _num(sim_pct)
+        sim_str = f"{sp:.1f}%" if sp is not None else "—"
+        if sp is not None and sp > 0:
+            sim_str += f" ({100 / sp:.2f})"
+        return {"sim": sim_str, "book": book.get(odds_key)}
+
+    return {
+        "projected_score": f"{_fmt(xg.get('home'), digits=2)} vs {_fmt(xg.get('away'), digits=2)} xG",
+        "win": _cell(perc.get("home_win_pct"), "home_win"),
+        "draw": _cell(perc.get("draw_pct"), "draw"),
+        "away_win": _cell(perc.get("away_win_pct"), "away_win"),
+        "home_o1_5": _cell(perc.get("home_o1_5_pct"), "home_o1_5"),
+        "away_o1_5": _cell(perc.get("away_o1_5_pct"), "away_o1_5"),
+        "over_2_5": _cell(perc.get("over_2_5_pct"), "over_2_5"),
+        "btts": _cell(perc.get("btts_pct"), "btts_yes"),
+        "_synthetic": True,
+    }
+
+
+def _sim_market_rows(card: dict[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for key, label in [
+        ("win", "Home win"),
+        ("draw", "Draw"),
+        ("away_win", "Away win"),
+        ("home_o1_5", "Home O1.5"),
+        ("away_o1_5", "Away O1.5"),
+        ("over_2_5", "Over 2.5"),
+        ("btts", "BTTS"),
+    ]:
+        m = card.get(key) or {}
+        sim = m.get("sim") if isinstance(m, dict) else m
+        book = m.get("book") if isinstance(m, dict) else None
+        rows.append(
+            {
+                "market": label,
+                "sim": str(sim) if sim is not None else "—",
+                "book": _fmt(book, digits=2) if _num(book) is not None else "—",
+            }
+        )
+    return rows
+
+
+def _h2h_summary(h2h: dict[str, Any]) -> list[tuple[str, Any]]:
+    core = h2h.get("h2h") or {}
+    agg = core.get("aggregate") or core.get("summary") or {}
+    if agg:
+        return [
+            ("Meetings", agg.get("played") or agg.get("matches")),
+            ("Home wins", agg.get("home_wins") or agg.get("team_wins")),
+            ("Draws", agg.get("draws")),
+            ("Away wins", agg.get("away_wins") or agg.get("opp_wins")),
+            ("Avg goals", agg.get("avg_goals") or agg.get("avg_total_goals")),
+        ]
+    raw_matches = core.get("raw_matches") or []
+    return [("Recent meetings", len(raw_matches))]
+
+
+def _heat_stat_rows(side: dict[str, Any]) -> list[tuple[str, Any]]:
+    labels = [
+        ("possession", "Possession %"),
+        ("expected_goals", "xG"),
+        ("shots", "Shots"),
+        ("shots_on_target", "Shots on target"),
+        ("dangerous_attacks", "Dangerous attacks"),
+        ("passes", "Passes"),
+        ("big_chances_created", "Big chances"),
+    ]
+    return [(label, side.get(key)) for key, label in labels if side.get(key) is not None]
+
+
+def _top_players(players: list[dict[str, Any]], *, limit: int = 8) -> list[dict[str, Any]]:
+    ranked = sorted(
+        players,
+        key=lambda p: (
+            _num(p.get("goals_per90_simulated")) or 0,
+            _num(p.get("shots_per90")) or 0,
+        ),
+        reverse=True,
+    )
+    out: list[dict[str, Any]] = []
+    for p in ranked[:limit]:
+        out.append(
+            {
+                "name": p.get("name"),
+                "position": p.get("position"),
+                "goals90": _fmt(p.get("goals_per90_simulated"), digits=2),
+                "shots90": _fmt(p.get("shots_per90"), digits=2),
+                "sot90": _fmt(p.get("sot_per90"), digits=2),
+            }
+        )
+    return out
+
+
+def _trends_rows(trends: dict[str, Any] | None) -> list[tuple[str, Any]]:
+    if not trends:
+        return []
+    last6 = trends.get("last6") or {}
+    return [
+        ("Form (L6)", last6.get("form")),
+        ("Record L6", f"{last6.get('wins', 0)}-{last6.get('draws', 0)}-{last6.get('losses', 0)}"),
+        ("GF / GA L6", f"{last6.get('avg_goals_for')} / {last6.get('avg_goals_against')}"),
+        ("BTTS L6", (last6.get("btts_yes") or {}).get("percent")),
+        ("Over 2.5 L6", (last6.get("over_2_5") or {}).get("percent")),
+    ]
+
+
+def _sections_from_extra(
+    extra: dict[str, Any],
+    *,
+    home_name: str,
+    away_name: str,
+    raw: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+
+    card = extra.get("sim_card") or (_synthesize_sim_card(raw) if raw else None)
+    if card:
+        title = "Sim Cards"
+        if card.get("_synthetic"):
+            title = "Sim Cards (from fixture feed)"
+        sections.append(
+            {
+                "key": "sim_cards",
+                "category": "Match Simulations",
+                "title": title,
+                "blocks": [
+                    {
+                        "type": "sim_card",
+                        "title": card.get("projected_score") or "Projected score",
+                        "rows": _sim_market_rows(card),
+                    }
+                ],
+            }
+        )
+
+    h2h = extra.get("head2head")
+    if h2h:
+        grades = (h2h.get("versus_grades") or {}).get("team_vs_team") or {}
+        grade_rows: list[tuple[str, Any]] = []
+        for side, label in (("home_team", home_name), ("away_team", away_name)):
+            g = grades.get(side) or {}
+            if g:
+                grade_rows.append((label, f"{g.get('grade')} ({g.get('score')})"))
+        blocks: list[dict[str, Any]] = [
+            _kv_table("Head-to-head summary", _h2h_summary(h2h), suffix=""),
+        ]
+        if grade_rows:
+            blocks.append(_kv_table("Versus grades", grade_rows, suffix=""))
+        sections.append(
+            {
+                "key": "head2head",
+                "category": "Research Tools",
+                "title": "Head2Head",
+                "blocks": blocks,
+            }
+        )
+
+    heat = extra.get("heat")
+    if heat:
+        proj = heat.get("projected_stats") or {}
+        sections.append(
+            {
+                "key": "heat_maps",
+                "category": "Research Tools",
+                "title": "Heat Maps (projected stats)",
+                "blocks": [
+                    _kv_table(f"{home_name} projection", _heat_stat_rows(proj.get("home") or {}), suffix=""),
+                    _kv_table(f"{away_name} projection", _heat_stat_rows(proj.get("away") or {}), suffix=""),
+                ],
+            }
+        )
+
+    cs = extra.get("correct_score")
+    if cs:
+        sections.append(
+            {
+                "key": "correct_score",
+                "category": "Simulation Tools",
+                "title": "Correct Score matrix",
+                "blocks": [{"type": "score_matrix", "title": "Poisson score grid (from sim xG)", **cs}],
+            }
+        )
+
+    home_players = extra.get("home_player_sims") or []
+    away_players = extra.get("away_player_sims") or []
+    if home_players or away_players:
+        sections.append(
+            {
+                "key": "player_sims",
+                "category": "Match Simulations",
+                "title": "Player Sims",
+                "blocks": [
+                    {"type": "players", "title": home_name, "players": _top_players(home_players)},
+                    {"type": "players", "title": away_name, "players": _top_players(away_players)},
+                ],
+            }
+        )
+
+    insight_blocks: list[dict[str, Any]] = []
+    top_pick = extra.get("top_pick")
+    if top_pick:
+        insight_blocks.append(
+            {
+                "type": "insight",
+                "title": "DataGaffer Top Edge",
+                "lines": [
+                    f"{top_pick.get('pick')} · Sim {top_pick.get('sim_pct')}% · Book {_fmt(top_pick.get('book_odds'), digits=2)} · Edge +{top_pick.get('edge')}%",
+                    str(top_pick.get("explanation") or ""),
+                ],
+            }
+        )
+    matchup = extra.get("matchup_insight")
+    if matchup:
+        for tag, label in [
+            ("home_analysis", home_name),
+            ("away_analysis", away_name),
+        ]:
+            analysis = matchup.get(tag) or {}
+            if not analysis:
+                continue
+            rows = []
+            for bucket, stats in analysis.items():
+                if isinstance(stats, dict):
+                    rows.append(
+                        (
+                            bucket.replace("_", " ").title(),
+                            f"O2.5 {stats.get('over_2_5_pct')}% · BTTS {stats.get('btts_pct')}% · GF {stats.get('goals_for')}",
+                        )
+                    )
+            if rows:
+                insight_blocks.append(_kv_table(f"{label} situational splits", rows, suffix=""))
+    home_tr = extra.get("home_trends")
+    away_tr = extra.get("away_trends")
+    if home_tr:
+        insight_blocks.append(_kv_table(f"{home_name} last-6", _trends_rows(home_tr), suffix=""))
+    if away_tr:
+        insight_blocks.append(_kv_table(f"{away_name} last-6", _trends_rows(away_tr), suffix=""))
+    if insight_blocks:
+        sections.append(
+            {
+                "key": "dg_insights",
+                "category": "Betting Tools",
+                "title": "DataGaffer Insights",
+                "blocks": insight_blocks,
+            }
+        )
+
+    return sections
+
+
+def build_fixture_detail(
+    raw: dict[str, Any],
+    match: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Full fixture analysis from DataGaffer fixtures.json (all public fields)."""
     home = raw.get("home") or {}
     away = raw.get("away") or {}
@@ -188,6 +448,10 @@ def build_fixture_detail(raw: dict[str, Any], match: dict[str, Any] | None = Non
                     "away_pct": round(100 * a / (h + a), 1),
                 }
             )
+
+    extra_sections = _sections_from_extra(
+        extra or {}, home_name=home_name, away_name=away_name, raw=raw
+    )
 
     sections: list[dict[str, Any]] = [
         {
@@ -430,6 +694,21 @@ def build_fixture_detail(raw: dict[str, Any], match: dict[str, Any] | None = Non
         },
     ]
 
+    # Insert DataGaffer supplemental sections after core simulation blocks.
+    insert_at = next((i for i, s in enumerate(sections) if s["key"] == "book_odds"), len(sections))
+    sections[insert_at:insert_at] = extra_sections
+
+    unavailable = list(UNAVAILABLE_FEATURES)
+    if not extra_sections:
+        unavailable = [
+            "Sim Cards",
+            "Player Sims",
+            "Head2Head",
+            "Heat Maps",
+            "Correct Score matrix",
+            *UNAVAILABLE_FEATURES,
+        ]
+
     return {
         "fixture_id": raw.get("fixture_id"),
         "fixture": fixture_label,
@@ -445,7 +724,22 @@ def build_fixture_detail(raw: dict[str, Any], match: dict[str, Any] | None = Non
         "match": match,
         "picks": picks,
         "sections": sections,
-        "unavailable": UNAVAILABLE_FEATURES,
+        "unavailable": unavailable,
+        "extra_sources": {
+            k: bool(extra.get(k))
+            for k in (
+                "sim_card",
+                "head2head",
+                "heat",
+                "correct_score",
+                "home_player_sims",
+                "away_player_sims",
+                "top_pick",
+                "matchup_insight",
+            )
+        }
+        if extra
+        else {},
         "two_leg_ctx": raw.get("two_leg_ctx"),
     }
 
@@ -470,4 +764,6 @@ def get_fixture_detail_from_state(state: dict[str, Any], fixture_id: str | int) 
         if str(m.get("fixture_id")) == str(fixture_id):
             match = m
             break
-    return build_fixture_detail(raw, match)
+    indexes = state.get("dg_extra_indexes") or {}
+    extra = lookup_extra_for_fixture(raw, indexes) if indexes else {}
+    return build_fixture_detail(raw, match, extra=extra)

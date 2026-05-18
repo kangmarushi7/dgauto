@@ -52,6 +52,7 @@ def _write_scrape_result(scraped: dict) -> list[dict]:
             "scraped_at": scraped["scraped_at"],
             "matches": merged,
             "fixtures_by_id": scraped.get("fixtures_by_id") or {},
+            "dg_extra_indexes": scraped.get("dg_extra_indexes") or {},
         }
     )
     return merged

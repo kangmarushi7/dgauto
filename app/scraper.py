@@ -5,6 +5,7 @@ import json
 from urllib.request import urlopen
 
 from app.config import settings
+from app.dg_feeds import fetch_extra_feeds
 
 
 def _pct(val) -> float | None:
@@ -134,10 +135,26 @@ def scrape_datagaffer_sync() -> dict:
         if fid is not None:
             fixtures_by_id[str(fid)] = fx
 
+    extra_indexes = fetch_extra_feeds()
+
     return {
         "scraped_at": datetime.now(timezone.utc).isoformat(),
         "goal_rows": goal_rows,
         "win_rows": win_rows,
         "fixtures": fixtures,
         "fixtures_by_id": fixtures_by_id,
+        "dg_extra_indexes": {
+            k: extra_indexes.get(k)
+            for k in (
+                "sim_cards_by_match",
+                "head2head_by_id",
+                "heat_by_id",
+                "top_picks_by_id",
+                "insights_by_id",
+                "insights_by_match",
+                "trends_by_team_id",
+                "player_form",
+                "heat_averages",
+            )
+        },
     }

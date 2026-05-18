@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Probability • DataGaffer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#003f2e">
+
+  <style>
+
+    body {
+      font-family: Arial, sans-serif;  
+      background: #f2f4f7;
+      margin: 0;
+      padding: 0;
+      margin-bottom: 100px;
+    }
+
+    .dg-header {
+  background: #003f2e;
+  color: #ffffff;
+  padding: 14px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Default (mobile + tablet): no box */
+.page-shell {
+  background: transparent;
+}
+
+/* Desktop only (KenPom style) */
+@media (min-width: 1000px) {
+  body {
+    background: #ffffff; /* light blue page */
+  }
+
+  .page-shell {
+    max-width: 1250px;
+    margin: 0 auto;
+    background: #f2f4f7;
+    min-height: 100vh;
+    box-shadow: 0 0 30px rgba(0,0,0,0.15);
+    padding-bottom: 60px;
+  }
+}
+
+.dg-header a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Logo */
+.dg-header .header-logo {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 72px;
+  width: auto;
+}
+
+/* Title */
+.dg-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* =========================
+   MOBILE HEADER FIX
+   ========================= */
+@media (max-width: 700px) {
+  .dg-header {
+    padding: 10px 14px;
+  }
+
+  .dg-header .header-logo {
+    height: 46px;
+    left: 10px;
+  }
+
+  .dg-header h1 {
+    font-size: 20px;
+  }
+}
+
+    /* ---------- HEADER (same as Goal Zone) ---------- */
+    .header-bar {
+      background-color: #003f2e;
+      color: white;
+      padding: 10px 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-logo {
+      height: 90px;
+      width: auto;
+      position: absolute;
+      left: 20px;
+      top: 0px;
+      z-index: 2;
+    }
+    .header-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    /* ---------- BANNER ---------- */
+    .banner {
+      text-align: center;
+      font-size: 18px;
+      margin: 20px auto;
+      color: #003f2e;
+      background: #ffffff;
+      padding: 10px;
+      border: 2px solid #003f2e;
+      width: 60%;
+      border-radius: 4px;
+      margin-bottom: 30px;
+      margin-top: 40px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    /* ---------- TOP-LEVEL TABS (Matches / Teams / Players) ---------- */
+    .top-tab-row {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 10px;
+      margin-bottom: 5px;
+    }
+    .top-tab-button {
+      padding: 8px 25px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 5px;
+      border: 2px solid #003f2e;
+      background: #ffffff;
+      color: #003f2e;
+      cursor: pointer;
+    }
+    .top-tab-button.active {
+      background: #003f2e;
+      color: #ffffff;
+    }
+
+    /* ---------- MATCHES SUB-BUTTONS ---------- */
+    .match-button-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 25px;
+      margin-bottom: 35px;
+    }
+    .match-button {
+      padding: 6px 10px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 25px;
+      border: 2px solid #003f2e;
+      background: #ffffff;
+      color: #003f2e;
+      cursor: pointer;
+    }
+    .match-button.active {
+      background: #003f2e;
+      color: #ffffff;
+    }
+
+    /* ---------- GOAL ZONE STYLE TABLES ---------- */
+    .prob-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 25px auto;
+      max-width: 700px;
+    }
+
+    .prob-table {
+      background: #ffffff;
+      border: 1px solid #000;
+      border-collapse: collapse;
+      width: 100%;
+      table-layout: fixed;
+      line-height: 1.0;
+      overflow: hidden;
+    }
+
+    .prob-table th {
+      background: #f8ff76;
+      color: #000000;
+      padding: 7px;
+      font-size: 14px;
+      border-bottom: 1px solid #000000;
+    }
+
+    .prob-table th:not(:last-child),
+    .prob-table td:not(:last-child) {
+      border-right: 1px solid #000000;
+    }
+
+    .prob-table td {
+      padding: 7px 7px;
+      text-align: center;
+      line-height: 0.9;
+      border-bottom: 1px solid #000000;
+    }
+
+
+    .team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;   /* 🔑 key fix */
+  display: block;
+  margin: 0 auto;
+}
+
+    /* Column widths for the three mini-tables */
+    #prob-home-table th:nth-ch
