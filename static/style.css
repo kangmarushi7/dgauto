@@ -222,3 +222,64 @@ th {
   background: #fff6d6;
 }
 
+@media (max-width: 720px) {
+  .container {
+    width: auto;
+    margin: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  h1 {
+    font-size: 1.45rem;
+  }
+
+  .subtitle,
+  .meta,
+  .hit-note {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .top-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    line-height: 1.4;
+  }
+
+  .actions,
+  .accordion-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  button,
+  .small-btn,
+  .table-filter-input {
+    width: 100%;
+  }
+
+  .recommendation-card,
+  .accordion-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 640px;
+  }
+
+  th,
+  td {
+    padding: 7px;
+    font-size: 12px;
+  }
+
+  .stats-type-grid,
+  .stats-category-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

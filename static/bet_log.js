@@ -20,6 +20,16 @@
     hour12: false,
   });
 
+  const IST_PART_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    hour12: false,
+  });
+
   function el(id) {
     return document.getElementById(id);
   }
@@ -36,6 +46,33 @@
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
     return IST_DATE_FORMATTER.format(d).replace(",", "");
+  }
+
+  function istParts(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    const parts = Object.fromEntries(
+      IST_PART_FORMATTER.formatToParts(d).map((p) => [p.type, p.value]),
+    );
+    return {
+      dayKey: `${parts.year}-${parts.month}-${parts.day}`,
+      hour: Number(parts.hour || 0),
+    };
+  }
+
+  function tomorrowKeyFromIstDay(dayKey) {
+    const [year, month, day] = dayKey.split("-").map(Number);
+    const utcNoon = new Date(Date.UTC(year, month - 1, day + 1, 12, 0, 0));
+    return istParts(utcNoon)?.dayKey;
+  }
+
+  function isTodayFixture(entry) {
+    const fixture = istParts(entry.fixture_date);
+    if (!fixture) return false;
+    const today = istParts(new Date());
+    if (!today) return false;
+    if (fixture.dayKey === today.dayKey) return true;
+    return fixture.dayKey === tomorrowKeyFromIstDay(today.dayKey) && fixture.hour < 9;
   }
 
   function fmtOdds(val) {
@@ -172,87 +209,108 @@
     return "status-open";
   }
 
-  function renderRows(entries) {
-    const betRowsEl = el("betRows");
-    const betsPanelMetaEl = el("betsPanelMeta");
-    if (!betRowsEl) return;
+  function buildBetRow(e) {
+    const parts = scenarioParts(e);
+    const tr = document.createElement("tr");
+    const dateCell = td(formatToIst(e.fixture_date));
+    const fixtureCell = td(e.fixture || "");
+    const teamCell = td(e.team_name || "");
+    const betCell = td(parts.label);
+    const leagueCell = td(e.league_name || "");
+    const categoryCell = td(parts.category);
+    for (const cell of [fixtureCell, teamCell, betCell, leagueCell, categoryCell]) {
+      if (cell.textContent) cell.title = cell.textContent;
+    }
+    tr.appendChild(dateCell);
+    tr.appendChild(fixtureCell);
+    tr.appendChild(teamCell);
+    tr.appendChild(betCell);
+    tr.appendChild(td(e.odds ?? ""));
+    const statusCell = td(e.status || "open");
+    statusCell.className = statusClass(e.status);
+    tr.appendChild(statusCell);
+
+    const actions = document.createElement("td");
+    actions.className = "resolve-actions col-resolve";
+    const status = (e.status || "open").toLowerCase();
+    if (status === "open") {
+      for (const [label, result] of [
+        ["Won", "won"],
+        ["Lost", "lost"],
+        ["Push", "push"],
+      ]) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `betlog-resolve-btn betlog-resolve-btn--${result}`;
+        btn.textContent = label;
+        btn.onclick = () => resolveBet(e.id, result);
+        actions.appendChild(btn);
+      }
+    } else {
+      const settled = document.createElement("span");
+      settled.className = "resolve-settled";
+      settled.textContent = "Settled";
+      actions.appendChild(settled);
+    }
+    tr.appendChild(actions);
+    tr.appendChild(leagueCell);
+    tr.appendChild(categoryCell);
+    tr.appendChild(td(e.units ?? 1));
+    const pnlCell = td(
+      e.status && e.status !== "open" ? fmtPnl(e.pnl_units) : "—",
+    );
+    pnlCell.className = pnlClass(e.pnl_units);
+    tr.appendChild(pnlCell);
+    return tr;
+  }
+
+  function renderBetTable(bodyEl, metaEl, entries, emptyMsg) {
+    if (!bodyEl) return;
 
     const list = entries || [];
-    betRowsEl.innerHTML = "";
-    if (betsPanelMetaEl) {
-      betsPanelMetaEl.textContent = list.length
+    bodyEl.innerHTML = "";
+    if (metaEl) {
+      metaEl.textContent = list.length
         ? `${list.length} bet${list.length === 1 ? "" : "s"}`
         : "No bets";
     }
 
     if (!list.length) {
       const tr = document.createElement("tr");
-      const empty = td(cfg.emptyBetsMsg);
+      const empty = td(emptyMsg);
       empty.colSpan = 11;
       empty.className = "stats-empty";
       tr.appendChild(empty);
-      betRowsEl.appendChild(tr);
+      bodyEl.appendChild(tr);
       return;
     }
 
     for (const e of list) {
-      const parts = scenarioParts(e);
-      const tr = document.createElement("tr");
-      const dateCell = td(formatToIst(e.fixture_date));
-      const fixtureCell = td(e.fixture || "");
-      const teamCell = td(e.team_name || "");
-      const betCell = td(parts.label);
-      const leagueCell = td(e.league_name || "");
-      const categoryCell = td(parts.category);
-      for (const cell of [fixtureCell, teamCell, betCell, leagueCell, categoryCell]) {
-        if (cell.textContent) cell.title = cell.textContent;
-      }
-      tr.appendChild(dateCell);
-      tr.appendChild(fixtureCell);
-      tr.appendChild(teamCell);
-      tr.appendChild(betCell);
-      tr.appendChild(td(e.odds ?? ""));
-      const statusCell = td(e.status || "open");
-      statusCell.className = statusClass(e.status);
-      tr.appendChild(statusCell);
-
-      const actions = document.createElement("td");
-      actions.className = "resolve-actions col-resolve";
-      const status = (e.status || "open").toLowerCase();
-      if (status === "open") {
-        for (const [label, result] of [
-          ["Won", "won"],
-          ["Lost", "lost"],
-          ["Push", "push"],
-        ]) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = `betlog-resolve-btn betlog-resolve-btn--${result}`;
-          btn.textContent = label;
-          btn.onclick = () => resolveBet(e.id, result);
-          actions.appendChild(btn);
-        }
-      } else {
-        const settled = document.createElement("span");
-        settled.className = "resolve-settled";
-        settled.textContent = "Settled";
-        actions.appendChild(settled);
-      }
-      tr.appendChild(actions);
-      tr.appendChild(leagueCell);
-      tr.appendChild(categoryCell);
-      tr.appendChild(td(e.units ?? 1));
-      const pnlCell = td(
-        e.status && e.status !== "open" ? fmtPnl(e.pnl_units) : "—",
-      );
-      pnlCell.className = pnlClass(e.pnl_units);
-      tr.appendChild(pnlCell);
-      betRowsEl.appendChild(tr);
+      bodyEl.appendChild(buildBetRow(e));
     }
 
     if (window.TableTools) {
-      window.TableTools.reapply(betRowsEl.closest("table"));
+      window.TableTools.reapply(bodyEl.closest("table"));
     }
+  }
+
+  function renderTodayRows(entries) {
+    const todayBetRowsEl = el("todayBetRows");
+    const todayBetsPanelMetaEl = el("todayBetsPanelMeta");
+    const todays = (entries || [])
+      .filter(isTodayFixture)
+      .sort((a, b) => new Date(a.fixture_date || 0) - new Date(b.fixture_date || 0));
+    renderBetTable(
+      todayBetRowsEl,
+      todayBetsPanelMetaEl,
+      todays,
+      "No bets for today's fixture window. Sync recommended bets after refreshing the slate.",
+    );
+  }
+
+  function renderRows(entries) {
+    renderTodayRows(entries);
+    renderBetTable(el("betRows"), el("betsPanelMeta"), entries || [], cfg.emptyBetsMsg);
   }
 
   function setStatus(msg, kind) {

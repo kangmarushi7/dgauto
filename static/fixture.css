@@ -930,21 +930,116 @@
 }
 
 @media (max-width: 700px) {
+  .quant-shell {
+    padding: 8px 10px 32px;
+  }
+
+  .quant-topbar,
+  .quant-nav,
+  .hero-footer,
+  .bet-card__head,
+  .prop-card__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quant-topbar {
+    gap: 10px;
+  }
+
+  .quant-nav {
+    gap: 8px;
+  }
+
+  .quant-nav a {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .quant-brand {
+    text-align: center;
+  }
+
+  .panel,
+  .hero-panel {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .hero-match {
+    gap: 10px;
+  }
+
+  .hero-logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .hero-center h1 {
+    font-size: 1.15rem;
+    line-height: 1.25;
+  }
+
+  .hero-signals,
+  .hero-picks {
+    justify-content: stretch;
+  }
+
+  .signal-chip,
+  .bet-pill {
+    width: 100%;
+  }
+
+  .hero-kpis,
+  .bet-cards,
+  .prop-grid,
+  .odds-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .exec-summary {
+    font-size: 0.92rem;
+  }
+
   .compare-layout {
     grid-template-columns: 1fr;
   }
 
   .hero-panel {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: relative !important;
+    top: auto !important;
+    z-index: auto !important;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
   }
 
-  .ineff-table {
+  .ineff-table,
+  .odds-table {
     font-size: 0.72rem;
   }
 
   .bet-card__grid {
     grid-template-columns: 1fr;
+  }
+
+  .prop-lines {
+    grid-template-columns: 1fr;
+  }
+
+  .prop-bar {
+    height: auto;
+    min-height: 28px;
+  }
+
+  .prop-bar__home,
+  .prop-bar__away {
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .radar-wrap canvas {
+    max-width: 100%;
+    height: auto;
   }
 }

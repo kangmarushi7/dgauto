@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
-    <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/betlog.css?v=6" />
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/betlog.css?v=8" />
     <script src="/static/table_tools.js?v=4" defer></script>
   </head>
   <body class="betlog-body">
@@ -64,6 +64,35 @@
         </div>
       </details>
 
+      <details class="betlog-panel betlog-panel--bets betlog-panel--today" open>
+        <summary>
+          <span>Today's Bets</span>
+          <span class="betlog-panel-meta" id="todayBetsPanelMeta"></span>
+        </summary>
+        <div class="betlog-panel-body betlog-panel-body--bets">
+          <div class="betlog-bets-table-wrap" aria-label="Today's bets table">
+            <table class="betlog-bets-table betlog-bets-table--today">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Fixture</th>
+                <th>Team</th>
+                <th>Bet</th>
+                <th>Odds</th>
+                <th>Status</th>
+                <th class="col-resolve">Resolve</th>
+                <th>League</th>
+                <th>Category</th>
+                <th>U</th>
+                <th>PnL</th>
+              </tr>
+            </thead>
+            <tbody id="todayBetRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
       <details class="betlog-panel betlog-panel--bets" open>
         <summary>
           <span>All bets</span>
@@ -101,7 +130,7 @@
         emptyBetsMsg: "No scenario bets yet. Sync recommended bets from Home.",
       };
     </script>
-    <script src="/static/bet_log.js?v=4" defer></script>
+    <script src="/static/bet_log.js?v=5" defer></script>
     <script>
       (function () {
         const initialDashboard = {{ dashboard | tojson }};

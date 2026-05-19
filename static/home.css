@@ -90,19 +90,16 @@
 }
 
 .slate-carousel {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
-  overflow-x: auto;
   padding: 8px 4px 20px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
 }
 
 .slate-card-link {
-  flex: 0 0 200px;
-  scroll-snap-align: start;
   text-decoration: none;
   color: inherit;
+  min-width: 0;
 }
 
 .slate-card-link:hover .slate-card {
@@ -195,7 +192,55 @@
 }
 
 @media (max-width: 640px) {
-  .slate-card-link {
-    flex: 0 0 170px;
+  .home-page {
+    padding: 18px 12px 36px;
+  }
+
+  .home-header h1 {
+    font-size: 1.45rem;
+  }
+
+  .home-nav {
+    gap: 8px;
+  }
+
+  .home-nav a,
+  .home-toolbar button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .home-toolbar {
+    align-items: stretch;
+  }
+
+  .slate-section-title {
+    font-size: 1.15rem;
+  }
+
+  .slate-carousel {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-inline: 0;
+  }
+
+  .slate-card {
+    padding: 12px 10px 14px;
+  }
+
+  .slate-card__logo,
+  .slate-card__logo--placeholder {
+    width: 46px;
+    height: 46px;
+  }
+
+  .slate-card__name {
+    white-space: normal;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 980px) {
+  .slate-carousel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

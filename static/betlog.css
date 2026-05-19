@@ -233,6 +233,14 @@ body.betlog-body .betlog-kpi .betlog-kpi-value.pnl-neg {
   overflow: visible;
 }
 
+.betlog-panel--today {
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
+.betlog-panel--today > summary {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.14), var(--bl-surface-2));
+}
+
 .betlog-panel > summary {
   list-style: none;
   cursor: pointer;
@@ -932,4 +940,110 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
 
 .betlog-body {
   overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .betlog-shell {
+    padding: 14px 10px 32px;
+  }
+
+  .betlog-topbar {
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .betlog-brand h1 {
+    font-size: 1.45rem;
+  }
+
+  .betlog-brand .subtitle {
+    font-size: 0.88rem;
+  }
+
+  .betlog-nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .betlog-nav a {
+    text-align: center;
+    padding: 9px 10px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .betlog-actions {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .betlog-actions .btn-primary,
+  .betlog-actions .btn-secondary {
+    width: 100%;
+  }
+
+  .betlog-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .betlog-kpi {
+    padding: 12px 8px;
+  }
+
+  .betlog-kpi-value {
+    font-size: 1.15rem;
+  }
+
+  .betlog-panel > summary,
+  .betlog-panel-body {
+    padding: 12px;
+  }
+
+  .betlog-panel > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .betlog-toolbar,
+  .betlog-select-wrap {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .betlog-select-wrap select,
+  .betlog-body .table-filter-input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .betlog-stats-table {
+    min-width: 680px;
+  }
+
+  .betlog-bets-table {
+    min-width: 980px;
+    font-size: 0.75rem;
+  }
+
+  .betlog-bets-table th,
+  .betlog-bets-table td {
+    padding: 7px 8px;
+  }
+
+  .betlog-bets-table th.col-resolve:last-child,
+  .betlog-bets-table td.col-resolve:last-child {
+    position: static;
+    box-shadow: none;
+  }
+
+  .betlog-body .excel-filter-popover {
+    left: 4vw !important;
+    width: 92vw;
+    max-width: 92vw;
+  }
 }
