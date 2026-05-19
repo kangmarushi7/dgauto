@@ -7,8 +7,23 @@ from typing import Any
 from app.dg_feeds import build_correct_score_matrix
 from app.fixture_math import edge as _edge
 from app.fixture_math import fmt as _fmt
+from app.fixture_math import grade_label as _grade_label
 from app.fixture_math import implied_prob as _implied_prob
 from app.fixture_math import num as _num
+from app.fixture_math import verdict_from_edge_strict
+from app.fixture_quant import (
+    build_correlation_intel,
+    build_distribution_blocks,
+    build_fixture_archetype,
+    build_hero_v2,
+    build_live_triggers,
+    build_market_movement,
+    build_match_flow_timeline,
+    build_ranked_opportunities,
+    build_risk_v2,
+    build_trend_intel,
+    enrich_market_row,
+)
 from app.slate import _build_picks, _fmt_kickoff, _parse_dt
 from app.signals import score_match
 
@@ -30,23 +45,6 @@ def grade_from_pct(pct: float | None) -> str:
 
 def units_from_grade(grade: str) -> float:
     return {"A+": 3.0, "A": 2.0, "B": 1.0, "C": 0.5}.get(grade, 0.0)
-
-
-def verdict_from_edge(edge: float | None, model_pct: float | None) -> str:
-    e = _num(edge)
-    p = _num(model_pct)
-    if e is not None:
-        if e >= 8:
-            return "STRONG VALUE"
-        if e >= 4:
-            return "VALUE"
-        if e >= 1:
-            return "LEAN"
-        if e <= -4:
-            return "AVOID"
-    if p is not None and p >= 70:
-        return "LEAN"
-    return "NEUTRAL"
 
 
 def fair_odds_from_pct(pct: float | None) -> float | None:
@@ -78,7 +76,7 @@ def _market_row(
     imp = _implied_prob(book_odds)
     edge = _edge(sim_pct, book_odds)
     grade = grade_from_pct(model)
-    verdict = verdict_from_edge(edge, model)
+    verdict = verdict_from_edge_strict(edge)
     return {
         "market": market,
         "kind": kind,
@@ -93,7 +91,7 @@ def _market_row(
         "edge": edge,
         "edge_fmt": f"{edge:+.1f}%" if edge is not None else "—",
         "grade": grade,
-        "units": units_from_grade(grade) if verdict in ("STRONG VALUE", "VALUE", "LEAN") else 0,
+        "units": 0.0,
         "verdict": verdict,
         "risk": "LOW" if (edge or 0) >= 6 else ("MED" if (edge or 0) >= 2 else "HIGH"),
         "glow": verdict == "STRONG VALUE",
@@ -531,7 +529,12 @@ def _match_flow(perc: dict[str, Any], fh: dict[str, Any], xg: dict[str, Any]) ->
     ]
 
 
-def _team_bars(sim: dict[str, Any], home_name: str, away_name: str) -> list[dict[str, Any]]:
+def _team_bars(
+    sim: dict[str, Any],
+    home_name: str,
+    away_name: str,
+    perc: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     bars: list[dict[str, Any]] = []
     for key, label in [
         ("xg", "Expected Goals"),
@@ -570,6 +573,23 @@ def _team_bars(sim: dict[str, Any], home_name: str, away_name: str) -> list[dict
                 "is_pct": True,
             }
         )
+    if perc:
+        hw = _num(perc.get("home_win_pct"))
+        aw = _num(perc.get("away_win_pct"))
+        if hw is not None and aw is not None and hw + aw > 0:
+            t = hw + aw
+            bars.append(
+                {
+                    "label": "Win probability (model)",
+                    "home": hw,
+                    "away": aw,
+                    "home_pct": round(100 * hw / t, 1),
+                    "away_pct": round(100 * aw / t, 1),
+                    "home_name": home_name,
+                    "away_name": away_name,
+                    "is_pct": True,
+                }
+            )
     return bars
 
 
@@ -680,7 +700,21 @@ def build_fixture_dashboard(
         match = score_match(win_row, goal_row)
 
     picks = _build_picks(match)
-    markets = _build_markets(home_name, away_name, perc, book)
+    profiles = _historical_profiles(perc, xg, home_name, away_name, sim)
+    insight = extra.get("matchup_insight") or {}
+    markets = [
+        enrich_market_row(
+            m,
+            perc,
+            xg,
+            match,
+            home_name=home_name,
+            away_name=away_name,
+            profiles=profiles,
+            insight=insight if isinstance(insight, dict) else None,
+        )
+        for m in _build_markets(home_name, away_name, perc, book)
+    ]
     markets_sorted = sorted(
         markets,
         key=lambda m: (m.get("edge") is not None, abs(m.get("edge") or 0)),
@@ -705,31 +739,47 @@ def build_fixture_dashboard(
             "label": f"{home_name} Win",
             "value": _fmt(perc.get("home_win_pct"), suffix="%"),
             "grade": grade_from_pct(perc.get("home_win_pct")),
+            "grade_label": _grade_label(grade_from_pct(perc.get("home_win_pct"))),
             "glow": (_num(perc.get("home_win_pct")) or 0) >= 65,
         },
         {
             "label": "Over 2.5",
             "value": _fmt(perc.get("over_2_5_pct"), suffix="%"),
             "grade": grade_from_pct(perc.get("over_2_5_pct")),
+            "grade_label": _grade_label(grade_from_pct(perc.get("over_2_5_pct"))),
             "glow": (_num(perc.get("over_2_5_pct")) or 0) >= 70,
         },
         {
             "label": "BTTS",
             "value": _fmt(perc.get("btts_pct"), suffix="%"),
             "grade": grade_from_pct(perc.get("btts_pct")),
+            "grade_label": _grade_label(grade_from_pct(perc.get("btts_pct"))),
             "glow": (_num(perc.get("btts_pct")) or 0) >= 65,
         },
         {
             "label": "Total xG",
             "value": _fmt(tx, digits=2),
             "grade": grade_from_pct(min(99, (tx or 0) * 22)) if tx else "—",
+            "grade_label": _grade_label(grade_from_pct(min(99, (tx or 0) * 22))) if tx else "—",
             "glow": (tx or 0) >= 3.2,
         },
     ]
 
-    recommended = [m for m in markets_sorted if m.get("verdict") in ("STRONG VALUE", "VALUE", "LEAN")][:6]
-    if not recommended:
-        recommended = sorted(markets, key=lambda m: _num(m.get("model_pct")) or 0, reverse=True)[:4]
+    recommended = [
+        m
+        for m in markets_sorted
+        if (m.get("edge") or 0) >= 2
+        and (m.get("ev") is not None and (m.get("ev") or 0) > 0)
+        and m.get("verdict") in ("STRONG VALUE", "VALUE", "LEAN")
+    ][:6]
+    play_status = "PLAY" if recommended else "NO_PLAY"
+    no_play_message = (
+        "No significant market inefficiency detected for priced markets at current odds."
+        if play_status == "NO_PLAY"
+        else ""
+    )
+
+    archetype = build_fixture_archetype(perc, xg, markets_sorted, match)
 
     prop_analysis = _build_prop_analysis(
         home_name,
@@ -741,8 +791,55 @@ def build_fixture_dashboard(
         extra.get("away_trends"),
     )
     book_odds_groups = _build_book_odds_groups(book, perc)
-    profiles = _historical_profiles(perc, xg, home_name, away_name, sim)
     qualified = [p for p in profiles if p.get("qualifies")]
+
+    h2h = extra.get("head2head") or {}
+
+    ranked_opportunities = build_ranked_opportunities(markets_sorted)
+    market_movement = build_market_movement(markets_sorted, book)
+    correlation_intel = build_correlation_intel(perc, markets_sorted)
+    live_triggers = build_live_triggers(perc, xg, fh)
+    trend_intel = build_trend_intel(
+        home_name,
+        away_name,
+        extra.get("home_trends"),
+        extra.get("away_trends"),
+        h2h,
+    )
+    distributions = build_distribution_blocks(sim, xg)
+    match_flow_timeline = build_match_flow_timeline(perc, fh, xg)
+    risk_panel = _risk_panel(match, perc, xg, markets)
+    risk_v2 = build_risk_v2(match, perc, xg, markets_sorted)
+
+    flow_cards = _match_flow(perc, fh, xg)
+    tempo = next((f["value"] for f in flow_cards if f.get("label") == "Match tempo"), "MED")
+
+    cert_score = int(markets_sorted[0].get("certainty_score") or 50) if markets_sorted else 50
+    cert_label = str(markets_sorted[0].get("certainty_label") or "MEDIUM") if markets_sorted else "MEDIUM"
+
+    hero_v2 = build_hero_v2(
+        home_name=home_name,
+        away_name=away_name,
+        league_name=league.get("name") or "",
+        round_name=raw.get("round") or "",
+        kickoff=_fmt_kickoff(dt),
+        is_neutral=bool(raw.get("is_neutral")),
+        match=match,
+        archetype=archetype,
+        confidence_grade=confidence_grade,
+        risk=risk,
+        top_edge=top_edge,
+        recommended=recommended,
+        scorelines=scorelines,
+        hx=hx,
+        ax=ax,
+        tx=tx,
+        tempo=str(tempo),
+        volatility=int(risk_panel.get("volatility") or 50),
+        hist_qualified=len(qualified),
+        certainty_label=cert_label,
+        certainty_score=cert_score,
+    )
 
     top_players_home = []
     top_players_away = []
@@ -759,7 +856,6 @@ def build_fixture_dashboard(
             reverse=True,
         )[:4]
 
-    h2h = extra.get("head2head") or {}
     versus = ((h2h.get("versus_grades") or {}).get("team_vs_team") or {}) if h2h else {}
 
     return {
@@ -779,6 +875,7 @@ def build_fixture_dashboard(
             "signal": match.get("signal"),
             "signal_score": match.get("score"),
             "confidence_grade": confidence_grade,
+            "confidence_label": _grade_label(confidence_grade),
             "risk_level": risk,
             "projected_scoreline": scorelines[0]["score"] if scorelines else "—",
             "projected_scoreline_pct": scorelines[0]["pct"] if scorelines else None,
@@ -790,6 +887,18 @@ def build_fixture_dashboard(
             "kpis": hero_kpis,
             "recommended_labels": [p.get("label") for p in picks],
         },
+        "hero_v2": hero_v2,
+        "play_status": play_status,
+        "no_play_message": no_play_message,
+        "archetype": archetype,
+        "ranked_opportunities": ranked_opportunities,
+        "market_movement": market_movement,
+        "correlation_intel": correlation_intel,
+        "live_triggers": live_triggers,
+        "trend_intel": trend_intel,
+        "distributions": distributions,
+        "match_flow_timeline": match_flow_timeline,
+        "risk_v2": risk_v2,
         "executive_summary": _executive_summary(home_name, away_name, xg, perc, markets, match, sim),
         "prop_analysis": prop_analysis,
         "book_odds_groups": book_odds_groups,
@@ -799,15 +908,15 @@ def build_fixture_dashboard(
         "score_matrix": cs,
         "match_flow": _match_flow(perc, fh, xg),
         "market_inefficiency": [m for m in markets_sorted if m.get("edge") is not None][:8],
-        "risk": _risk_panel(match, perc, xg, markets),
+        "risk": risk_panel,
         "historical_profiles": profiles,
         "historical_qualified_count": len(qualified),
         "team_comparison": {
-            "bars": _team_bars(sim, home_name, away_name),
-            "radar": _radar_axes(sim, perc),
+            "bars": _team_bars(sim, home_name, away_name, perc),
         },
         "context": {
             "top_pick": extra.get("top_pick"),
+            "sim_card": extra.get("sim_card"),
             "h2h_meetings": len((h2h.get("h2h") or {}).get("raw_matches") or []) if h2h else 0,
             "versus_home": (versus.get("home_team") or {}).get("grade"),
             "versus_away": (versus.get("away_team") or {}).get("grade"),

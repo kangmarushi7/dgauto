@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/fixture.css?v=8" />
+    <link rel="stylesheet" href="/static/fixture.css?v=10" />
   </head>
   <body class="quant-body">
     <div class="quant-shell">
@@ -20,74 +20,237 @@
         <span class="quant-brand">DG Intelligence</span>
       </header>
 
-      <!-- HERO -->
-      <section class="glass hero-panel" id="hero">
-        <div class="hero-match">
-          {% if detail.home_logo %}<img src="{{ detail.home_logo }}" alt="" class="hero-logo" />{% endif %}
-          <div class="hero-center">
-            <p class="hero-league">{{ detail.league_name }}{% if detail.round %} · {{ detail.round }}{% endif %}</p>
-            <h1>{{ detail.home_team }} <span class="hero-vs">vs</span> {{ detail.away_team }}</h1>
-            <p class="hero-meta">{{ detail.kickoff }}{% if detail.is_neutral %} · Neutral{% endif %}</p>
+      <section class="glass hero-panel hero-terminal" id="hero">
+        <div class="hero-terminal__grid">
+          <div class="hero-col hero-col--center">
+            <p class="hero-eyebrow">Primary opportunity</p>
+            {% if detail.play_status == 'NO_PLAY' %}
+            <div class="no-play-inline">
+              <span class="no-play-tag">NO PLAY</span>
+              <p>{{ detail.no_play_message }}</p>
+            </div>
+            {% else %}
+            <ul class="hero-top-bets">
+              {% for m in detail.recommended_bets[:3] %}
+              <li class="hero-top-bet{% if loop.first %} hero-top-bet--lead{% endif %}">
+                <span>{{ m.market }}</span>
+                <strong>{{ m.edge_fmt }}</strong>
+                <small>{{ m.ev_fmt }} EV</small>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            <div class="hero-center-metrics">
+              <div class="hero-metric">
+                <span class="muted">Strongest edge</span>
+                <strong>{{ detail.hero_v2.center.strongest_edge }}</strong>
+                <small>{{ detail.hero_v2.center.strongest_market or '—' }}</small>
+              </div>
+              {% if detail.hero_v2.center.suggested_combo %}
+              <div class="hero-metric">
+                <span class="muted">Suggested combo</span>
+                <strong class="combo-text">{{ detail.hero_v2.center.suggested_combo }}</strong>
+              </div>
+              {% endif %}
+              <div class="hero-metric certainty-metric">
+                <span class="muted">Certainty</span>
+                <strong class="certainty-{{ detail.hero_v2.center.certainty_label | lower }}">{{ detail.hero_v2.center.certainty_label }}</strong>
+                <small>{{ detail.hero_v2.center.certainty_score }}/100</small>
+              </div>
+              <div class="hero-metric">
+                <span class="muted">Best market</span>
+                <strong>{{ detail.hero_v2.center.best_market or '—' }}</strong>
+              </div>
+            </div>
           </div>
-          {% if detail.away_logo %}<img src="{{ detail.away_logo }}" alt="" class="hero-logo" />{% endif %}
-        </div>
 
-        <div class="hero-signals">
-          <div class="signal-chip signal-chip--{{ detail.hero.signal }}">
-            <span class="signal-label">Signal</span>
-            <strong>{{ detail.hero.signal_score }}</strong>
+          <div class="hero-col hero-col--left">
+            <div class="hero-match">
+              {% if detail.home_logo %}<img src="{{ detail.home_logo }}" alt="" class="hero-logo" />{% endif %}
+              <div class="hero-center">
+                <p class="hero-league">{{ detail.league_name }}{% if detail.round %} · {{ detail.round }}{% endif %}</p>
+                <h1>{{ detail.home_team }} <span class="hero-vs">vs</span> {{ detail.away_team }}</h1>
+                <p class="hero-meta">{{ detail.kickoff }}{% if detail.is_neutral %} · Neutral{% endif %}</p>
+              </div>
+              {% if detail.away_logo %}<img src="{{ detail.away_logo }}" alt="" class="hero-logo" />{% endif %}
+            </div>
+            <div class="archetype-chip">{{ detail.archetype.primary }}</div>
+            {% if detail.archetype.tags %}
+            <div class="archetype-tags">
+              {% for t in detail.archetype.tags %}<span>{{ t }}</span>{% endfor %}
+            </div>
+            {% endif %}
+            <div class="hero-signals hero-signals--compact">
+              <div class="signal-orb signal-orb--{{ detail.hero.signal }}">
+                <span class="signal-label">Signal</span>
+                <strong>{{ detail.hero.signal_score }}</strong>
+              </div>
+              <div class="confidence-ring-wrap grade-{{ detail.hero.confidence_grade | replace('+', 'plus') }}">
+                <span class="signal-label">Confidence</span>
+                <strong>{{ detail.hero.confidence_grade }}</strong>
+                <span class="grade-pill">{{ detail.hero.confidence_label }}</span>
+              </div>
+              <div class="signal-chip risk-{{ detail.hero.risk_level | lower }}">
+                <span class="signal-label">Risk</span>
+                <strong>{{ detail.hero.risk_level }}</strong>
+              </div>
+            </div>
           </div>
-          <div class="signal-chip grade-chip grade-{{ detail.hero.confidence_grade | replace('+', 'plus') }}">
-            <span class="signal-label">Confidence</span>
-            <strong>{{ detail.hero.confidence_grade }}</strong>
-          </div>
-          <div class="signal-chip risk-{{ detail.hero.risk_level | lower }}">
-            <span class="signal-label">Risk</span>
-            <strong>{{ detail.hero.risk_level }}</strong>
-          </div>
-          {% if detail.hero.main_edge_market %}
-          <div class="signal-chip edge-glow">
-            <span class="signal-label">Top Edge</span>
-            <strong>{{ detail.hero.main_edge_market }} {{ detail.hero.main_edge_fmt }}</strong>
-          </div>
-          {% endif %}
-        </div>
 
-        <div class="hero-kpis">
-          {% for k in detail.hero.kpis %}
-          <div class="kpi-card{% if k.glow %} kpi-card--glow{% endif %}">
-            <span class="kpi-label">{{ k.label }}</span>
-            <span class="kpi-value">{{ k.value }}</span>
-            <span class="kpi-grade grade-{{ k.grade | replace('+', 'plus') }}">{{ k.grade }}</span>
+          <div class="hero-col hero-col--right">
+            <div class="hero-right-block">
+              <span class="muted">Likely score</span>
+              <strong class="hero-score-big">{{ detail.hero_v2.right.scoreline }}{% if detail.hero_v2.right.scoreline_pct %} <small>{{ detail.hero_v2.right.scoreline_pct }}%</small>{% endif %}</strong>
+            </div>
+            <div class="hero-right-block">
+              <span class="muted">Total xG</span>
+              <strong class="mono">{{ detail.hero_v2.right.xg_home }} – {{ detail.hero_v2.right.xg_away }}</strong>
+              <small class="muted">({{ detail.hero_v2.right.xg_total }} combined)</small>
+            </div>
+            <div class="hero-right-row">
+              <div><span class="muted">Tempo</span><strong>{{ detail.hero_v2.right.tempo }}</strong></div>
+              <div><span class="muted">Volatility</span><strong>{{ detail.hero_v2.right.volatility }}</strong></div>
+            </div>
+            <div class="hero-right-block">
+              <span class="muted">Hist. profiles</span>
+              <strong>{{ detail.hero_v2.right.hist_qualified }} qualify</strong>
+            </div>
           </div>
-          {% endfor %}
-        </div>
-
-        <div class="hero-footer">
-          <div class="hero-scoreline">
-            <span class="muted">Likely score</span>
-            <strong>{{ detail.hero.projected_scoreline }}{% if detail.hero.projected_scoreline_pct %} · {{ detail.hero.projected_scoreline_pct }}%{% endif %}</strong>
-          </div>
-          <div class="hero-xg">
-            <span class="muted">xG</span>
-            <strong>{{ detail.hero.xg_home }} – {{ detail.hero.xg_away }}</strong>
-            <span class="muted">({{ detail.hero.xg_total }} total)</span>
-          </div>
-          {% if detail.picks %}
-          <div class="hero-picks">
-            {% for p in detail.picks %}
-            <span class="bet-pill bet-pill--{{ p.tone }}">{{ p.label }} <small>{{ p.detail }}</small></span>
-            {% endfor %}
-          </div>
-          {% endif %}
         </div>
       </section>
 
-      <!-- EXECUTIVE SUMMARY -->
       <section class="glass panel">
         <h2 class="panel-title">Executive Summary</h2>
         <p class="exec-summary">{{ detail.executive_summary }}</p>
       </section>
+
+      {% if detail.play_status == 'NO_PLAY' %}
+      <section class="glass panel panel--wide no-play-banner">
+        <h2 class="no-play-title">NO PLAY</h2>
+        <p>{{ detail.no_play_message }}</p>
+      </section>
+      {% endif %}
+
+      {% if detail.ranked_opportunities %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Ranked Market Opportunities</h2>
+        <p class="panel-lead muted">Where the book may be mispriced vs model</p>
+        <div class="opp-grid">
+          {% for o in detail.ranked_opportunities %}
+          <article class="opp-card opp-card--{{ o.tone }}{% if o.rank == 1 %} opp-card--lead{% endif %}">
+            <span class="opp-rank">#{{ o.rank }}</span>
+            <h3>{{ o.market }}</h3>
+            <span class="verdict-badge verdict-{{ o.verdict | replace(' ', '-') | lower }}">{{ o.verdict }}</span>
+            <div class="opp-edge-bar"><div class="opp-edge-fill" style="width: {{ o.edge_bar }}%"></div></div>
+            <div class="opp-stats">
+              <div><span class="muted">Edge</span><strong class="pos">{{ o.edge_fmt }}</strong></div>
+              <div><span class="muted">EV</span><strong class="ev-highlight">{{ o.ev_fmt }}</strong></div>
+              <div><span class="muted">Model</span><strong>{{ o.model_pct_fmt }}</strong></div>
+              <div><span class="muted">Book</span><strong>{{ o.book_pct_fmt }} @ {{ o.book_odds_fmt }}</strong></div>
+            </div>
+            <div class="opp-meta">
+              <span class="certainty-tag certainty-{{ o.certainty_label | lower }}">{{ o.certainty_label }}</span>
+              <span class="grade-pill-sm">{{ o.grade }} ({{ o.grade_label }})</span>
+              <span class="risk-tag">Risk {{ o.risk }}</span>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        <details class="matrix-details">
+          <summary>Full market table</summary>
+          <div class="ineff-table-wrap">
+            <table class="ineff-table">
+              <thead>
+                <tr><th>Market</th><th>Model</th><th>Book</th><th>Fair</th><th>Edge</th><th>EV</th><th>Verdict</th></tr>
+              </thead>
+              <tbody>
+                {% for m in detail.market_inefficiency %}
+                <tr class="{% if m.glow %}row-glow{% endif %}">
+                  <td>{{ m.market }}</td>
+                  <td>{{ m.model_pct_fmt }}</td>
+                  <td>{{ m.book_pct_fmt }}</td>
+                  <td>{{ m.fair_odds_fmt }}</td>
+                  <td class="{% if m.edge and m.edge > 0 %}pos{% elif m.edge and m.edge < 0 %}neg{% endif %}">{{ m.edge_fmt }}</td>
+                  <td class="ev-highlight">{{ m.ev_fmt }}</td>
+                  <td><span class="verdict-tag verdict-{{ m.verdict | replace(' ', '-') | lower }}">{{ m.verdict }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+      {% endif %}
+
+      {% if detail.market_movement and detail.market_movement.rows %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Market Movement Intelligence</h2>
+        <p class="panel-lead muted">{{ detail.market_movement.disclaimer }}</p>
+        <div class="movement-grid">
+          {% for r in detail.market_movement.rows %}
+          <article class="movement-card">
+            <h3>{{ r.market }}</h3>
+            <div class="movement-odds">
+              <span>Est. open <strong class="mono">{{ r.opening_fmt }}</strong></span>
+              <span>→</span>
+              <span>Current <strong class="mono">{{ r.current_fmt }}</strong></span>
+              <span class="{% if r.move_pct < 0 %}pos{% else %}neg{% endif %}">{{ r.move_pct }}%</span>
+            </div>
+            <p class="muted">{{ r.sharp_signal }}</p>
+            <p class="muted">{{ r.public_signal }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if detail.trend_intel %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Historical Trend Intelligence</h2>
+        <div class="trend-chips">
+          {% for t in detail.trend_intel %}
+          <div class="trend-chip trend-chip--{{ t.tone }}">
+            <strong>{{ t.label }}</strong>
+            <span>{{ t.text }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if detail.correlation_intel %}
+      <section class="glass panel">
+        <h2 class="panel-title">Correlation Intelligence</h2>
+        {% if detail.correlation_intel.best_combo %}
+        <p class="combo-banner"><strong>Best combo:</strong> {{ detail.correlation_intel.best_combo.legs | join(' + ') }} — {{ detail.correlation_intel.best_combo.note }}</p>
+        {% endif %}
+        <ul class="corr-list">
+          {% for p in detail.correlation_intel.pairs %}
+          <li>
+            <span>{{ p.a }} ↔ {{ p.b }}</span>
+            <div class="corr-bar"><div class="corr-fill" style="width: {{ p.strength }}%"></div></div>
+            <small class="muted">{{ p.note }}</small>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if detail.live_triggers %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Live Opportunities</h2>
+        <div class="live-grid">
+          {% for t in detail.live_triggers %}
+          <article class="live-card">
+            <h3>{{ t.title }}</h3>
+            <p><strong>IF</strong> {{ t.condition }}</p>
+            <p><strong>THEN</strong> {{ t.action }}</p>
+            <span class="certainty-tag certainty-{{ t.confidence | lower }}">{{ t.confidence }}</span>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
 
       {% if detail.prop_analysis %}
       <section class="glass panel panel--wide prop-section">
@@ -100,7 +263,6 @@
               <h3>{{ p.title }}</h3>
               {% if p.full.total %}<span class="prop-total mono">{{ p.full.total }} projected</span>{% endif %}
             </header>
-
             {% if p.full.home is defined %}
             <div class="prop-split">
               <div class="prop-bar">
@@ -109,11 +271,6 @@
               </div>
             </div>
             {% endif %}
-
-            {% if p.first_half and p.first_half.total %}
-            <p class="prop-fh muted">1H: {{ p.first_half.total }} ({{ p.first_half.home }} / {{ p.first_half.away }})</p>
-            {% endif %}
-
             {% if p.lines %}
             <div class="prop-lines">
               {% for ln in p.lines %}
@@ -124,23 +281,16 @@
               {% endfor %}
             </div>
             {% endif %}
-
-            {% if p.h2h and p.h2h.meetings %}
-            <p class="prop-h2h muted">
-              H2H ({{ p.h2h.meetings }}):
-              {% if p.key == 'corners' and p.h2h.avg_corners %}avg {{ p.h2h.avg_corners }} corners
-              {% elif p.key == 'shots' and p.h2h.avg_shots %}avg {{ p.h2h.avg_shots }} shots
-              {% elif p.key == 'shots_on_target' and p.h2h.avg_sot %}avg {{ p.h2h.avg_sot }} SOT
-              {% endif %}
-            </p>
-            {% endif %}
-
-            {% if p.heat_note %}<p class="prop-note">{{ p.heat_note }}</p>{% endif %}
-            {% for n in p.hist_notes %}<p class="prop-note muted">{{ n }}</p>{% endfor %}
-            {% for i in p.insights %}<p class="prop-insight">{{ i }}</p>{% endfor %}
           </article>
           {% endfor %}
         </div>
+      </section>
+      {% endif %}
+
+      {% if detail.distributions %}
+      <section class="glass panel panel--wide">
+        <h2 class="panel-title">Probability Distributions</h2>
+        <div class="dist-grid" id="distGrid" data-distributions='{{ detail.distributions | tojson }}'></div>
       </section>
       {% endif %}
 
@@ -171,9 +321,11 @@
       {% endif %}
 
       <div class="quant-grid">
-        <!-- RECOMMENDED BETS -->
         <section class="glass panel panel--wide">
           <h2 class="panel-title">Recommended Bets</h2>
+          {% if detail.play_status == 'NO_PLAY' %}
+          <p class="muted">No positive-EV recommendations at current prices.</p>
+          {% else %}
           <div class="bet-cards">
             {% for b in detail.recommended_bets %}
             <article class="bet-card verdict-{{ b.verdict | replace(' ', '-') | lower }}{% if b.glow %} bet-card--glow{% endif %}">
@@ -181,18 +333,28 @@
                 <h3>{{ b.market }}</h3>
                 <span class="verdict-badge">{{ b.verdict }}</span>
               </div>
-              <div class="bet-card__grid">
-                <div><span class="muted">Model</span><strong>{{ b.model_pct_fmt }}</strong><span class="grade-{{ b.grade | replace('+', 'plus') }}">{{ b.grade }}</span></div>
+              <div class="bet-card__grid bet-card__grid--wide">
+                <div><span class="muted">Model</span><strong>{{ b.model_pct_fmt }}</strong><span class="grade-pill-sm">{{ b.grade }} ({{ b.grade_label }})</span></div>
                 <div><span class="muted">Book</span><strong>{{ b.book_pct_fmt }}</strong><small>@ {{ b.book_odds_fmt }}</small></div>
-                <div><span class="muted">Edge</span><strong class="{% if b.edge and b.edge > 0 %}pos{% elif b.edge and b.edge < 0 %}neg{% endif %}">{{ b.edge_fmt }}</strong></div>
-                <div><span class="muted">Stake</span><strong>{% if b.units %}{{ b.units }}u{% else %}—{% endif %}</strong></div>
+                <div><span class="muted">Edge</span><strong class="pos">{{ b.edge_fmt }}</strong></div>
+                <div><span class="muted">EV</span><strong class="ev-highlight">{{ b.ev_fmt }}</strong></div>
+                <div><span class="muted">Kelly</span><strong>{{ b.kelly_label }}</strong></div>
+                <div><span class="muted">Certainty</span><strong class="certainty-{{ b.certainty_label | lower }}">{{ b.certainty_label }}</strong></div>
               </div>
+              {% if b.why_bet %}
+              <details class="why-bet">
+                <summary>Why this bet?</summary>
+                <ul>
+                  {% for w in b.why_bet %}<li>{{ w }}</li>{% endfor %}
+                </ul>
+              </details>
+              {% endif %}
             </article>
             {% endfor %}
           </div>
+          {% endif %}
         </section>
 
-        <!-- SCORELINES -->
         <section class="glass panel">
           <h2 class="panel-title">Projected Scorelines</h2>
           <div class="scoreline-bars">
@@ -212,41 +374,10 @@
           {% endif %}
         </section>
 
-        <!-- MARKET INEFFICIENCY -->
         <section class="glass panel panel--wide">
-          <h2 class="panel-title">Market Inefficiency</h2>
-          <div class="ineff-table-wrap">
-            <table class="ineff-table">
-              <thead>
-                <tr>
-                  <th>Market</th>
-                  <th>Model</th>
-                  <th>Book</th>
-                  <th>Fair</th>
-                  <th>Edge</th>
-                  <th>Verdict</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for m in detail.market_inefficiency %}
-                <tr class="{% if m.glow %}row-glow{% endif %}">
-                  <td>{{ m.market }}</td>
-                  <td>{{ m.model_pct_fmt }}</td>
-                  <td>{{ m.book_pct_fmt }}</td>
-                  <td>{{ m.fair_odds_fmt }}</td>
-                  <td class="{% if m.edge and m.edge > 0 %}pos{% elif m.edge and m.edge < 0 %}neg{% endif %}">{{ m.edge_fmt }}</td>
-                  <td><span class="verdict-tag verdict-{{ m.verdict | replace(' ', '-') | lower }}">{{ m.verdict }}</span></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- MATCH FLOW -->
-        <section class="glass panel">
-          <h2 class="panel-title">Match Flow</h2>
-          <div class="flow-grid">
+          <h2 class="panel-title">Match Flow Timeline</h2>
+          <div class="flow-timeline" id="flowTimeline" data-timeline='{{ detail.match_flow_timeline | tojson }}'></div>
+          <div class="flow-grid flow-grid--secondary">
             {% for f in detail.match_flow %}
             <div class="flow-card">
               <span class="flow-label">{{ f.label }}</span>
@@ -256,25 +387,17 @@
           </div>
         </section>
 
-        <!-- RISK -->
         <section class="glass panel">
           <h2 class="panel-title">Risk Analysis</h2>
-          <div class="risk-meters">
-            <div class="risk-meter">
-              <span class="muted">Volatility</span>
-              <div class="meter-track"><div class="meter-fill meter-warn" style="width: {{ detail.risk.volatility }}%"></div></div>
-              <strong>{{ detail.risk.volatility }}</strong>
+          <p class="risk-overall risk-overall--{{ detail.risk_v2.overall | lower }}">Overall risk: <strong>{{ detail.risk_v2.overall }}</strong> ({{ detail.risk_v2.overall_score }}/100)</p>
+          <div class="risk-dim-grid">
+            {% for d in detail.risk_v2.dimensions %}
+            <div class="risk-dim">
+              <span class="muted">{{ d.label }}</span>
+              <div class="meter-track"><div class="meter-fill" style="width: {{ d.value }}%"></div></div>
+              <strong>{{ d.value }}</strong>
             </div>
-            <div class="risk-meter">
-              <span class="muted">Stability</span>
-              <div class="meter-track"><div class="meter-fill meter-good" style="width: {{ detail.risk.stability }}%"></div></div>
-              <strong>{{ detail.risk.stability }}</strong>
-            </div>
-            <div class="risk-meter">
-              <span class="muted">Consistency</span>
-              <div class="meter-track"><div class="meter-fill" style="width: {{ detail.risk.consistency }}%"></div></div>
-              <strong>{{ detail.risk.consistency }}</strong>
-            </div>
+            {% endfor %}
           </div>
           {% if detail.risk.warnings %}
           <ul class="risk-warnings">
@@ -285,7 +408,6 @@
           {% endif %}
         </section>
 
-        <!-- HISTORICAL -->
         <section class="glass panel">
           <h2 class="panel-title">Model Reliability</h2>
           <p class="hist-lead">
@@ -303,32 +425,21 @@
           </ul>
         </section>
 
-        <!-- TEAM COMPARISON -->
         <section class="glass panel panel--wide">
           <h2 class="panel-title">Team Comparison</h2>
-          <div class="compare-layout">
-            <div class="radar-wrap">
-              <canvas id="teamRadar" width="280" height="280" aria-label="Team radar chart"></canvas>
-              <div class="radar-legend">
-                <span class="leg-home">{{ detail.home_team }}</span>
-                <span class="leg-away">{{ detail.away_team }}</span>
+          <div class="bar-stack bar-stack--full">
+            {% for b in detail.team_comparison.bars %}
+            <div class="dual-bar">
+              <div class="dual-bar__label">{{ b.label }}</div>
+              <div class="dual-bar__track">
+                <span class="dual-bar__home" style="width: {{ b.home_pct }}%">{{ b.home }}{% if b.is_pct %}%{% endif %}</span>
+                <span class="dual-bar__away" style="width: {{ b.away_pct }}%">{{ b.away }}{% if b.is_pct %}%{% endif %}</span>
               </div>
             </div>
-            <div class="bar-stack">
-              {% for b in detail.team_comparison.bars %}
-              <div class="dual-bar">
-                <div class="dual-bar__label">{{ b.label }}</div>
-                <div class="dual-bar__track">
-                  <span class="dual-bar__home" style="width: {{ b.home_pct }}%">{{ b.home }}{% if b.is_pct %}%{% endif %}</span>
-                  <span class="dual-bar__away" style="width: {{ b.away_pct }}%">{{ b.away }}{% if b.is_pct %}%{% endif %}</span>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
+            {% endfor %}
           </div>
         </section>
 
-        <!-- CONTEXT -->
         {% if detail.context.top_pick or detail.context.h2h_meetings or detail.context.top_players_home %}
         <section class="glass panel panel--wide">
           <h2 class="panel-title">Context</h2>
@@ -345,19 +456,6 @@
               <p>{{ detail.context.h2h_meetings }} recent meetings · Grades {{ detail.context.versus_home or '—' }} / {{ detail.context.versus_away or '—' }}</p>
             </div>
             {% endif %}
-            {% if detail.context.top_players_home %}
-            <div class="context-card">
-              <h3>Top simulated threats</h3>
-              <ul class="player-mini">
-                {% for p in detail.context.top_players_home %}
-                <li>{{ detail.home_team }}: {{ p.name }} ({{ p.g90 }} G/90)</li>
-                {% endfor %}
-                {% for p in detail.context.top_players_away %}
-                <li>{{ detail.away_team }}: {{ p.name }} ({{ p.g90 }} G/90)</li>
-                {% endfor %}
-              </ul>
-            </div>
-            {% endif %}
           </div>
         </section>
         {% endif %}
@@ -368,7 +466,8 @@
       </footer>
     </div>
 
-    <script id="radarData" type="application/json">{{ detail.team_comparison.radar | tojson }}</script>
-    <script src="/static/fixture.js?v=3"></script>
+    <script id="timelineData" type="application/json">{{ detail.match_flow_timeline | tojson }}</script>
+    <script id="distData" type="application/json">{{ detail.distributions | tojson }}</script>
+    <script src="/static/fixture.js?v=5"></script>
   </body>
 </html>

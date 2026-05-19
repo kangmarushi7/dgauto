@@ -1,82 +1,5 @@
 (function () {
-  function drawRadar() {
-    const el = document.getElementById("teamRadar");
-    const dataEl = document.getElementById("radarData");
-    if (!el || !dataEl) return;
-
-    let axes;
-    try {
-      axes = JSON.parse(dataEl.textContent || "[]");
-    } catch {
-      return;
-    }
-    if (!axes.length) return;
-
-    const ctx = el.getContext("2d");
-    const w = el.width;
-    const h = el.height;
-    const cx = w / 2;
-    const cy = h / 2;
-    const r = Math.min(w, h) * 0.36;
-    const n = axes.length;
-
-    ctx.clearRect(0, 0, w, h);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    for (let ring = 1; ring <= 4; ring++) {
-      ctx.beginPath();
-      const rr = (r * ring) / 4;
-      for (let i = 0; i < n; i++) {
-        const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-        const x = cx + rr * Math.cos(a);
-        const y = cy + rr * Math.sin(a);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.stroke();
-    }
-
-    function poly(values, color, fillAlpha) {
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) {
-        const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-        const v = Math.min(100, Math.max(0, values[i] || 0)) / 100;
-        const x = cx + r * v * Math.cos(a);
-        const y = cy + r * v * Math.sin(a);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = color.replace("1)", fillAlpha + ")");
-      ctx.fill();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-
-    poly(
-      axes.map((a) => a.away),
-      "rgba(167, 139, 250, 1)",
-      0.12
-    );
-    poly(
-      axes.map((a) => a.home),
-      "rgba(59, 158, 255, 1)",
-      0.15
-    );
-
-    ctx.fillStyle = "#8b9cb3";
-    ctx.font = "10px IBM Plex Sans, sans-serif";
-    axes.forEach((ax, i) => {
-      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-      const x = cx + (r + 18) * Math.cos(a);
-      const y = cy + (r + 18) * Math.sin(a);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(ax.axis, x, y);
-    });
-  }
+  "use strict";
 
   function renderHeatmap() {
     const root = document.querySelector(".mini-heatmap");
@@ -117,9 +40,96 @@
     });
   }
 
+  function renderTimeline() {
+    const root = document.getElementById("flowTimeline");
+    if (!root) return;
+    let segs;
+    try {
+      const el = document.getElementById("timelineData");
+      segs = JSON.parse(el?.textContent || "[]");
+    } catch {
+      return;
+    }
+    if (!segs.length) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "timeline-wrap";
+
+    const axis = document.createElement("div");
+    axis.className = "timeline-axis";
+    axis.innerHTML = "<span>0'</span><span>HT</span><span>90'</span>";
+    wrap.appendChild(axis);
+
+    const track = document.createElement("div");
+    track.className = "timeline-track";
+    segs.forEach((s) => {
+      const seg = document.createElement("div");
+      seg.className = "timeline-seg";
+      seg.style.flex = String(s.pressure || 25);
+      const fill = document.createElement("div");
+      fill.className = "timeline-fill";
+      fill.style.height = `${Math.min(100, s.pressure || 20)}%`;
+      fill.title = `${s.label}: ${s.pressure}% pressure`;
+      seg.appendChild(fill);
+      const lbl = document.createElement("span");
+      lbl.className = "timeline-lbl";
+      lbl.textContent = s.label;
+      seg.appendChild(lbl);
+      track.appendChild(seg);
+    });
+    wrap.appendChild(track);
+    root.appendChild(wrap);
+  }
+
+  function renderDistributions() {
+    const root = document.getElementById("distGrid");
+    if (!root) return;
+    let data;
+    try {
+      const el = document.getElementById("distData");
+      data = JSON.parse(el?.textContent || "{}");
+    } catch {
+      return;
+    }
+
+    const labels = {
+      goals: "Goals (total)",
+      corners: "Corners",
+      shots: "Shots",
+      cards: "Cards",
+    };
+
+    Object.entries(labels).forEach(([key, title]) => {
+      const buckets = data[key];
+      if (!buckets || !buckets.length) return;
+      const card = document.createElement("article");
+      card.className = "dist-card";
+      const h = document.createElement("h3");
+      h.textContent = title;
+      card.appendChild(h);
+      const chart = document.createElement("div");
+      chart.className = "dist-chart";
+      buckets.slice(0, 14).forEach((b) => {
+        const col = document.createElement("div");
+        col.className = "dist-col";
+        const bar = document.createElement("div");
+        bar.className = "dist-bar";
+        bar.style.height = `${b.bar_width || 10}%`;
+        col.appendChild(bar);
+        const lab = document.createElement("span");
+        lab.textContent = b.label;
+        col.appendChild(lab);
+        chart.appendChild(col);
+      });
+      card.appendChild(chart);
+      root.appendChild(card);
+    });
+  }
+
   function boot() {
-    drawRadar();
     renderHeatmap();
+    renderTimeline();
+    renderDistributions();
   }
 
   if (document.readyState === "loading") {
