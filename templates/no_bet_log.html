@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NO Bet Log - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>NO Bet Log</h1>
+      <p class="subtitle">Separate log for NO Strat team not-to-win bets.</p>
+      <p class="top-links"><a href="/">Back to Home</a> | <a href="/no-strat">Go to NO Strat</a></p>
+
+      <div class="actions">
+        <button id="syncBtn">Sync NO Strat Bets</button>
+        <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        <span id="status"></span>
+      </div>
+
+      <section class="recommendations">
+        <div class="recommendation-card">
+          <h2>NO Performance</h2>
+          <p class="hit-note" id="stats"></p>
+        </div>
+      </section>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Fixture Date</th>
+            <th>Fixture</th>
+            <th>League</th>
+            <th>Team Faded</th>
+            <th>Bet Type</th>
+            <th>Not Win %</th>
+            <th>Odds</th>
+            <th>Units</th>
+            <th>Status</th>
+            <th>Unit PnL</th>
+            <th>Resolve</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </main>
+
+    <script>
+      const syncBtn = document.getElementById("syncBtn");
+      const autoResolveBtn = document.getElementById("autoResolveBtn");
+      const statusEl = document.getElementById("status");
+      const rowsEl = document.getElementById("rows");
+      const statsEl = document.getElementById("stats");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function td(text) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        return el;
+      }
+
+      function renderStats(s) {
+        const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
+        statsEl.textContent = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
+      }
+
+      function formatToIst(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
+      }
+
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) {
+            setTimeout(tick, 150);
+          }
+        };
+        tick();
+      }
+
+      async function resolveBet(id, result) {
+        const res = await fetch(`/api/no-bet-log/${id}/resolve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        renderStats(data.dashboard);
+        renderRows(data.entries);
+      }
+
+      function renderRows(entries) {
+        rowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No NO bets logged yet.");
+          empty.colSpan = 11;
+          tr.appendChild(empty);
+          rowsEl.appendChild(tr);
+          return;
+        }
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(formatToIst(e.fixture_date)));
+          tr.appendChild(td(e.fixture || ""));
+          tr.appendChild(td(e.league_name || ""));
+          tr.appendChild(td(e.team_name || ""));
+          tr.appendChild(td(e.bet_type || ""));
+          tr.appendChild(td(e.qualifier_pct ?? ""));
+          tr.appendChild(td(e.odds ?? ""));
+          tr.appendChild(td(e.units ?? 1));
+          tr.appendChild(td(e.status || "open"));
+          tr.appendChild(td(e.pnl_units ?? ""));
+
+          const actions = document.createElement("td");
+          const won = document.createElement("button");
+          won.className = "small-btn";
+          won.textContent = "Won";
+          won.onclick = () => resolveBet(e.id, "won");
+          const lost = document.createElement("button");
+          lost.className = "small-btn";
+          lost.textContent = "Lost";
+          lost.onclick = () => resolveBet(e.id, "lost");
+          const push = document.createElement("button");
+          push.className = "small-btn";
+          push.textContent = "Push";
+          push.onclick = () => resolveBet(e.id, "push");
+          actions.appendChild(won);
+          actions.appendChild(lost);
+          actions.appendChild(push);
+          tr.appendChild(actions);
+          rowsEl.appendChild(tr);
+        }
+        if (window.TableTools) {
+          window.TableTools.reapply(rowsEl.closest("table"));
+        }
+      }
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Syncing...";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch("/api/no-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          renderStats(data.dashboard);
+          renderRows(data.entries);
+          statusEl.textContent = `Synced ${data.result.inserted} new bets`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      autoResolveBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Auto resolving open bets...";
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch("/api/no-bet-log/auto-resolve", { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) {
+            throw new Error(raw || `HTTP ${res.status}`);
+          }
+          const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
+          renderStats(data.dashboard);
+          renderRows(data.entries);
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+          if (data.result.skipped_not_found) {
+            msg += ` (${data.result.skipped_not_found} not found)`;
+          }
+          if (data.result.stopped_early) {
+            msg += " — partial run, click again for remaining";
+          }
+          statusEl.textContent = msg;
+        } catch (err) {
+          statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+
+      renderStats({{ dashboard | tojson }});
+      renderRows({{ entries | tojson }});
+      ensureTableTools();
+    </script>
+  </body>
+</html>

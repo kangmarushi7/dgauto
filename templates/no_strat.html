@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NO Strat - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>NO Strat</h1>
+      <p class="subtitle">Team not-to-win filter: win chance &lt; 50% and team projected goals &lt; 1.00.</p>
+      <p class="top-links">
+        <a href="/">Back to Home</a> |
+        <a href="/lm-strat">Go to LM Strat</a> |
+        <a href="/no-bet-log">Go to NO Bet Log</a>
+      </p>
+      <div class="actions">
+        <button id="syncNoBtn" type="button">Sync NO Strat Bets</button>
+        <span id="syncStatus"></span>
+      </div>
+      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+
+      <section class="recommendation-card">
+        <h2>Qualified NO Strat Bets</h2>
+        <p class="hit-note">Total qualified team spots: <strong>{{ picks|length }}</strong></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>Team to Fade</th>
+              <th>Bet</th>
+              <th>Protection</th>
+              <th>Odds</th>
+              <th>Win %</th>
+              <th>Not Win %</th>
+              <th>Team Proj Goals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if picks|length == 0 %}
+            <tr>
+              <td colspan="10">No NO strat teams qualified for this slate.</td>
+            </tr>
+            {% else %}
+            {% for p in picks %}
+            <tr>
+              <td class="fixture-date">{{ p["fixture_date"] or "" }}</td>
+              <td>
+                {% if p["fixture_id"] %}
+                <a href="/fixture/{{ p['fixture_id'] }}">{{ p["fixture"] }}</a>
+                {% else %}
+                {{ p["fixture"] }}
+                {% endif %}
+              </td>
+              <td>{{ p["league_name"] }}</td>
+              <td>{{ p["team"] }}</td>
+              <td>{{ p["bet_type"] }}</td>
+              <td>{{ p["protection"] }}</td>
+              <td>{{ p["odds"] or "" }}</td>
+              <td>{{ p["win_pct"] }}</td>
+              <td>{{ p["not_win_pct"] }}</td>
+              <td>{{ p["projected_goals"] }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function formatToIst(value) {
+        if (!value) return "Unknown";
+        if (value === "Never") return value;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
+      }
+
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) {
+            setTimeout(tick, 150);
+          }
+        };
+        tick();
+      }
+
+      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
+
+      document.querySelectorAll(".fixture-date").forEach((cell) => {
+        const value = (cell.textContent || "").trim();
+        if (!value) return;
+        cell.textContent = formatToIst(value);
+      });
+      ensureTableTools();
+
+      document.getElementById("syncNoBtn").addEventListener("click", async (event) => {
+        const btn = event.currentTarget;
+        const status = document.getElementById("syncStatus");
+        status.textContent = "Syncing...";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/no-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          status.textContent = `Synced ${data.result.inserted} new bets`;
+        } catch (err) {
+          status.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

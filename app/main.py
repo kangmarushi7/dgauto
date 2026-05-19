@@ -27,6 +27,13 @@ from app.lm_strat import (
     resolve_lm_bet,
     sync_lm_bets,
 )
+from app.no_strat import (
+    build_no_strat_picks,
+    load_no_bet_log,
+    no_dashboard,
+    resolve_no_bet,
+    sync_no_bets,
+)
 from app.scraper import scrape_datagaffer_sync
 from app.signals import merge_outlooks
 from app.fixture_detail import get_fixture_detail_from_state
@@ -172,6 +179,28 @@ async def lm_strat_page(request: Request):
     )
 
 
+@app.get("/no-strat")
+async def no_strat_page(request: Request):
+    data = read_latest()
+    picks = build_no_strat_picks(data.get("matches", []))
+    return templates.TemplateResponse(
+        request,
+        "no_strat.html",
+        {"data": data, "picks": picks},
+    )
+
+
+@app.get("/no-bet-log")
+async def no_bet_log_page(request: Request):
+    entries = load_no_bet_log()
+    dashboard = no_dashboard(entries)
+    return templates.TemplateResponse(
+        request,
+        "no_bet_log.html",
+        {"entries": entries, "dashboard": dashboard},
+    )
+
+
 @app.get("/lm-bet-log")
 async def lm_bet_log_page(request: Request):
     entries = load_lm_bet_log()
@@ -285,7 +314,7 @@ async def legacy_bet_log_auto_resolve():
 
 @app.post("/api/auto-resolve/all")
 async def auto_resolve_all_logs():
-    """Resolve open bets on main bet log and LM strat bet log (same as the daily job)."""
+    """Resolve open bets on main, LM strat, and NO strat bet logs (same as the daily job)."""
     summary = await run_in_threadpool(run_all_auto_resolves)
     return JSONResponse({"summary": summary})
 
@@ -295,6 +324,42 @@ async def lm_strat_data():
     latest = read_latest()
     picks = build_lm_strat_picks(latest.get("matches", []))
     return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
+
+
+@app.get("/api/no-strat")
+async def no_strat_data():
+    latest = read_latest()
+    picks = build_no_strat_picks(latest.get("matches", []))
+    return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
+
+
+@app.get("/api/no-bet-log")
+async def no_bet_log_data():
+    entries = load_no_bet_log()
+    return JSONResponse({"entries": entries, "dashboard": no_dashboard(entries)})
+
+
+@app.post("/api/no-bet-log/sync")
+async def no_bet_log_sync():
+    latest = read_latest()
+    picks = build_no_strat_picks(latest.get("matches", []))
+    result = sync_no_bets(picks)
+    entries = load_no_bet_log()
+    return JSONResponse({"result": result, "entries": entries, "dashboard": no_dashboard(entries)})
+
+
+@app.post("/api/no-bet-log/{bet_id}/resolve")
+async def no_bet_log_resolve(bet_id: str, payload: dict):
+    updated = resolve_no_bet(bet_id, str(payload.get("result", "")))
+    entries = load_no_bet_log()
+    return JSONResponse({"updated": updated, "entries": entries, "dashboard": no_dashboard(entries)})
+
+
+@app.post("/api/no-bet-log/auto-resolve")
+async def no_bet_log_auto_resolve():
+    result = await run_in_threadpool(auto_resolve_open_bets, "no")
+    entries = load_no_bet_log()
+    return JSONResponse({"result": result, "entries": entries, "dashboard": no_dashboard(entries)})
 
 
 @app.get("/api/lm-bet-log")
