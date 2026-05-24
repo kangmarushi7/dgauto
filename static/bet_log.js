@@ -66,13 +66,22 @@
     return istParts(utcNoon)?.dayKey;
   }
 
+  /** Today's Bets window: noon IST today through 09:00 IST tomorrow. */
+  const TODAYS_BETS_START_HOUR = 12;
+  const TODAYS_BETS_END_HOUR = 9;
+
   function isTodayFixture(entry) {
     const fixture = istParts(entry.fixture_date);
     if (!fixture) return false;
     const today = istParts(new Date());
     if (!today) return false;
-    if (fixture.dayKey === today.dayKey) return true;
-    return fixture.dayKey === tomorrowKeyFromIstDay(today.dayKey) && fixture.hour < 9;
+    if (fixture.dayKey === today.dayKey) {
+      return fixture.hour >= TODAYS_BETS_START_HOUR;
+    }
+    return (
+      fixture.dayKey === tomorrowKeyFromIstDay(today.dayKey) &&
+      fixture.hour < TODAYS_BETS_END_HOUR
+    );
   }
 
   function fmtOdds(val) {
