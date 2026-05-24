@@ -11,6 +11,7 @@ from app.fixture_math import grade_label as _grade_label
 from app.fixture_math import implied_prob as _implied_prob
 from app.fixture_math import num as _num
 from app.fixture_math import verdict_from_edge_strict
+from app.ev_bet_filters import is_actionable_plus_ev_market, market_passes_model_filter
 from app.fixture_quant import (
     build_correlation_intel,
     build_distribution_blocks,
@@ -702,8 +703,9 @@ def build_fixture_dashboard(
     picks = _build_picks(match)
     profiles = _historical_profiles(perc, xg, home_name, away_name, sim)
     insight = extra.get("matchup_insight") or {}
-    markets = [
-        enrich_market_row(
+    markets = []
+    for m in _build_markets(home_name, away_name, perc, book):
+        enriched = enrich_market_row(
             m,
             perc,
             xg,
@@ -713,8 +715,19 @@ def build_fixture_dashboard(
             profiles=profiles,
             insight=insight if isinstance(insight, dict) else None,
         )
-        for m in _build_markets(home_name, away_name, perc, book)
-    ]
+        model_ok, model_reason = market_passes_model_filter(
+            str(enriched.get("market") or ""),
+            home_name=home_name,
+            away_name=away_name,
+            xg=xg,
+            perc=perc,
+        )
+        enriched["model_ok"] = model_ok
+        enriched["model_skip_reason"] = model_reason if not model_ok else ""
+        if not model_ok:
+            enriched["units"] = 0.0
+            enriched["glow"] = False
+        markets.append(enriched)
     markets_sorted = sorted(
         markets,
         key=lambda m: (m.get("edge") is not None, abs(m.get("edge") or 0)),
@@ -768,9 +781,9 @@ def build_fixture_dashboard(
     recommended = [
         m
         for m in markets_sorted
-        if (m.get("edge") or 0) >= 2
-        and (m.get("ev") is not None and (m.get("ev") or 0) > 0)
-        and m.get("verdict") in ("STRONG VALUE", "VALUE", "LEAN")
+        if is_actionable_plus_ev_market(
+            m, home_name=home_name, away_name=away_name, xg=xg, perc=perc
+        )
     ][:6]
     play_status = "PLAY" if recommended else "NO_PLAY"
     no_play_message = (

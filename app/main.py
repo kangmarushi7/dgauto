@@ -34,6 +34,14 @@ from app.no_strat import (
     resolve_no_bet,
     sync_no_bets,
 )
+from app.plus_ev_strat import (
+    build_plus_ev_picks,
+    enrich_plus_ev_entries,
+    load_plus_ev_bet_log,
+    plus_ev_dashboard,
+    resolve_plus_ev_bet,
+    sync_plus_ev_bets,
+)
 from app.scraper import scrape_datagaffer_sync
 from app.signals import merge_outlooks
 from app.fixture_detail import get_fixture_detail_from_state
@@ -201,6 +209,31 @@ async def no_bet_log_page(request: Request):
     )
 
 
+@app.get("/plus-ev-strat")
+async def plus_ev_strat_page(request: Request):
+    data = read_latest()
+    picks = build_plus_ev_picks(data)
+    return templates.TemplateResponse(
+        request,
+        "plus_ev_strat.html",
+        {"data": data, "picks": picks},
+    )
+
+
+@app.get("/plus-ev-bet-log")
+async def plus_ev_bet_log_page(request: Request):
+    entries = load_plus_ev_bet_log()
+    dashboard = plus_ev_dashboard(entries)
+    return templates.TemplateResponse(
+        request,
+        "plus_ev_bet_log.html",
+        {
+            "entries": enrich_plus_ev_entries(entries),
+            "dashboard": dashboard,
+        },
+    )
+
+
 @app.get("/lm-bet-log")
 async def lm_bet_log_page(request: Request):
     entries = load_lm_bet_log()
@@ -314,7 +347,7 @@ async def legacy_bet_log_auto_resolve():
 
 @app.post("/api/auto-resolve/all")
 async def auto_resolve_all_logs():
-    """Resolve open bets on main, LM strat, and NO strat bet logs (same as the daily job)."""
+    """Resolve open bets on main, LM, NO, and +EV bet logs (same as the daily job)."""
     summary = await run_in_threadpool(run_all_auto_resolves)
     return JSONResponse({"summary": summary})
 
@@ -360,6 +393,65 @@ async def no_bet_log_auto_resolve():
     result = await run_in_threadpool(auto_resolve_open_bets, "no")
     entries = load_no_bet_log()
     return JSONResponse({"result": result, "entries": entries, "dashboard": no_dashboard(entries)})
+
+
+@app.get("/api/plus-ev-strat")
+async def plus_ev_strat_data():
+    latest = read_latest()
+    picks = build_plus_ev_picks(latest)
+    return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
+
+
+@app.get("/api/plus-ev-bet-log")
+async def plus_ev_bet_log_data():
+    entries = load_plus_ev_bet_log()
+    return JSONResponse(
+        {
+            "entries": enrich_plus_ev_entries(entries),
+            "dashboard": plus_ev_dashboard(entries),
+        }
+    )
+
+
+@app.post("/api/plus-ev-bet-log/sync")
+async def plus_ev_bet_log_sync():
+    latest = read_latest()
+    picks = build_plus_ev_picks(latest)
+    result = sync_plus_ev_bets(picks)
+    entries = load_plus_ev_bet_log()
+    return JSONResponse(
+        {
+            "result": result,
+            "entries": enrich_plus_ev_entries(entries),
+            "dashboard": plus_ev_dashboard(entries),
+        }
+    )
+
+
+@app.post("/api/plus-ev-bet-log/{bet_id}/resolve")
+async def plus_ev_bet_log_resolve(bet_id: str, payload: dict):
+    updated = resolve_plus_ev_bet(bet_id, str(payload.get("result", "")))
+    entries = load_plus_ev_bet_log()
+    return JSONResponse(
+        {
+            "updated": updated,
+            "entries": enrich_plus_ev_entries(entries),
+            "dashboard": plus_ev_dashboard(entries),
+        }
+    )
+
+
+@app.post("/api/plus-ev-bet-log/auto-resolve")
+async def plus_ev_bet_log_auto_resolve():
+    result = await run_in_threadpool(auto_resolve_open_bets, "ev")
+    entries = load_plus_ev_bet_log()
+    return JSONResponse(
+        {
+            "result": result,
+            "entries": enrich_plus_ev_entries(entries),
+            "dashboard": plus_ev_dashboard(entries),
+        }
+    )
 
 
 @app.get("/api/lm-bet-log")

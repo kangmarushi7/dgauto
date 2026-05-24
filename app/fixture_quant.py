@@ -206,9 +206,10 @@ def enrich_market_row(
 
 def build_ranked_opportunities(markets: list[dict[str, Any]], *, limit: int = 8) -> list[dict[str, Any]]:
     ranked = []
+    pool = [x for x in markets if num(x.get("edge")) is not None and x.get("model_ok", True)]
     for i, m in enumerate(
         sorted(
-            [x for x in markets if num(x.get("edge")) is not None],
+            pool,
             key=lambda x: (num(x.get("edge")) or 0),
             reverse=True,
         )[:limit],

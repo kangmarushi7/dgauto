@@ -140,6 +140,10 @@ LEGACY_BET_TYPE_MAP: dict[str, dict[str, str]] = {
     "team_o1.5": {"category": "Legacy", "label": "Team O1.5 (unsplit)", "resolve": "team_o1.5"},
     "under2.5": {"category": "Legacy", "label": "Under 2.5 (unsplit)", "resolve": "under2.5"},
     "under3.5": {"category": "Legacy", "label": "Under 3.5 (unsplit)", "resolve": "under3.5"},
+    "draw": {"category": "+EV", "label": "Draw", "resolve": "draw"},
+    "dc_1x": {"category": "+EV", "label": "Double Chance 1X", "resolve": "dc_1x"},
+    "dc_x2": {"category": "+EV", "label": "Double Chance X2", "resolve": "dc_x2"},
+    "not_win": {"category": "NO Strat", "label": "Team not to win", "resolve": "not_win"},
 }
 
 WIN_MIN_60 = 60.0

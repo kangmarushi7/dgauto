@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>+EV Strat - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>+EV Strat</h1>
+      <p class="subtitle">
+        Positive EV with model backing: edge ≥ 2%, EV &gt; 0, and xG must support the line (e.g. team O1.5 needs team xG ≥ 1.85).
+      </p>
+      <p class="top-links">
+        <a href="/">Back to Home</a> |
+        <a href="/plus-ev-bet-log">Go to +EV Bet Log</a>
+      </p>
+      <div class="actions">
+        <button id="syncBtn" type="button">Sync +EV Bets to Log</button>
+        <span id="syncStatus"></span>
+      </div>
+      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+
+      <section class="recommendation-card">
+        <h2>Qualified +EV Bets (model-filtered)</h2>
+        <p class="hit-note">Total qualified: <strong>{{ picks|length }}</strong></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>Market</th>
+              <th>Verdict</th>
+              <th>Edge</th>
+              <th>EV</th>
+              <th>Model</th>
+              <th>Book</th>
+              <th>Certainty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if picks|length == 0 %}
+            <tr>
+              <td colspan="10">No model-valid +EV bets on the current slate. Refresh data or check filters.</td>
+            </tr>
+            {% else %}
+            {% for p in picks %}
+            <tr>
+              <td class="fixture-date">{{ p["fixture_date"] or "" }}</td>
+              <td>
+                {% if p["fixture_id"] %}
+                <a href="/fixture/{{ p['fixture_id'] }}">{{ p["fixture"] }}</a>
+                {% else %}
+                {{ p["fixture"] }}
+                {% endif %}
+              </td>
+              <td>{{ p["league_name"] }}</td>
+              <td>{{ p["market"] }}</td>
+              <td>{{ p["verdict"] }}</td>
+              <td>{{ p["edge_fmt"] }}</td>
+              <td>{{ p["ev_fmt"] }}</td>
+              <td>{{ p["model_pct_fmt"] }}</td>
+              <td>{{ p["book_odds_fmt"] }}</td>
+              <td>{{ p["certainty_label"] }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function formatToIst(value) {
+        if (!value) return "Unknown";
+        if (value === "Never") return value;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
+      }
+
+      scrapedAtEl.textContent = formatToIst(scrapedAtEl.textContent.trim());
+      document.querySelectorAll(".fixture-date").forEach((cell) => {
+        const value = (cell.textContent || "").trim();
+        if (!value) return;
+        cell.textContent = formatToIst(value);
+      });
+
+      document.getElementById("syncBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("syncBtn");
+        const status = document.getElementById("syncStatus");
+        status.textContent = "Syncing...";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/plus-ev-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          status.textContent = `Synced ${data.result.inserted} new bets`;
+        } catch (err) {
+          status.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      if (window.TableTools) window.TableTools.enhanceAll();
+    </script>
+  </body>
+</html>

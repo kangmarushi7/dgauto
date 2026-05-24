@@ -388,6 +388,15 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
             return "won" if away_goals <= home_goals else "lost"
         return None
 
+    if kind == "draw":
+        return "won" if home_goals == away_goals else "lost"
+
+    if kind == "dc_1x":
+        return "won" if home_goals >= away_goals else "lost"
+
+    if kind == "dc_x2":
+        return "won" if away_goals >= home_goals else "lost"
+
     return None
 
 

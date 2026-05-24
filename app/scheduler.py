@@ -56,8 +56,8 @@ def _resolve_timezone(tz_name: str):
 
 def run_all_auto_resolves() -> dict[str, Any]:
     """Resolve open bets for main bet log (incl. legacy), LM, and NO strat bet logs."""
-    summary: dict[str, Any] = {"main": None, "lm": None, "no": None}
-    for log_type in ("main", "lm", "no"):
+    summary: dict[str, Any] = {"main": None, "lm": None, "no": None, "ev": None}
+    for log_type in ("main", "lm", "no", "ev"):
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:
@@ -108,7 +108,7 @@ def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
 
     _scheduler = scheduler
     logger.info(
-        "Scheduled auto-resolve daily at %02d:%02d %s (main + lm + no bet logs)",
+        "Scheduled auto-resolve daily at %02d:%02d %s (main + lm + no + ev bet logs)",
         hour,
         minute,
         getattr(tz, "key", tz),
