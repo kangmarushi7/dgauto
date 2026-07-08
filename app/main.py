@@ -47,6 +47,7 @@ from app.signals import merge_outlooks
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
+from app.bot_feed import build_prematch_feed, get_prematch_fixture
 
 app = FastAPI(title="DG Bet Automation")
 templates = Jinja2Templates(directory="templates")
@@ -79,6 +80,15 @@ def _cron_authorized(x_cron_secret: str | None = Header(default=None)) -> None:
         return
     if x_cron_secret != expected:
         raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
+def _bot_api_authorized(x_api_key: str | None = Header(default=None, alias="X-Api-Key")) -> None:
+    """Require X-Api-Key when BOT_API_KEY is set in the environment."""
+    expected = os.getenv("BOT_API_KEY", "").strip()
+    if not expected:
+        return
+    if x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 @app.on_event("startup")
@@ -264,6 +274,43 @@ async def refresh():
 @app.get("/api/data")
 async def data():
     return JSONResponse(read_latest())
+
+
+@app.get("/api/bot/prematch")
+async def bot_prematch_feed(
+    slate_only: bool = False,
+    plus_ev: bool = True,
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+):
+    """
+    Pre-match model feed for external trading bots.
+    Set BOT_API_KEY and send header X-Api-Key. In-play data is not included.
+    """
+    _bot_api_authorized(x_api_key)
+    state = read_latest()
+    payload = build_prematch_feed(state, slate_only=slate_only, include_plus_ev=plus_ev)
+    return JSONResponse(payload)
+
+
+@app.get("/api/bot/prematch/{fixture_id}")
+async def bot_prematch_fixture(
+    fixture_id: int,
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+):
+    """Single-fixture pre-match payload."""
+    _bot_api_authorized(x_api_key)
+    state = read_latest()
+    row = get_prematch_fixture(state, fixture_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Fixture not found. Refresh from DataGaffer first.")
+    return JSONResponse(
+        {
+            "schema_version": 1,
+            "kind": "prematch",
+            "scraped_at": state.get("scraped_at"),
+            "fixture": row,
+        }
+    )
 
 
 @app.get("/api/todays-bets")

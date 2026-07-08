@@ -22,6 +22,7 @@ class Settings:
     dg_submit_selector: str = os.getenv("DG_SUBMIT_SELECTOR", "button[type='submit']")
     app_env: str = os.getenv("APP_ENV", "dev")
     api_football_key: str = os.getenv("API_FOOTBALL_KEY", "") or os.getenv("APISPORTS_KEY", "")
+    bot_api_key: str = os.getenv("BOT_API_KEY", "")
 
 
 settings = Settings()
