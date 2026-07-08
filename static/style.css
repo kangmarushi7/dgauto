@@ -48,6 +48,44 @@ h1 {
   margin: 16px 0;
 }
 
+.season-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.season-switch__btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #c5d4de;
+  background: #f8fafc;
+  color: #334155;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 130px;
+}
+
+.season-switch__btn small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.season-switch__btn.is-active {
+  background: #05603a;
+  border-color: #05603a;
+  color: #fff;
+}
+
+.season-switch__btn.is-active small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 button {
   background: #05603a;
   color: #fff;

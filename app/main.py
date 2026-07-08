@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -48,6 +48,7 @@ from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
+from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context
 
 app = FastAPI(title="DG Bet Automation")
 templates = Jinja2Templates(directory="templates")
@@ -80,6 +81,41 @@ def _cron_authorized(x_cron_secret: str | None = Header(default=None)) -> None:
         return
     if x_cron_secret != expected:
         raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
+def _resolve_season(season: int | None = None) -> int:
+    return parse_season(season)
+
+
+def _bet_log_payload(*, legacy: bool = False, season: int | None = None) -> dict:
+    season_id = _resolve_season(season)
+    entries = load_bet_log()
+    scope = "legacy" if legacy else "scenarios"
+    scoped = filter_bet_entries(entries, legacy=legacy)
+    season_entries = filter_entries_by_season(scoped, season_id)
+    legacy_season = filter_entries_by_season(filter_bet_entries(entries, legacy=True), season_id)
+    return {
+        **season_context(season_id),
+        "entries": enrich_bet_entries(season_entries),
+        "dashboard": bet_log_dashboard(season_entries, scope=scope),
+        "legacy_count": len(legacy_season),
+    }
+
+
+def _strat_log_payload(
+    entries: list,
+    dashboard_fn,
+    *,
+    season: int | None = None,
+    enrich_fn=None,
+) -> dict:
+    season_id = _resolve_season(season)
+    filtered = filter_entries_by_season(entries, season_id)
+    return {
+        **season_context(season_id),
+        "entries": enrich_fn(filtered) if enrich_fn else filtered,
+        "dashboard": dashboard_fn(filtered),
+    }
 
 
 def _bot_api_authorized(x_api_key: str | None = Header(default=None, alias="X-Api-Key")) -> None:
@@ -171,19 +207,10 @@ async def todays_bets(request: Request):
 
 
 @app.get("/bet-log")
-async def bet_log_page(request: Request):
-    entries = load_bet_log()
-    scenario_entries = filter_bet_entries(entries, legacy=False)
-    legacy_count = len(filter_bet_entries(entries, legacy=True))
-    return templates.TemplateResponse(
-        request,
-        "bet_log.html",
-        {
-            "entries": enrich_bet_entries(scenario_entries),
-            "dashboard": bet_log_dashboard(entries, scope="scenarios"),
-            "legacy_count": legacy_count,
-        },
-    )
+async def bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _bet_log_payload(legacy=False, season=season_id)
+    return templates.TemplateResponse(request, "bet_log.html", payload)
 
 
 @app.get("/lm-strat")
@@ -209,14 +236,10 @@ async def no_strat_page(request: Request):
 
 
 @app.get("/no-bet-log")
-async def no_bet_log_page(request: Request):
-    entries = load_no_bet_log()
-    dashboard = no_dashboard(entries)
-    return templates.TemplateResponse(
-        request,
-        "no_bet_log.html",
-        {"entries": entries, "dashboard": dashboard},
-    )
+async def no_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(load_no_bet_log(), no_dashboard, season=season_id)
+    return templates.TemplateResponse(request, "no_bet_log.html", payload)
 
 
 @app.get("/plus-ev-strat")
@@ -231,28 +254,22 @@ async def plus_ev_strat_page(request: Request):
 
 
 @app.get("/plus-ev-bet-log")
-async def plus_ev_bet_log_page(request: Request):
-    entries = load_plus_ev_bet_log()
-    dashboard = plus_ev_dashboard(entries)
-    return templates.TemplateResponse(
-        request,
-        "plus_ev_bet_log.html",
-        {
-            "entries": enrich_plus_ev_entries(entries),
-            "dashboard": dashboard,
-        },
+async def plus_ev_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(
+        load_plus_ev_bet_log(),
+        plus_ev_dashboard,
+        season=season_id,
+        enrich_fn=enrich_plus_ev_entries,
     )
+    return templates.TemplateResponse(request, "plus_ev_bet_log.html", payload)
 
 
 @app.get("/lm-bet-log")
-async def lm_bet_log_page(request: Request):
-    entries = load_lm_bet_log()
-    dashboard = lm_dashboard(entries)
-    return templates.TemplateResponse(
-        request,
-        "lm_bet_log.html",
-        {"entries": entries, "dashboard": dashboard},
-    )
+async def lm_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season_id)
+    return templates.TemplateResponse(request, "lm_bet_log.html", payload)
 
 
 @app.post("/api/refresh", response_model=RefreshResponse)
@@ -320,75 +337,57 @@ async def todays_bets_data():
     return JSONResponse({"scraped_at": data.get("scraped_at"), "scenarios": scenarios})
 
 
-def _bet_log_payload(*, legacy: bool = False) -> dict:
-    entries = load_bet_log()
-    scope = "legacy" if legacy else "scenarios"
-    filtered = filter_bet_entries(entries, legacy=legacy) if legacy else filter_bet_entries(entries, legacy=False)
-    return {
-        "entries": enrich_bet_entries(filtered),
-        "dashboard": bet_log_dashboard(entries, scope=scope),
-        "legacy_count": len(filter_bet_entries(entries, legacy=True)),
-    }
-
-
 @app.get("/legacy-bet-log")
-async def legacy_bet_log_page(request: Request):
-    entries = load_bet_log()
-    legacy_entries = filter_bet_entries(entries, legacy=True)
-    return templates.TemplateResponse(
-        request,
-        "legacy_bet_log.html",
-        {
-            "entries": enrich_bet_entries(legacy_entries),
-            "dashboard": bet_log_dashboard(entries, scope="legacy"),
-        },
-    )
+async def legacy_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _bet_log_payload(legacy=True, season=season_id)
+    return templates.TemplateResponse(request, "legacy_bet_log.html", payload)
 
 
 @app.get("/api/bet-log")
-async def bet_log_data():
-    return JSONResponse(_bet_log_payload(legacy=False))
+async def bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_bet_log_payload(legacy=False, season=season))
 
 
 @app.get("/api/legacy-bet-log")
-async def legacy_bet_log_data():
-    return JSONResponse(_bet_log_payload(legacy=True))
+async def legacy_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_bet_log_payload(legacy=True, season=season))
 
 
 @app.post("/api/bet-log/sync-recommended")
-async def bet_log_sync_recommended():
+async def bet_log_sync_recommended(season: int | None = Query(default=None)):
     scraped = await run_in_threadpool(scrape_datagaffer_sync)
     merged = _write_scrape_result(scraped)
     result = sync_recommended_bets(merged)
-    payload = _bet_log_payload(legacy=False)
+    payload = _bet_log_payload(legacy=False, season=season)
     return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/bet-log/{bet_id}/resolve")
-async def bet_log_resolve(bet_id: str, payload: dict):
+async def bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_bet(bet_id, str(payload.get("result", "")))
-    data = _bet_log_payload(legacy=False)
+    data = _bet_log_payload(legacy=False, season=season)
     return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/legacy-bet-log/{bet_id}/resolve")
-async def legacy_bet_log_resolve(bet_id: str, payload: dict):
+async def legacy_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_bet(bet_id, str(payload.get("result", "")))
-    data = _bet_log_payload(legacy=True)
+    data = _bet_log_payload(legacy=True, season=season)
     return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/bet-log/auto-resolve")
-async def bet_log_auto_resolve():
+async def bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "main")
-    data = _bet_log_payload(legacy=False)
+    data = _bet_log_payload(legacy=False, season=season)
     return JSONResponse({"result": result, **data})
 
 
 @app.post("/api/legacy-bet-log/auto-resolve")
-async def legacy_bet_log_auto_resolve():
+async def legacy_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "main")
-    data = _bet_log_payload(legacy=True)
+    data = _bet_log_payload(legacy=True, season=season)
     return JSONResponse({"result": result, **data})
 
 
@@ -414,32 +413,31 @@ async def no_strat_data():
 
 
 @app.get("/api/no-bet-log")
-async def no_bet_log_data():
-    entries = load_no_bet_log()
-    return JSONResponse({"entries": entries, "dashboard": no_dashboard(entries)})
+async def no_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_strat_log_payload(load_no_bet_log(), no_dashboard, season=season))
 
 
 @app.post("/api/no-bet-log/sync")
-async def no_bet_log_sync():
+async def no_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
     picks = build_no_strat_picks(latest.get("matches", []))
     result = sync_no_bets(picks)
-    entries = load_no_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": no_dashboard(entries)})
+    payload = _strat_log_payload(load_no_bet_log(), no_dashboard, season=season)
+    return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/no-bet-log/{bet_id}/resolve")
-async def no_bet_log_resolve(bet_id: str, payload: dict):
+async def no_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_no_bet(bet_id, str(payload.get("result", "")))
-    entries = load_no_bet_log()
-    return JSONResponse({"updated": updated, "entries": entries, "dashboard": no_dashboard(entries)})
+    data = _strat_log_payload(load_no_bet_log(), no_dashboard, season=season)
+    return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/no-bet-log/auto-resolve")
-async def no_bet_log_auto_resolve():
+async def no_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "no")
-    entries = load_no_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": no_dashboard(entries)})
+    data = _strat_log_payload(load_no_bet_log(), no_dashboard, season=season)
+    return JSONResponse({"result": result, **data})
 
 
 @app.get("/api/plus-ev-strat")
@@ -450,84 +448,81 @@ async def plus_ev_strat_data():
 
 
 @app.get("/api/plus-ev-bet-log")
-async def plus_ev_bet_log_data():
-    entries = load_plus_ev_bet_log()
+async def plus_ev_bet_log_data(season: int | None = Query(default=None)):
     return JSONResponse(
-        {
-            "entries": enrich_plus_ev_entries(entries),
-            "dashboard": plus_ev_dashboard(entries),
-        }
+        _strat_log_payload(
+            load_plus_ev_bet_log(),
+            plus_ev_dashboard,
+            season=season,
+            enrich_fn=enrich_plus_ev_entries,
+        )
     )
 
 
 @app.post("/api/plus-ev-bet-log/sync")
-async def plus_ev_bet_log_sync():
+async def plus_ev_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
     picks = build_plus_ev_picks(latest)
     result = sync_plus_ev_bets(picks)
-    entries = load_plus_ev_bet_log()
-    return JSONResponse(
-        {
-            "result": result,
-            "entries": enrich_plus_ev_entries(entries),
-            "dashboard": plus_ev_dashboard(entries),
-        }
+    payload = _strat_log_payload(
+        load_plus_ev_bet_log(),
+        plus_ev_dashboard,
+        season=season,
+        enrich_fn=enrich_plus_ev_entries,
     )
+    return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/plus-ev-bet-log/{bet_id}/resolve")
-async def plus_ev_bet_log_resolve(bet_id: str, payload: dict):
+async def plus_ev_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_plus_ev_bet(bet_id, str(payload.get("result", "")))
-    entries = load_plus_ev_bet_log()
-    return JSONResponse(
-        {
-            "updated": updated,
-            "entries": enrich_plus_ev_entries(entries),
-            "dashboard": plus_ev_dashboard(entries),
-        }
+    data = _strat_log_payload(
+        load_plus_ev_bet_log(),
+        plus_ev_dashboard,
+        season=season,
+        enrich_fn=enrich_plus_ev_entries,
     )
+    return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/plus-ev-bet-log/auto-resolve")
-async def plus_ev_bet_log_auto_resolve():
+async def plus_ev_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "ev")
-    entries = load_plus_ev_bet_log()
-    return JSONResponse(
-        {
-            "result": result,
-            "entries": enrich_plus_ev_entries(entries),
-            "dashboard": plus_ev_dashboard(entries),
-        }
+    data = _strat_log_payload(
+        load_plus_ev_bet_log(),
+        plus_ev_dashboard,
+        season=season,
+        enrich_fn=enrich_plus_ev_entries,
     )
+    return JSONResponse({"result": result, **data})
 
 
 @app.get("/api/lm-bet-log")
-async def lm_bet_log_data():
-    entries = load_lm_bet_log()
-    return JSONResponse({"entries": entries, "dashboard": lm_dashboard(entries)})
+async def lm_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season))
 
 
 @app.post("/api/lm-bet-log/sync")
-async def lm_bet_log_sync():
+async def lm_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
     picks = build_lm_strat_picks(latest.get("matches", []))
     result = sync_lm_bets(picks)
-    entries = load_lm_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": lm_dashboard(entries)})
+    payload = _strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season)
+    return JSONResponse({"result": result, **payload})
 
 
 @app.post("/api/lm-bet-log/{bet_id}/resolve")
-async def lm_bet_log_resolve(bet_id: str, payload: dict):
+async def lm_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_lm_bet(bet_id, str(payload.get("result", "")))
-    entries = load_lm_bet_log()
-    return JSONResponse({"updated": updated, "entries": entries, "dashboard": lm_dashboard(entries)})
+    data = _strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season)
+    return JSONResponse({"updated": updated, **data})
 
 
 @app.post("/api/lm-bet-log/auto-resolve")
-async def lm_bet_log_auto_resolve():
+async def lm_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "lm")
-    entries = load_lm_bet_log()
-    return JSONResponse({"result": result, "entries": entries, "dashboard": lm_dashboard(entries)})
+    data = _strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season)
+    return JSONResponse({"result": result, **data})
 
 
 @app.post("/api/cron/auto-resolve")

@@ -5,7 +5,18 @@
     apiBase: "/api/bet-log",
     showSync: true,
     emptyBetsMsg: "No bets logged yet. Sync recommended bets from Home.",
+    season: 2,
   };
+
+  function seasonId() {
+    const n = Number(cfg.season);
+    return n === 1 ? 1 : 2;
+  }
+
+  function apiUrl(path) {
+    const sep = path.includes("?") ? "&" : "?";
+    return `${path}${sep}season=${seasonId()}`;
+  }
 
   let scenarioLookup = {};
   let dashboardCache = null;
@@ -331,7 +342,7 @@
 
   async function resolveBet(id, result) {
     setStatus(`Resolving as ${result}...`);
-    const res = await fetch(`${cfg.apiBase}/${id}/resolve`, {
+    const res = await fetch(apiUrl(`${cfg.apiBase}/${id}/resolve`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ result }),
@@ -364,7 +375,7 @@
         setStatus("Syncing...");
         syncBtn.disabled = true;
         try {
-          const res = await fetch(`${cfg.apiBase}/sync-recommended`, { method: "POST" });
+          const res = await fetch(apiUrl(`${cfg.apiBase}/sync-recommended`), { method: "POST" });
           const data = await res.json();
           drawDashboard(data.dashboard);
           renderRows(data.entries);
@@ -384,7 +395,7 @@
         setStatus("Auto resolving...");
         autoResolveBtn.disabled = true;
         try {
-          const res = await fetch(`${cfg.apiBase}/auto-resolve`, { method: "POST" });
+          const res = await fetch(apiUrl(`${cfg.apiBase}/auto-resolve`), { method: "POST" });
           const raw = await res.text();
           if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
           const data = JSON.parse(raw);

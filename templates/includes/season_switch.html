@@ -1,0 +1,12 @@
+<nav class="season-switch" aria-label="Season">
+  {% for s in seasons %}
+  <a
+    href="?season={{ s.id }}"
+    class="season-switch__btn{% if season == s.id %} is-active{% endif %}"
+    {% if season == s.id %}aria-current="page"{% endif %}
+  >
+    {{ s.label }}
+    <small>{{ s.description }}</small>
+  </a>
+  {% endfor %}
+</nav>

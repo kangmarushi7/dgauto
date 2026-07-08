@@ -15,15 +15,17 @@
           <h1>Legacy Bet Log</h1>
           <p class="subtitle">
             Bets logged before scenario split (moneyline, over 1.5, BTTS, etc.). New syncs use the main
-            <a href="/bet-log" style="color: var(--bl-accent)">Bet Log</a> with DataGaffer categories.
+            <a href="/bet-log?season={{ season }}" style="color: var(--bl-accent)">Bet Log</a> with DataGaffer categories.
           </p>
         </div>
         <nav class="betlog-nav" aria-label="Main">
           <a href="/">Home</a>
-          <a href="/bet-log">Bet Log</a>
-          <a href="/legacy-bet-log" class="is-active">Legacy</a>
+          <a href="/bet-log?season={{ season }}">Bet Log</a>
+          <a href="/legacy-bet-log?season={{ season }}" class="is-active">Legacy</a>
         </nav>
       </header>
+
+      {% include "includes/season_switch.html" %}
 
       <div class="betlog-actions">
         <button type="button" id="autoResolveBtn" class="btn-secondary">Auto resolve open</button>
@@ -95,9 +97,10 @@
         apiBase: "/api/legacy-bet-log",
         showSync: false,
         emptyBetsMsg: "No legacy bets in the log.",
+        season: {{ season }},
       };
     </script>
-    <script src="/static/bet_log.js?v=4" defer></script>
+    <script src="/static/bet_log.js?v=7" defer></script>
     <script>
       (function () {
         const initialDashboard = {{ dashboard | tojson }};

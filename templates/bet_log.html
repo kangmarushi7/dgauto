@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=2" />
-    <link rel="stylesheet" href="/static/betlog.css?v=8" />
+    <link rel="stylesheet" href="/static/betlog.css?v=9" />
     <script src="/static/table_tools.js?v=4" defer></script>
   </head>
   <body class="betlog-body">
@@ -20,12 +20,14 @@
           <a href="/todays-bets">Today's Bets</a>
           <a href="/bet-log" class="is-active">Bet Log</a>
           {% if legacy_count %}
-          <a href="/legacy-bet-log">Legacy<span class="nav-badge">{{ legacy_count }}</span></a>
+          <a href="/legacy-bet-log?season={{ season }}">Legacy<span class="nav-badge">{{ legacy_count }}</span></a>
           {% else %}
-          <a href="/legacy-bet-log">Legacy</a>
+          <a href="/legacy-bet-log?season={{ season }}">Legacy</a>
           {% endif %}
         </nav>
       </header>
+
+      {% include "includes/season_switch.html" %}
 
       <div class="betlog-actions">
         <button type="button" id="syncBtn" class="btn-primary">Sync recommended</button>
@@ -128,9 +130,10 @@
         apiBase: "/api/bet-log",
         showSync: true,
         emptyBetsMsg: "No scenario bets yet. Sync recommended bets from Home.",
+        season: {{ season }},
       };
     </script>
-    <script src="/static/bet_log.js?v=6" defer></script>
+    <script src="/static/bet_log.js?v=7" defer></script>
     <script>
       (function () {
         const initialDashboard = {{ dashboard | tojson }};

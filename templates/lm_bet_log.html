@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LM Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/style.css?v=3" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
@@ -12,6 +12,8 @@
       <h1>LM Bet Log</h1>
       <p class="subtitle">Separate log for LM Strat Over 1.5 bets.</p>
       <p class="top-links"><a href="/">Back to Home</a> | <a href="/lm-strat">Go to LM Strat</a></p>
+
+      {% include "includes/season_switch.html" %}
 
       <div class="actions">
         <button id="syncBtn">Sync LM Strat Bets</button>
@@ -45,6 +47,12 @@
     </main>
 
     <script>
+      const LOG_SEASON = {{ season }};
+      function apiUrl(path) {
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}season=${LOG_SEASON}`;
+      }
+
       const syncBtn = document.getElementById("syncBtn");
       const autoResolveBtn = document.getElementById("autoResolveBtn");
       const statusEl = document.getElementById("status");
@@ -94,7 +102,7 @@
       }
 
       async function resolveBet(id, result) {
-        const res = await fetch(`/api/lm-bet-log/${id}/resolve`, {
+        const res = await fetch(apiUrl(`/api/lm-bet-log/${id}/resolve`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ result }),
@@ -153,7 +161,7 @@
         statusEl.textContent = "Syncing...";
         syncBtn.disabled = true;
         try {
-          const res = await fetch("/api/lm-bet-log/sync", { method: "POST" });
+          const res = await fetch(apiUrl("/api/lm-bet-log/sync"), { method: "POST" });
           const data = await res.json();
           renderStats(data.dashboard);
           renderRows(data.entries);
@@ -167,7 +175,7 @@
         statusEl.textContent = "Auto resolving open bets...";
         autoResolveBtn.disabled = true;
         try {
-          const res = await fetch("/api/lm-bet-log/auto-resolve", { method: "POST" });
+          const res = await fetch(apiUrl("/api/lm-bet-log/auto-resolve"), { method: "POST" });
           const raw = await res.text();
           if (!res.ok) {
             throw new Error(raw || `HTTP ${res.status}`);

@@ -109,6 +109,50 @@ body.betlog-body {
   box-shadow: var(--bl-shadow);
 }
 
+.season-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.season-switch__btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--bl-border);
+  background: var(--bl-surface);
+  color: var(--bl-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 140px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.season-switch__btn small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--bl-muted);
+}
+
+.season-switch__btn:hover {
+  color: var(--bl-text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.season-switch__btn.is-active {
+  color: var(--bl-accent);
+  background: var(--bl-accent-dim);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.season-switch__btn.is-active small {
+  color: var(--bl-text);
+}
+
 .betlog-actions .btn-primary {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #fff;
