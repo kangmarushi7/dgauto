@@ -92,16 +92,30 @@ While the app is running, it automatically resolves open bets on:
 - **Main bet log** (scenario + legacy entries share the same `main` log)
 - **LM Strat bet log**
 
-Default schedule: **04:30 Asia/Kolkata** every day. Configure in `.env`:
+Default schedule: **04:30, 10:30, 16:30, 22:30 Asia/Kolkata** so finished fixtures are resolved through the day. Configure in `.env`:
 
 ```env
 AUTO_RESOLVE_SCHEDULE_ENABLED=true
 AUTO_RESOLVE_TIME=04:30
 AUTO_RESOLVE_TIMEZONE=Asia/Kolkata
+AUTO_RESOLVE_MAX_RUNTIME_SEC=240
 API_FOOTBALL_KEY=your_key_here
 ```
 
 Manual run (both logs): `POST /api/auto-resolve/all`
+
+### Scheduled fixture refresh
+
+Fixtures are pulled from DataGaffer automatically every **6 hours**, always including **09:00 IST** (also 03:00, 15:00, 21:00 IST). Configure in `.env`:
+
+```env
+FIXTURE_REFRESH_SCHEDULE_ENABLED=true
+FIXTURE_REFRESH_INTERVAL_HOURS=6
+FIXTURE_REFRESH_ANCHOR_HOUR=9
+FIXTURE_REFRESH_TIMEZONE=Asia/Kolkata
+```
+
+Manual pull: `POST /api/refresh` (or use the Home page button).
 
 External cron (e.g. Railway Cron) if the web process is not always on:
 
@@ -114,9 +128,15 @@ POST /api/cron/auto-resolve
 X-Cron-Secret: some-long-random-string
 ```
 
+```http
+POST /api/cron/refresh
+X-Cron-Secret: some-long-random-string
+```
+
 ## API endpoints
 
 - `POST /api/refresh` - refresh latest slate data
+- `POST /api/cron/refresh` - same as refresh (optional `X-Cron-Secret` header)
 - `GET /api/data` - latest slate data
 - `GET /api/todays-bets` - scenario-filtered bets
 - `GET /api/lm-strat` - LM Strat filtered picks

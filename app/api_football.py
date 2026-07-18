@@ -90,9 +90,23 @@ def normalize_fixture(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def fixture_is_final(event: dict[str, Any]) -> bool:
+def fixture_is_final(event: dict[str, Any], *, kickoff: datetime | None = None) -> bool:
     status = str(event.get("strStatus") or "").strip().upper()
-    return status in FINAL_STATUS_SHORT
+    if status in FINAL_STATUS_SHORT:
+        return True
+    if "FINISH" in status:
+        return True
+    # Some feeds leave scores filled while short status lags behind FT.
+    home = event.get("intHomeScore")
+    away = event.get("intAwayScore")
+    if home is None or away is None or kickoff is None:
+        return False
+    now = datetime.now(tz=kickoff.tzinfo) if kickoff.tzinfo else datetime.utcnow()
+    kick = kickoff if (kickoff.tzinfo or now.tzinfo is None) else kickoff.replace(tzinfo=None)
+    try:
+        return (now - kick).total_seconds() >= 2.5 * 3600
+    except Exception:
+        return False
 
 
 def fetch_fixtures_by_date(date_str: str) -> list[dict[str, Any]]:

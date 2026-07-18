@@ -27,7 +27,10 @@
           <button type="button" id="refreshBtn">Refresh from DataGaffer</button>
           <span id="status"></span>
         </div>
-        <p class="home-meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+        <p class="home-meta">
+          Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong>
+          · Auto-refresh every 6h (3:00, 9:00, 15:00, 21:00 IST)
+        </p>
       </header>
 
       <section class="slate-section" aria-label="Today's slate">

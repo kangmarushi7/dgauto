@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import os
 import re
 import time
 from typing import Any
@@ -16,7 +17,39 @@ from app.api_football import (
 from app.bet_scenarios import resolve_kind_for_entry
 from app.db import list_bets, resolve_bet_entry
 
-MAX_RUNTIME_SEC = 50
+# Allow enough time for date lookups + fallback team/H2H searches on large open books.
+MAX_RUNTIME_SEC = int(os.getenv("AUTO_RESOLVE_MAX_RUNTIME_SEC", "240"))
+
+# Generic club suffixes / tokens ignored when comparing core team names.
+_TEAM_STOPWORDS = frozenset(
+    {
+        "fc",
+        "cf",
+        "sc",
+        "afc",
+        "fk",
+        "bk",
+        "if",
+        "sk",
+        "ff",
+        "sv",
+        "ac",
+        "as",
+        "rc",
+        "cd",
+        "ud",
+        "sd",
+        "club",
+        "de",
+        "the",
+        "united",
+        "city",
+        "town",
+        "sporting",
+        "sports",
+        "calcio",
+    }
+)
 
 TEAM_ALIASES: dict[str, list[str]] = {
     "inter miami": ["miami", "inter miami cf"],
@@ -86,9 +119,19 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "bk haecken": ["bk hacken", "hacken"],
     "sirius": ["siriu", "ik sirius"],
     "oergyte is": ["orgryte is", "orgryte"],
-    "degerfors": ["degerfor"],
+    "degerfors": ["degerfor", "degerfors if"],
     "den bosch": ["fc den bosch"],
     "almere city": ["almere city fc"],
+    "hammarby": ["hammarby if", "hammarby fotboll"],
+    "kalmar ff": ["kalmar"],
+    "tigres": ["tigres uanl", "uanl", "tigre"],
+    "tijuana": ["club tijuana", "xolos"],
+    "vitoria": ["ec vitoria", "vitoria ba"],
+    "botafogo": ["botafogo rj", "botafogo fr"],
+    "santos": ["santos fc"],
+    "brann": ["sk brann"],
+    "molde": ["molde fk"],
+    "bodo glimt": ["bodoe glimt", "bodo/glimt", "fk bodo glimt"],
 }
 
 
@@ -101,7 +144,7 @@ def _normalize(text: str) -> str:
     for src, dst in (
         ("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"),
         ("ö", "o"), ("ü", "u"), ("ş", "s"), ("ç", "c"), ("ğ", "g"),
-        ("ø", "o"), ("æ", "ae"),
+        ("ø", "o"), ("æ", "ae"), ("å", "a"), ("ä", "a"),
     ):
         lowered = lowered.replace(src, dst)
     lowered = lowered.replace("/", " ")
@@ -109,18 +152,61 @@ def _normalize(text: str) -> str:
     return lowered
 
 
+def _significant_tokens(norm: str) -> set[str]:
+    return {t for t in norm.split() if t and t not in _TEAM_STOPWORDS and len(t) >= 3}
+
+
 def _team_variants(name: str) -> set[str]:
     norm = _normalize(name)
     variants = {norm}
+    tokens = _significant_tokens(norm)
     for canonical, aliases in TEAM_ALIASES.items():
         options = {_normalize(canonical), *(_normalize(a) for a in aliases)}
         if norm in options:
             variants |= options
+            continue
+        # Expand when a truncated / partial DG name hits an alias token.
+        hit = False
+        for option in options:
+            if not option:
+                continue
+            option_tokens = _significant_tokens(option) or {option}
+            if tokens & option_tokens:
+                hit = True
+                break
+            for token in tokens:
+                for option_token in option_tokens:
+                    if len(token) >= 5 and len(option_token) >= 5 and (
+                        token.startswith(option_token) or option_token.startswith(token)
+                    ):
+                        hit = True
+                        break
+                if hit:
+                    break
+            if hit:
+                break
+        if hit:
+            variants |= options
     return variants
 
 
+def _prefix_token_score(a_tokens: set[str], b_tokens: set[str]) -> float:
+    best = 0.0
+    for ta in a_tokens:
+        for tb in b_tokens:
+            if len(ta) < 5 or len(tb) < 5:
+                continue
+            if ta == tb:
+                best = max(best, 1.0)
+            elif ta.startswith(tb) or tb.startswith(ta):
+                best = max(best, 0.92)
+            elif ta[:6] == tb[:6]:
+                best = max(best, 0.85)
+    return best
+
+
 def _team_match(a: str, b: str) -> bool:
-    return bool(_team_variants(a) & _team_variants(b))
+    return _team_similarity(a, b) >= 0.45
 
 
 def _team_similarity(a: str, b: str) -> float:
@@ -132,13 +218,21 @@ def _team_similarity(a: str, b: str) -> float:
     nb = _normalize(b)
     if not na or not nb:
         return 0.0
-    sa = set(na.split())
-    sb = set(nb.split())
+
+    sa = _significant_tokens(na) or set(na.split())
+    sb = _significant_tokens(nb) or set(nb.split())
     if not sa or not sb:
         return 0.0
+
+    # Core name contained (Hammarby vs Hammarby IF, Tigres vs Tigres UANL).
+    if sa <= sb or sb <= sa:
+        return 0.95
+
     inter = len(sa & sb)
     union = len(sa | sb)
-    return inter / union if union else 0.0
+    jaccard = inter / union if union else 0.0
+    prefix = _prefix_token_score(sa, sb)
+    return max(jaccard, prefix)
 
 
 def _parse_fixture(fixture: str) -> tuple[str, str]:
@@ -172,23 +266,17 @@ def _parse_score(event: dict[str, Any]) -> tuple[int, int] | None:
         return None
 
 
-def _collect_date_keys(entries: list[dict[str, Any]]) -> list[str]:
-    dates: set[str] = set()
-    for entry in entries:
-        entry_date = _parse_entry_date(entry.get("fixture_date"))
-        if not entry_date:
-            continue
-        for day_offset in (-1, 0, 1):
-            dates.add((entry_date.date() + timedelta(days=day_offset)).isoformat())
-    return sorted(dates)
-
-
-def _build_shared_date_pool(
-    date_keys: list[str],
+def _candidates_for_entry(
+    entry: dict[str, Any],
     date_cache: dict[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
+    """Lazy date-window lookup for one fixture (avoids burning the runtime budget upfront)."""
+    entry_date = _parse_entry_date(entry.get("fixture_date"))
+    if not entry_date:
+        return []
     pool: list[dict[str, Any]] = []
-    for date_key in date_keys:
+    for day_offset in (-1, 0, 1):
+        date_key = (entry_date.date() + timedelta(days=day_offset)).isoformat()
         if date_key not in date_cache:
             date_cache[date_key] = fetch_fixtures_by_date(date_key)
         pool.extend(date_cache[date_key])
@@ -266,7 +354,7 @@ def _resolve_team_id(team_name: str, cache: dict[str, int | None]) -> int | None
 
 def _find_best_event(
     entry: dict[str, Any],
-    shared_candidates: list[dict[str, Any]],
+    date_cache: dict[str, list[dict[str, Any]]],
     team_id_cache: dict[str, int | None],
     h2h_cache: dict[str, list[dict[str, Any]]],
     team_recent_cache: dict[str, list[dict[str, Any]]],
@@ -275,6 +363,7 @@ def _find_best_event(
     if not home or not away:
         return None
 
+    shared_candidates = _candidates_for_entry(entry, date_cache)
     event = _match_event_from_candidates(entry, shared_candidates)
     if event:
         return event
@@ -293,6 +382,14 @@ def _find_best_event(
         tid = str(home_id)
         if tid not in team_recent_cache:
             team_recent_cache[tid] = fetch_team_recent(home_id, last=20)
+        event = _match_event_from_candidates(entry, team_recent_cache[tid])
+        if event:
+            return event
+
+    if away_id:
+        tid = str(away_id)
+        if tid not in team_recent_cache:
+            team_recent_cache[tid] = fetch_team_recent(away_id, last=20)
         event = _match_event_from_candidates(entry, team_recent_cache[tid])
         if event:
             return event
@@ -401,19 +498,20 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
 
 
 def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
+    rows = list_bets(log_type)
+    open_rows = [r for r in rows if str(r.get("status") or "").lower() == "open"]
     if not api_football_configured():
         return {
-            "open_checked": 0,
+            "open_checked": len(open_rows),
             "resolved": 0,
             "skipped_not_found": 0,
             "skipped_not_final": 0,
             "skipped_unresolved": 0,
+            "skipped_timeout": 0,
             "stopped_early": False,
             "error": "API_FOOTBALL_KEY not set. Add your key from dashboard.api-football.com to .env",
         }
 
-    rows = list_bets(log_type)
-    open_rows = [r for r in rows if str(r.get("status") or "").lower() == "open"]
     resolved = 0
     skipped_not_found = 0
     skipped_not_final = 0
@@ -434,20 +532,33 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     team_id_cache: dict[str, int | None] = {}
     h2h_cache: dict[str, list[dict[str, Any]]] = {}
     team_recent_cache: dict[str, list[dict[str, Any]]] = {}
-    shared_candidates = _build_shared_date_pool(_collect_date_keys(open_rows), date_cache)
 
-    groups = list(grouped.values())
+    # Oldest kickoffs first so stale open bets are not starved by the runtime budget.
+    groups = sorted(
+        grouped.values(),
+        key=lambda entries: str((entries[0] if entries else {}).get("fixture_date") or ""),
+    )
+    skipped_timeout = 0
     for idx, group_entries in enumerate(groups):
         if time.monotonic() - started > MAX_RUNTIME_SEC:
             stopped_early = True
             for remaining in groups[idx:]:
-                skipped_not_found += len(remaining)
+                skipped_timeout += len(remaining)
             break
 
         seed = group_entries[0]
+        # Skip deep API lookups for matches that cannot be finished yet.
+        kickoff = _parse_entry_date(seed.get("fixture_date"))
+        if kickoff is not None:
+            kick_naive = kickoff.replace(tzinfo=None) if kickoff.tzinfo else kickoff
+            age_sec = (datetime.utcnow() - kick_naive).total_seconds()
+            if age_sec < 95 * 60:
+                skipped_not_final += len(group_entries)
+                continue
+
         event = _find_best_event(
             seed,
-            shared_candidates,
+            date_cache,
             team_id_cache,
             h2h_cache,
             team_recent_cache,
@@ -455,7 +566,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         if not event:
             skipped_not_found += len(group_entries)
             continue
-        if not fixture_is_final(event):
+        if not fixture_is_final(event, kickoff=kickoff):
             skipped_not_final += len(group_entries)
             continue
         for entry in group_entries:
@@ -474,5 +585,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         "skipped_not_found": skipped_not_found,
         "skipped_not_final": skipped_not_final,
         "skipped_unresolved": skipped_unresolved,
+        "skipped_timeout": skipped_timeout,
         "stopped_early": stopped_early,
+        "max_runtime_sec": MAX_RUNTIME_SEC,
     }

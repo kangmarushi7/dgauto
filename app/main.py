@@ -18,7 +18,13 @@ from app.bet_log import (
     sync_recommended_bets,
 )
 from app.auto_resolve import auto_resolve_open_bets
-from app.scheduler import run_all_auto_resolves, start_auto_resolve_scheduler, stop_auto_resolve_scheduler
+from app.fixture_refresh import refresh_fixtures_sync
+from app.scheduler import (
+    run_all_auto_resolves,
+    run_fixture_refresh,
+    start_auto_resolve_scheduler,
+    stop_auto_resolve_scheduler,
+)
 from app.db import check_db_health, init_db, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
@@ -42,8 +48,6 @@ from app.plus_ev_strat import (
     resolve_plus_ev_bet,
     sync_plus_ev_bets,
 )
-from app.scraper import scrape_datagaffer_sync
-from app.signals import merge_outlooks
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
@@ -62,17 +66,14 @@ def write_latest(payload: dict) -> None:
     save_state("latest_data", payload)
 
 
-def _write_scrape_result(scraped: dict) -> list[dict]:
-    merged = merge_outlooks(scraped["win_rows"], scraped["goal_rows"])
-    write_latest(
-        {
-            "scraped_at": scraped["scraped_at"],
-            "matches": merged,
-            "fixtures_by_id": scraped.get("fixtures_by_id") or {},
-            "dg_extra_indexes": scraped.get("dg_extra_indexes") or {},
-        }
-    )
-    return merged
+def _refresh_payload() -> dict:
+    result = refresh_fixtures_sync()
+    latest = read_latest()
+    return {
+        **result,
+        "matches": latest.get("matches") or [],
+        "scraped_at": latest.get("scraped_at"),
+    }
 
 
 def _cron_authorized(x_cron_secret: str | None = Header(default=None)) -> None:
@@ -275,13 +276,12 @@ async def lm_bet_log_page(request: Request, season: int | None = Query(default=N
 @app.post("/api/refresh", response_model=RefreshResponse)
 async def refresh():
     try:
-        scraped = await run_in_threadpool(scrape_datagaffer_sync)
-        merged = _write_scrape_result(scraped)
+        payload = await run_in_threadpool(_refresh_payload)
         return RefreshResponse(
             success=True,
             message="Scrape + analysis completed.",
-            scraped_at=scraped["scraped_at"],
-            matches=[MatchSignal(**m) for m in merged],
+            scraped_at=payload["scraped_at"],
+            matches=[MatchSignal(**m) for m in payload["matches"]],
         )
     except Exception as exc:
         detail = str(exc).strip() or repr(exc)
@@ -356,11 +356,10 @@ async def legacy_bet_log_data(season: int | None = Query(default=None)):
 
 @app.post("/api/bet-log/sync-recommended")
 async def bet_log_sync_recommended(season: int | None = Query(default=None)):
-    scraped = await run_in_threadpool(scrape_datagaffer_sync)
-    merged = _write_scrape_result(scraped)
-    result = sync_recommended_bets(merged)
-    payload = _bet_log_payload(legacy=False, season=season)
-    return JSONResponse({"result": result, **payload})
+    payload = await run_in_threadpool(_refresh_payload)
+    result = sync_recommended_bets(payload["matches"])
+    log_payload = _bet_log_payload(legacy=False, season=season)
+    return JSONResponse({"result": result, **log_payload})
 
 
 @app.post("/api/bet-log/{bet_id}/resolve")
@@ -533,3 +532,13 @@ async def cron_auto_resolve(
     _cron_authorized(x_cron_secret)
     summary = await run_in_threadpool(run_all_auto_resolves)
     return JSONResponse({"ok": True, "summary": summary})
+
+
+@app.post("/api/cron/refresh")
+async def cron_refresh(
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+):
+    """External hook to pull fixtures (same as POST /api/refresh)."""
+    _cron_authorized(x_cron_secret)
+    result = await run_in_threadpool(run_fixture_refresh)
+    return JSONResponse({"ok": bool(result.get("success")), **result})
