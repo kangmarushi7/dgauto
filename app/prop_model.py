@@ -151,6 +151,26 @@ def recent_scrape_log(limit: int = 40) -> list[dict[str, Any]]:
     )
 
 
+def scrape_log_summary() -> dict[str, int]:
+    row = _one("SELECT COUNT(*) AS count FROM pm_scrape_log")
+    fail = _one("SELECT COUNT(*) AS count FROM pm_scrape_log WHERE status = 'failure'")
+    partial = _one("SELECT COUNT(*) AS count FROM pm_scrape_log WHERE status = 'partial'")
+    sources = _one("SELECT COUNT(DISTINCT source) AS count FROM pm_scrape_log")
+    return {
+        "total": int((row or {}).get("count") or 0),
+        "failures": int((fail or {}).get("count") or 0),
+        "partial": int((partial or {}).get("count") or 0),
+        "sources": int((sources or {}).get("count") or 0),
+    }
+
+
+def clear_scrape_logs() -> dict[str, int]:
+    """Wipe pm_scrape_log (health + history). Does not touch players/stats/bets."""
+    before = scrape_log_summary()
+    _execute("DELETE FROM pm_scrape_log")
+    return {"deleted": before["total"]}
+
+
 def recent_stats(limit: int = 50) -> list[dict[str, Any]]:
     rows = _rows(
         """
@@ -302,6 +322,12 @@ def build_prop_model_dashboard() -> dict[str, Any]:
         "bets": bet_counts() if ready else {"total": 0, "open": 0},
         "last_scrapes": last_scrape_by_source() if ready else [],
         "scrape_log": recent_scrape_log() if ready else [],
+        "scrape_log_summary": scrape_log_summary() if ready else {
+            "total": 0,
+            "failures": 0,
+            "partial": 0,
+            "sources": 0,
+        },
         "recent_stats": recent_stats() if ready else [],
         "edges": edge_counts() if ready else {"edges": 0},
         "scrape_job": get_scrape_job_status(),

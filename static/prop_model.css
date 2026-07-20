@@ -494,6 +494,131 @@ body.pm-body::before {
   background: var(--pm-danger-soft);
 }
 
+/* Collapsible drawers — tuck health / logs without eating the page */
+.pm-drawer {
+  margin-bottom: 1rem;
+  border-radius: calc(var(--pm-radius) + 2px);
+  background: var(--pm-surface-solid);
+  border: 1px solid var(--pm-line);
+  box-shadow: 0 8px 22px rgba(21, 40, 33, 0.05);
+  animation: pm-rise 0.75s ease 0.16s both;
+  overflow: hidden;
+}
+
+.pm-drawer + .pm-drawer {
+  margin-top: -0.15rem;
+}
+
+.pm-drawer-summary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  padding: 0.85rem 1.1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pm-drawer-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pm-drawer-summary::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--pm-muted);
+  border-bottom: 2px solid var(--pm-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.18s ease;
+  flex: 0 0 auto;
+}
+
+.pm-drawer[open] > .pm-drawer-summary::before {
+  transform: rotate(45deg);
+}
+
+.pm-drawer-title {
+  font-family: var(--pm-font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--pm-ink);
+}
+
+.pm-drawer-meta {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.pm-drawer-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.pm-drawer-body {
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid #e8f0eb;
+}
+
+.pm-drawer-note {
+  margin: 0.75rem 0 0.65rem;
+  font-size: 0.85rem;
+  color: var(--pm-muted);
+}
+
+.pm-btn-danger {
+  background: #fff;
+  color: var(--pm-danger);
+  border-color: #f3c4c0;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.pm-btn-danger:not(:disabled):hover {
+  background: var(--pm-danger-soft);
+  border-color: var(--pm-danger);
+}
+
+.pm-btn-tiny {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.pm-table-compact {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.pm-table-compact .pm-table td,
+.pm-table-compact .pm-table th {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.pm-err {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--pm-muted);
+  font-size: 0.8rem;
+}
+
+.pm-err[title]:hover {
+  color: var(--pm-ink-soft);
+}
+
+.pm-stats-preview {
+  max-height: 320px;
+  overflow: auto;
+}
+
 @keyframes pm-rise {
   from {
     opacity: 0;

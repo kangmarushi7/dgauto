@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prop Model — DG</title>
-    <link rel="stylesheet" href="/static/prop_model.css?v=1" />
+    <link rel="stylesheet" href="/static/prop_model.css?v=2" />
   </head>
   <body class="pm-body">
     <div class="pm-shell">
@@ -69,126 +69,169 @@
         </div>
       </section>
 
-      <section class="pm-panel">
-        <div class="pm-panel-head">
-          <h2>Scraper health</h2>
-          <p>Last status per source</p>
+      {% set log_sum = dash.scrape_log_summary or {} %}
+      <details class="pm-drawer" id="healthDrawer">
+        <summary class="pm-drawer-summary">
+          <span class="pm-drawer-title">Scraper health</span>
+          <span class="pm-drawer-meta">
+            <span class="pm-chip neutral">{{ log_sum.sources or 0 }} sources</span>
+            {% if log_sum.failures %}
+            <span class="pm-pill failure">{{ log_sum.failures }} fail</span>
+            {% endif %}
+            {% if log_sum.partial %}
+            <span class="pm-pill partial">{{ log_sum.partial }} partial</span>
+            {% endif %}
+            {% if not log_sum.total %}
+            <span class="pm-chip neutral">idle</span>
+            {% endif %}
+          </span>
+        </summary>
+        <div class="pm-drawer-body">
+          <p class="pm-drawer-note">Latest status per source. Expand only when you need detail.</p>
+          <div class="pm-table-wrap pm-table-compact">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Scraped at</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if dash.last_scrapes|length == 0 %}
+                <tr>
+                  <td colspan="4" class="pm-empty">No scrapes yet — hit Run all above.</td>
+                </tr>
+                {% else %}
+                {% for row in dash.last_scrapes %}
+                <tr>
+                  <td>{{ row.source }}</td>
+                  <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
+                  <td>{{ row.scraped_at }}</td>
+                  <td>
+                    {% if row.error_message %}
+                    <div class="pm-err" title="{{ row.error_message }}">{{ row.error_message }}</div>
+                    {% else %}
+                    —
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="pm-table-wrap">
-          <table class="pm-table">
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th>Status</th>
-                <th>Scraped at</th>
-                <th>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if dash.last_scrapes|length == 0 %}
-              <tr>
-                <td colspan="4" class="pm-empty">No scrapes yet — hit Run all above.</td>
-              </tr>
-              {% else %}
-              {% for row in dash.last_scrapes %}
-              <tr>
-                <td>{{ row.source }}</td>
-                <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
-                <td>{{ row.scraped_at }}</td>
-                <td>{{ row.error_message or "—" }}</td>
-              </tr>
-              {% endfor %}
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </details>
 
-      <section class="pm-panel">
-        <div class="pm-panel-head">
-          <h2>Recent stats</h2>
-          <p>Latest normalized rows</p>
+      <details class="pm-drawer" id="statsDrawer" {% if dash.recent_stats %}open{% endif %}>
+        <summary class="pm-drawer-summary">
+          <span class="pm-drawer-title">Recent stats</span>
+          <span class="pm-drawer-meta">
+            <span class="pm-chip neutral">{{ dash.recent_stats|length }} rows</span>
+          </span>
+        </summary>
+        <div class="pm-drawer-body">
+          <div class="pm-table-wrap pm-stats-preview">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Sport</th>
+                  <th>Team</th>
+                  <th>Stat</th>
+                  <th>Value</th>
+                  <th>Source</th>
+                  <th>Scraped</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if dash.recent_stats|length == 0 %}
+                <tr>
+                  <td colspan="7" class="pm-empty">Nothing normalized yet.</td>
+                </tr>
+                {% else %}
+                {% for row in dash.recent_stats %}
+                <tr>
+                  <td>{{ row.player_name or row.player_id or "—" }}</td>
+                  <td>
+                    {% if row.sport == "nba" %}
+                    <span class="pm-chip nba">NBA</span>
+                    {% elif row.sport == "mlb" %}
+                    <span class="pm-chip mlb">MLB</span>
+                    {% else %}
+                    {{ row.sport or "—" }}
+                    {% endif %}
+                  </td>
+                  <td>{{ row.team or "—" }}</td>
+                  <td>{{ row.stat_type or "—" }}</td>
+                  <td>{{ row.value if row.value is not none else "—" }}</td>
+                  <td>{{ row.source }}</td>
+                  <td>{{ row.scraped_at }}</td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="pm-table-wrap">
-          <table class="pm-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th>Sport</th>
-                <th>Team</th>
-                <th>Stat</th>
-                <th>Value</th>
-                <th>Source</th>
-                <th>Scraped</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if dash.recent_stats|length == 0 %}
-              <tr>
-                <td colspan="7" class="pm-empty">Nothing normalized yet.</td>
-              </tr>
-              {% else %}
-              {% for row in dash.recent_stats %}
-              <tr>
-                <td>{{ row.player_name or row.player_id or "—" }}</td>
-                <td>
-                  {% if row.sport == "nba" %}
-                  <span class="pm-chip nba">NBA</span>
-                  {% elif row.sport == "mlb" %}
-                  <span class="pm-chip mlb">MLB</span>
-                  {% else %}
-                  {{ row.sport or "—" }}
-                  {% endif %}
-                </td>
-                <td>{{ row.team or "—" }}</td>
-                <td>{{ row.stat_type or "—" }}</td>
-                <td>{{ row.value if row.value is not none else "—" }}</td>
-                <td>{{ row.source }}</td>
-                <td>{{ row.scraped_at }}</td>
-              </tr>
-              {% endfor %}
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </details>
 
-      <section class="pm-panel">
-        <div class="pm-panel-head">
-          <h2>Scrape log</h2>
-          <p>Full run history</p>
+      <details class="pm-drawer" id="logDrawer">
+        <summary class="pm-drawer-summary">
+          <span class="pm-drawer-title">Scrape log</span>
+          <span class="pm-drawer-meta">
+            <span class="pm-chip neutral">{{ log_sum.total or 0 }} entries</span>
+          </span>
+        </summary>
+        <div class="pm-drawer-body">
+          <div class="pm-panel-head" style="margin-top: 0.75rem; margin-bottom: 0.5rem;">
+            <p class="pm-drawer-note" style="margin: 0;">
+              Full run history. Clear removes health + log only — players, stats, and prop bets stay.
+            </p>
+            <button type="button" class="pm-btn pm-btn-danger pm-btn-tiny" id="clearLogBtn">
+              Clear logs
+            </button>
+          </div>
+          <div class="pm-table-wrap pm-table-compact">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if dash.scrape_log|length == 0 %}
+                <tr>
+                  <td colspan="5" class="pm-empty">Log is empty.</td>
+                </tr>
+                {% else %}
+                {% for row in dash.scrape_log %}
+                <tr>
+                  <td>{{ row.id }}</td>
+                  <td>{{ row.source }}</td>
+                  <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
+                  <td>{{ row.scraped_at }}</td>
+                  <td>
+                    {% if row.error_message %}
+                    <div class="pm-err" title="{{ row.error_message }}">{{ row.error_message }}</div>
+                    {% else %}
+                    —
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="pm-table-wrap">
-          <table class="pm-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Source</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if dash.scrape_log|length == 0 %}
-              <tr>
-                <td colspan="5" class="pm-empty">Log is empty.</td>
-              </tr>
-              {% else %}
-              {% for row in dash.scrape_log %}
-              <tr>
-                <td>{{ row.id }}</td>
-                <td>{{ row.source }}</td>
-                <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
-                <td>{{ row.scraped_at }}</td>
-                <td>{{ row.error_message or "—" }}</td>
-              </tr>
-              {% endfor %}
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </details>
     </div>
 
     <script>
@@ -255,6 +298,30 @@
       document.getElementById("runAllBtn").addEventListener("click", () => runScrape("all"));
       document.getElementById("runNbaBtn").addEventListener("click", () => runScrape("nba"));
       document.getElementById("runMlbBtn").addEventListener("click", () => runScrape("mlb"));
+
+      const clearBtn = document.getElementById("clearLogBtn");
+      clearBtn.addEventListener("click", async () => {
+        if (!confirm("Clear scraper health and scrape log? Players, stats, and prop bets are kept.")) {
+          return;
+        }
+        clearBtn.disabled = true;
+        clearBtn.textContent = "Clearing…";
+        try {
+          const res = await fetch("/api/prop-model/scrape-log/clear", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.detail || "Could not clear logs");
+            return;
+          }
+          window.location.reload();
+        } catch (err) {
+          alert(String(err));
+        } finally {
+          clearBtn.disabled = false;
+          clearBtn.textContent = "Clear logs";
+        }
+      });
+
       refreshDash();
     </script>
   </body>

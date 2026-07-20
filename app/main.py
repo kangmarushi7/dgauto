@@ -52,7 +52,7 @@ from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
-from app.prop_model import build_prop_model_dashboard, get_scrape_job_status
+from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_scrape_job_status
 from app.prop_model_scrape import start_scrape_background
 from app.prop_model_bets import (
     add_prop_bet,
@@ -244,6 +244,12 @@ async def prop_model_scrape(sport: str = Query(default="all")):
     result = await run_in_threadpool(start_scrape_background, sport_l)
     status = 202 if result.get("started") else 409
     return JSONResponse(result, status_code=status)
+
+
+@app.post("/api/prop-model/scrape-log/clear")
+async def prop_model_clear_scrape_log():
+    result = await run_in_threadpool(clear_scrape_logs)
+    return JSONResponse({"ok": True, **result, "dashboard": build_prop_model_dashboard()})
 
 
 @app.get("/api/prop-model/bet-log")
