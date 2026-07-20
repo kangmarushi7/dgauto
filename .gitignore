@@ -3,4 +3,10 @@ __pycache__/
 .pytest_cache/
 .env
 playwright-report/
-data/
+/data/
+node_modules/
+prop-model-engine/node_modules/
+prop-model-engine/data/raw/
+prop-model-engine/data/*.db
+prop-model-engine/data/*.db-*
+prop-model-engine/.env

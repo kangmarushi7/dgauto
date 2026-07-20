@@ -140,6 +140,8 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/data` - latest slate data
 - `GET /api/todays-bets` - scenario-filtered bets
 - `GET /api/lm-strat` - LM Strat filtered picks
+- `GET /prop-model` - Prop Model Engine dashboard (NBA/MLB Phase 1)
+- `GET /api/prop-model` - Prop Model Engine JSON (scraper health + stats)
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
@@ -147,3 +149,21 @@ X-Cron-Secret: some-long-random-string
 - `POST /api/auto-resolve/all` - resolve both logs in one call
 - `POST /api/cron/auto-resolve` - same as above (optional `X-Cron-Secret` header)
 - `GET /health` - health check
+
+## Prop Model Engine (separate package)
+
+NBA + MLB player-prop pipeline lives in `prop-model-engine/` (Node.js + Playwright + SQLite). Phase 1 covers stats scraping and normalization only.
+
+```powershell
+cd D:\DG\prop-model-engine
+copy .env.example .env
+npm install
+npx playwright install chromium
+npm run db:init
+npm run scrape:nba
+npm run scrape:mlb
+```
+
+Open the linked page in the DG dashboard: `http://127.0.0.1:8000/prop-model`
+
+Optional: set `PROP_MODEL_DB_PATH` in the root `.env` if the SQLite file is not at `prop-model-engine/data/prop-model.db`.

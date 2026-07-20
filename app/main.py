@@ -52,6 +52,7 @@ from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
+from app.prop_model import build_prop_model_dashboard
 from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context
 
 app = FastAPI(title="DG Bet Automation")
@@ -205,6 +206,17 @@ async def todays_bets(request: Request):
         "todays_bets.html",
         {"data": data, "scenarios": scenarios},
     )
+
+
+@app.get("/prop-model")
+async def prop_model_page(request: Request):
+    dash = build_prop_model_dashboard()
+    return templates.TemplateResponse(request, "prop_model.html", {"dash": dash})
+
+
+@app.get("/api/prop-model")
+async def prop_model_api():
+    return JSONResponse(build_prop_model_dashboard())
 
 
 @app.get("/bet-log")

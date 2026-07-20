@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prop Model Engine - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <style>
+      .prop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin: 1rem 0 1.5rem;
+      }
+      .prop-kpi {
+        border: 1px solid #d0d5dd;
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        background: #fafbfc;
+      }
+      .prop-kpi .label {
+        font-size: 0.8rem;
+        color: #667085;
+        margin-bottom: 0.25rem;
+      }
+      .prop-kpi .value {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+      .status-pill {
+        display: inline-block;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .status-pill.ok { background: #dcfae6; color: #027a48; }
+      .status-pill.missing { background: #fee4e2; color: #b42318; }
+      .status-pill.success { background: #dcfae6; color: #027a48; }
+      .status-pill.partial { background: #fef0c7; color: #b54708; }
+      .status-pill.failure { background: #fee4e2; color: #b42318; }
+      .setup-box {
+        background: #f2f4f7;
+        border-radius: 8px;
+        padding: 1rem 1.1rem;
+        margin: 1rem 0 1.5rem;
+      }
+      .setup-box code {
+        display: block;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85rem;
+        margin: 0.2rem 0;
+      }
+      .phase-note {
+        color: #667085;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+      }
+      table.compact td, table.compact th {
+        font-size: 0.88rem;
+        padding: 0.4rem 0.55rem;
+      }
+      .muted { color: #667085; }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Prop Model Engine</h1>
+      <p class="subtitle">NBA + MLB player props — Phase 1 stats pipeline (separate Node package).</p>
+      <p class="top-links">
+        <a href="/">Back to Home</a> |
+        <a href="/todays-bets">Today's Bets</a> |
+        <a href="/bet-log">Bet Log</a>
+      </p>
+
+      <p class="phase-note">
+        Phase <strong>{{ dash.status.phase }}</strong>: {{ dash.status.phase_label }}.
+        Lines, projections, and edges land in later phases — schema stubs are ready.
+      </p>
+
+      <div class="prop-grid">
+        <div class="prop-kpi">
+          <div class="label">Package DB</div>
+          <div class="value">
+            {% if dash.status.exists %}
+              <span class="status-pill ok">ready</span>
+            {% else %}
+              <span class="status-pill missing">missing</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="prop-kpi">
+          <div class="label">NBA players</div>
+          <div class="value">{{ dash.players.nba }}</div>
+        </div>
+        <div class="prop-kpi">
+          <div class="label">MLB players</div>
+          <div class="value">{{ dash.players.mlb }}</div>
+        </div>
+        <div class="prop-kpi">
+          <div class="label">Flagged edges</div>
+          <div class="value">{{ dash.edges.edges }}</div>
+        </div>
+      </div>
+
+      <p class="meta muted">DB path: <code>{{ dash.status.path }}</code></p>
+
+      {% if not dash.status.exists %}
+      <div class="setup-box">
+        <strong>Initialize the package</strong>
+        {% for cmd in dash.setup.commands %}
+        <code>{{ cmd }}</code>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <h2>Scraper health</h2>
+      <p class="muted">Last successful/failed scrape per source.</p>
+      <table class="compact">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Scraped at</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if dash.last_scrapes|length == 0 %}
+          <tr><td colspan="4">No scrape_log rows yet. Run <code>npm run scrape:nba</code> / <code>scrape:mlb</code>.</td></tr>
+          {% else %}
+          {% for row in dash.last_scrapes %}
+          <tr>
+            <td>{{ row.source }}</td>
+            <td><span class="status-pill {{ row.status }}">{{ row.status }}</span></td>
+            <td>{{ row.scraped_at }}</td>
+            <td>{{ row.error_message or "—" }}</td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+
+      <h2>Recent normalized stats</h2>
+      <table class="compact">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Sport</th>
+            <th>Team</th>
+            <th>Stat</th>
+            <th>Value</th>
+            <th>Source</th>
+            <th>Scraped</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if dash.recent_stats|length == 0 %}
+          <tr><td colspan="7">No normalized stats yet.</td></tr>
+          {% else %}
+          {% for row in dash.recent_stats %}
+          <tr>
+            <td>{{ row.player_name or row.player_id or "—" }}</td>
+            <td>{{ row.sport or "—" }}</td>
+            <td>{{ row.team or "—" }}</td>
+            <td>{{ row.stat_type or "—" }}</td>
+            <td>{{ row.value if row.value is not none else "—" }}</td>
+            <td>{{ row.source }}</td>
+            <td>{{ row.scraped_at }}</td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+
+      <h2>Scrape log</h2>
+      <table class="compact">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Time</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if dash.scrape_log|length == 0 %}
+          <tr><td colspan="5">Empty.</td></tr>
+          {% else %}
+          {% for row in dash.scrape_log %}
+          <tr>
+            <td>{{ row.id }}</td>
+            <td>{{ row.source }}</td>
+            <td><span class="status-pill {{ row.status }}">{{ row.status }}</span></td>
+            <td>{{ row.scraped_at }}</td>
+            <td>{{ row.error_message or "—" }}</td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

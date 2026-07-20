@@ -1,0 +1,16 @@
+{
+  "aliases": {
+    "n jokic": "Nikola Jokic",
+    "n. jokic": "Nikola Jokic",
+    "nikola jokic": "Nikola Jokic",
+    "l doncic": "Luka Doncic",
+    "l. doncic": "Luka Doncic",
+    "s ohtani": "Shohei Ohtani",
+    "s. ohtani": "Shohei Ohtani"
+  },
+  "canonical": {
+    "nikola jokic": "Nikola Jokic",
+    "luka doncic": "Luka Doncic",
+    "shohei ohtani": "Shohei Ohtani"
+  }
+}
