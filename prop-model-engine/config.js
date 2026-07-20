@@ -1,11 +1,22 @@
 require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+// Also load parent app .env so DATABASE_URL from Railway / root .env is visible locally
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
 const path = require("path");
 
 const root = __dirname;
 
+function normalizeDatabaseUrl(raw) {
+  const url = String(raw || "").trim();
+  if (!url) return "";
+  // Node pg accepts postgres:// and postgresql://
+  return url;
+}
+
 module.exports = {
   root,
+  /** Prefer shared app Postgres (DATABASE_URL). SQLite only when unset. */
+  databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL),
   dbPath: process.env.DB_PATH
     ? path.isAbsolute(process.env.DB_PATH)
       ? process.env.DB_PATH

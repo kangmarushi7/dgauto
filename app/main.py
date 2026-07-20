@@ -52,7 +52,13 @@ from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
-from app.prop_model import build_prop_model_dashboard
+from app.prop_model import build_prop_model_dashboard, get_scrape_job_status
+from app.prop_model_scrape import start_scrape_background
+from app.prop_model_bets import (
+    add_prop_bet,
+    prop_bet_log_payload,
+    resolve_prop_bet,
+)
 from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context
 
 app = FastAPI(title="DG Bet Automation")
@@ -214,9 +220,60 @@ async def prop_model_page(request: Request):
     return templates.TemplateResponse(request, "prop_model.html", {"dash": dash})
 
 
+@app.get("/prop-model/bet-log")
+async def prop_model_bet_log_page(request: Request):
+    payload = prop_bet_log_payload()
+    return templates.TemplateResponse(request, "prop_model_bet_log.html", payload)
+
+
 @app.get("/api/prop-model")
 async def prop_model_api():
     return JSONResponse(build_prop_model_dashboard())
+
+
+@app.get("/api/prop-model/scrape/status")
+async def prop_model_scrape_status():
+    return JSONResponse(get_scrape_job_status())
+
+
+@app.post("/api/prop-model/scrape")
+async def prop_model_scrape(sport: str = Query(default="all")):
+    sport_l = (sport or "all").lower().strip()
+    if sport_l not in {"nba", "mlb", "all"}:
+        raise HTTPException(status_code=400, detail="sport must be nba, mlb, or all")
+    result = await run_in_threadpool(start_scrape_background, sport_l)
+    status = 202 if result.get("started") else 409
+    return JSONResponse(result, status_code=status)
+
+
+@app.get("/api/prop-model/bet-log")
+async def prop_model_bet_log_api():
+    return JSONResponse(prop_bet_log_payload())
+
+
+@app.post("/api/prop-model/bet-log")
+async def prop_model_bet_log_add(request: Request):
+    body = await request.json()
+    try:
+        entry = await run_in_threadpool(add_prop_bet, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    payload = prop_bet_log_payload()
+    payload["created"] = entry
+    return JSONResponse(payload)
+
+
+@app.post("/api/prop-model/bet-log/{bet_id}/resolve")
+async def prop_model_bet_log_resolve(bet_id: int, request: Request):
+    body = await request.json()
+    result = str(body.get("result") or "").strip()
+    try:
+        updated = await run_in_threadpool(resolve_prop_bet, bet_id, result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not updated:
+        raise HTTPException(status_code=404, detail="Bet not found")
+    return JSONResponse(prop_bet_log_payload())
 
 
 @app.get("/bet-log")

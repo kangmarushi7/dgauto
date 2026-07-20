@@ -73,6 +73,14 @@ bet_entries = Table(
 
 def init_db() -> None:
     metadata.create_all(engine)
+    # Prop Model Engine tables (pm_*) live on the same DATABASE_URL Postgres.
+    try:
+        from app.prop_model import init_prop_model_tables
+
+        init_prop_model_tables()
+    except Exception as exc:
+        # Don't block app boot if prop-model schema file is missing locally.
+        print(f"[prop_model] schema init skipped/failed: {exc}")
 
 
 def load_state(key: str, default: dict[str, Any]) -> dict[str, Any]:

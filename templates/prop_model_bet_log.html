@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prop Bet Log — DG</title>
+    <link rel="stylesheet" href="/static/prop_model.css?v=1" />
+  </head>
+  <body class="pm-body">
+    <div class="pm-shell">
+      <nav class="pm-topnav" aria-label="Prop Model">
+        <a href="/">Home</a>
+        <a href="/prop-model">Prop Model</a>
+        <a href="/prop-model/bet-log" class="is-current">Prop Bet Log</a>
+      </nav>
+
+      <header class="pm-hero">
+        <h1 class="pm-brand">Prop <span>Bet Log</span></h1>
+        <p class="pm-lede">
+          NBA and MLB props only — kept separate from DG soccer bet logs.
+        </p>
+        <div class="pm-meta-row">
+          <span class="pm-chip">Isolated · pm_bets</span>
+        </div>
+      </header>
+
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Performance</h2>
+          <p>Rolling paper results</p>
+        </div>
+        <p class="pm-stats-line" id="stats"></p>
+      </section>
+
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Add a prop</h2>
+          <p>Log a line you’re tracking</p>
+        </div>
+        <form class="pm-form" id="addForm">
+          <label class="pm-field">
+            <span>Player</span>
+            <input name="player_name" required placeholder="Nikola Jokic" />
+          </label>
+          <label class="pm-field">
+            <span>Sport</span>
+            <select name="sport">
+              <option value="nba">NBA</option>
+              <option value="mlb">MLB</option>
+            </select>
+          </label>
+          <label class="pm-field">
+            <span>Team</span>
+            <input name="team" placeholder="DEN" />
+          </label>
+          <label class="pm-field">
+            <span>Stat type</span>
+            <input name="stat_type" required placeholder="points" />
+          </label>
+          <label class="pm-field">
+            <span>Line</span>
+            <input name="line" type="number" step="0.5" required />
+          </label>
+          <label class="pm-field">
+            <span>Side</span>
+            <select name="side">
+              <option value="over">Over</option>
+              <option value="under">Under</option>
+            </select>
+          </label>
+          <label class="pm-field">
+            <span>Odds (American)</span>
+            <input name="odds" type="number" step="1" placeholder="-110" />
+          </label>
+          <label class="pm-field">
+            <span>Stake (units)</span>
+            <input name="stake" type="number" step="0.1" value="1" />
+          </label>
+          <div class="pm-form-actions">
+            <button type="submit" class="pm-btn pm-btn-primary">Add prop bet</button>
+            <span id="status" class="pm-run-status"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Open &amp; settled</h2>
+          <p>Resolve when the game is final</p>
+        </div>
+        <div class="pm-table-wrap">
+          <table class="pm-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Player</th>
+                <th>Sport</th>
+                <th>Stat</th>
+                <th>Line</th>
+                <th>Side</th>
+                <th>Odds</th>
+                <th>Stake</th>
+                <th>Status</th>
+                <th>Resolve</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const rowsEl = document.getElementById("rows");
+      const statsEl = document.getElementById("stats");
+      const statusEl = document.getElementById("status");
+      const form = document.getElementById("addForm");
+
+      function td(text, className) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        if (className) el.className = className;
+        return el;
+      }
+
+      function renderStats(s) {
+        const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
+        statsEl.textContent =
+          `Placed ${s.placed} · Open ${s.open} · Won ${s.won} · Lost ${s.lost} · Push ${s.push} · Win ${s.win_pct}% · Avg odds ${avgOdds} · Unit PnL ${s.unit_pnl}`;
+      }
+
+      async function resolveBet(id, result) {
+        const res = await fetch(`/api/prop-model/bet-log/${id}/resolve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        renderStats(data.dashboard);
+        renderRows(data.entries);
+      }
+
+      function renderRows(entries) {
+        rowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No prop bets logged yet.", "pm-empty");
+          empty.colSpan = 10;
+          tr.appendChild(empty);
+          rowsEl.appendChild(tr);
+          return;
+        }
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(e.created_at || ""));
+          tr.appendChild(td(e.player_name || e.player_id || "—"));
+          const sportTd = document.createElement("td");
+          if (e.sport === "nba" || e.sport === "mlb") {
+            const chip = document.createElement("span");
+            chip.className = `pm-chip ${e.sport}`;
+            chip.textContent = e.sport.toUpperCase();
+            sportTd.appendChild(chip);
+          } else {
+            sportTd.textContent = e.sport || "—";
+          }
+          tr.appendChild(sportTd);
+          tr.appendChild(td(e.stat_type || ""));
+          tr.appendChild(td(e.line != null ? e.line : "—"));
+          tr.appendChild(td(e.side || "—"));
+          tr.appendChild(td(e.odds != null ? e.odds : "—"));
+          tr.appendChild(td(e.stake != null ? e.stake : "—"));
+          const statusTd = document.createElement("td");
+          const pill = document.createElement("span");
+          const result = e.result || "open";
+          pill.className =
+            "pm-pill " +
+            (result === "won" ? "success" : result === "lost" ? "failure" : result === "push" ? "partial" : "ok");
+          pill.textContent = result;
+          statusTd.appendChild(pill);
+          tr.appendChild(statusTd);
+          const actions = document.createElement("td");
+          if (!e.result || e.result === "open") {
+            for (const r of ["won", "lost", "push"]) {
+              const btn = document.createElement("button");
+              btn.textContent = r;
+              btn.type = "button";
+              btn.className = `pm-resolve-btn ${r}`;
+              btn.addEventListener("click", () => resolveBet(e.id, r));
+              actions.appendChild(btn);
+            }
+          } else {
+            actions.textContent = "—";
+          }
+          tr.appendChild(actions);
+          rowsEl.appendChild(tr);
+        }
+      }
+
+      form.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        statusEl.textContent = "Saving…";
+        const fd = new FormData(form);
+        const body = Object.fromEntries(fd.entries());
+        body.line = body.line === "" ? null : Number(body.line);
+        body.odds = body.odds === "" ? null : Number(body.odds);
+        body.stake = body.stake === "" ? 1 : Number(body.stake);
+        const res = await fetch("/api/prop-model/bet-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.detail || "Failed to add bet";
+          return;
+        }
+        statusEl.textContent = "Added.";
+        form.reset();
+        form.sport.value = "nba";
+        form.stake.value = "1";
+        renderStats(data.dashboard);
+        renderRows(data.entries);
+      });
+
+      const initial = {
+        entries: {{ entries | tojson }},
+        dashboard: {{ dashboard | tojson }}
+      };
+      renderStats(initial.dashboard || {});
+      renderRows(initial.entries || []);
+    </script>
+  </body>
+</html>

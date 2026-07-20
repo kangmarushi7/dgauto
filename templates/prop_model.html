@@ -3,204 +3,259 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prop Model Engine - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
-    <style>
-      .prop-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.75rem;
-        margin: 1rem 0 1.5rem;
-      }
-      .prop-kpi {
-        border: 1px solid #d0d5dd;
-        border-radius: 8px;
-        padding: 0.85rem 1rem;
-        background: #fafbfc;
-      }
-      .prop-kpi .label {
-        font-size: 0.8rem;
-        color: #667085;
-        margin-bottom: 0.25rem;
-      }
-      .prop-kpi .value {
-        font-size: 1.4rem;
-        font-weight: 700;
-      }
-      .status-pill {
-        display: inline-block;
-        padding: 0.15rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-      }
-      .status-pill.ok { background: #dcfae6; color: #027a48; }
-      .status-pill.missing { background: #fee4e2; color: #b42318; }
-      .status-pill.success { background: #dcfae6; color: #027a48; }
-      .status-pill.partial { background: #fef0c7; color: #b54708; }
-      .status-pill.failure { background: #fee4e2; color: #b42318; }
-      .setup-box {
-        background: #f2f4f7;
-        border-radius: 8px;
-        padding: 1rem 1.1rem;
-        margin: 1rem 0 1.5rem;
-      }
-      .setup-box code {
-        display: block;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 0.85rem;
-        margin: 0.2rem 0;
-      }
-      .phase-note {
-        color: #667085;
-        font-size: 0.95rem;
-        margin-bottom: 1rem;
-      }
-      table.compact td, table.compact th {
-        font-size: 0.88rem;
-        padding: 0.4rem 0.55rem;
-      }
-      .muted { color: #667085; }
-    </style>
+    <title>Prop Model — DG</title>
+    <link rel="stylesheet" href="/static/prop_model.css?v=1" />
   </head>
-  <body>
-    <main class="container">
-      <h1>Prop Model Engine</h1>
-      <p class="subtitle">NBA + MLB player props — Phase 1 stats pipeline (separate Node package).</p>
-      <p class="top-links">
-        <a href="/">Back to Home</a> |
-        <a href="/todays-bets">Today's Bets</a> |
-        <a href="/bet-log">Bet Log</a>
-      </p>
+  <body class="pm-body">
+    <div class="pm-shell">
+      <nav class="pm-topnav" aria-label="Prop Model">
+        <a href="/">Home</a>
+        <a href="/prop-model" class="is-current">Prop Model</a>
+        <a href="/prop-model/bet-log">Prop Bet Log</a>
+        <a href="/todays-bets">Today's Bets</a>
+      </nav>
 
-      <p class="phase-note">
-        Phase <strong>{{ dash.status.phase }}</strong>: {{ dash.status.phase_label }}.
-        Lines, projections, and edges land in later phases — schema stubs are ready.
-      </p>
+      <header class="pm-hero">
+        <h1 class="pm-brand">Prop <span>Model</span></h1>
+        <p class="pm-lede">
+          NBA and MLB player-prop pipeline — scrape, normalize, and watch health
+          from one place. Prop bets stay on their own log.
+        </p>
+        <div class="pm-meta-row">
+          <span class="pm-chip">Phase {{ dash.status.phase }} · {{ dash.status.phase_label }}</span>
+          <span class="pm-chip neutral">{{ dash.status.backend }} · {{ dash.status.path }}</span>
+        </div>
+      </header>
 
-      <div class="prop-grid">
-        <div class="prop-kpi">
-          <div class="label">Package DB</div>
-          <div class="value">
+      <section class="pm-metrics" aria-label="Snapshot">
+        <article class="pm-metric">
+          <p class="label">Database</p>
+          <p class="value">
             {% if dash.status.exists %}
-              <span class="status-pill ok">ready</span>
+              <span class="pm-pill {{ dash.status.backend }}">{{ dash.status.backend }}</span>
             {% else %}
-              <span class="status-pill missing">missing</span>
+              <span class="pm-pill missing">missing</span>
             {% endif %}
-          </div>
+          </p>
+          <p class="hint">Shared app store</p>
+        </article>
+        <article class="pm-metric">
+          <p class="label">NBA roster</p>
+          <p class="value">{{ dash.players.nba }}</p>
+          <p class="hint">Normalized players</p>
+        </article>
+        <article class="pm-metric">
+          <p class="label">MLB roster</p>
+          <p class="value">{{ dash.players.mlb }}</p>
+          <p class="hint">Normalized players</p>
+        </article>
+        <article class="pm-metric">
+          <p class="label">Prop bets</p>
+          <p class="value">{{ dash.bets.total }}</p>
+          <p class="hint">{{ dash.bets.open }} open</p>
+        </article>
+      </section>
+
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Run scrapers</h2>
+          <p>Pulls stats into the shared DB. Safe to leave open while it runs.</p>
         </div>
-        <div class="prop-kpi">
-          <div class="label">NBA players</div>
-          <div class="value">{{ dash.players.nba }}</div>
+        <div class="pm-run">
+          <button type="button" class="pm-btn pm-btn-primary" id="runAllBtn">Run all</button>
+          <button type="button" class="pm-btn pm-btn-nba" id="runNbaBtn">NBA</button>
+          <button type="button" class="pm-btn pm-btn-mlb" id="runMlbBtn">MLB</button>
+          <span id="scrapeStatus" class="pm-run-status"></span>
         </div>
-        <div class="prop-kpi">
-          <div class="label">MLB players</div>
-          <div class="value">{{ dash.players.mlb }}</div>
+      </section>
+
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Scraper health</h2>
+          <p>Last status per source</p>
         </div>
-        <div class="prop-kpi">
-          <div class="label">Flagged edges</div>
-          <div class="value">{{ dash.edges.edges }}</div>
+        <div class="pm-table-wrap">
+          <table class="pm-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Scraped at</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if dash.last_scrapes|length == 0 %}
+              <tr>
+                <td colspan="4" class="pm-empty">No scrapes yet — hit Run all above.</td>
+              </tr>
+              {% else %}
+              {% for row in dash.last_scrapes %}
+              <tr>
+                <td>{{ row.source }}</td>
+                <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
+                <td>{{ row.scraped_at }}</td>
+                <td>{{ row.error_message or "—" }}</td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </section>
 
-      <p class="meta muted">DB path: <code>{{ dash.status.path }}</code></p>
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Recent stats</h2>
+          <p>Latest normalized rows</p>
+        </div>
+        <div class="pm-table-wrap">
+          <table class="pm-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Sport</th>
+                <th>Team</th>
+                <th>Stat</th>
+                <th>Value</th>
+                <th>Source</th>
+                <th>Scraped</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if dash.recent_stats|length == 0 %}
+              <tr>
+                <td colspan="7" class="pm-empty">Nothing normalized yet.</td>
+              </tr>
+              {% else %}
+              {% for row in dash.recent_stats %}
+              <tr>
+                <td>{{ row.player_name or row.player_id or "—" }}</td>
+                <td>
+                  {% if row.sport == "nba" %}
+                  <span class="pm-chip nba">NBA</span>
+                  {% elif row.sport == "mlb" %}
+                  <span class="pm-chip mlb">MLB</span>
+                  {% else %}
+                  {{ row.sport or "—" }}
+                  {% endif %}
+                </td>
+                <td>{{ row.team or "—" }}</td>
+                <td>{{ row.stat_type or "—" }}</td>
+                <td>{{ row.value if row.value is not none else "—" }}</td>
+                <td>{{ row.source }}</td>
+                <td>{{ row.scraped_at }}</td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      {% if not dash.status.exists %}
-      <div class="setup-box">
-        <strong>Initialize the package</strong>
-        {% for cmd in dash.setup.commands %}
-        <code>{{ cmd }}</code>
-        {% endfor %}
-      </div>
-      {% endif %}
+      <section class="pm-panel">
+        <div class="pm-panel-head">
+          <h2>Scrape log</h2>
+          <p>Full run history</p>
+        </div>
+        <div class="pm-table-wrap">
+          <table class="pm-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if dash.scrape_log|length == 0 %}
+              <tr>
+                <td colspan="5" class="pm-empty">Log is empty.</td>
+              </tr>
+              {% else %}
+              {% for row in dash.scrape_log %}
+              <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.source }}</td>
+                <td><span class="pm-pill {{ row.status }}">{{ row.status }}</span></td>
+                <td>{{ row.scraped_at }}</td>
+                <td>{{ row.error_message or "—" }}</td>
+              </tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
 
-      <h2>Scraper health</h2>
-      <p class="muted">Last successful/failed scrape per source.</p>
-      <table class="compact">
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Scraped at</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if dash.last_scrapes|length == 0 %}
-          <tr><td colspan="4">No scrape_log rows yet. Run <code>npm run scrape:nba</code> / <code>scrape:mlb</code>.</td></tr>
-          {% else %}
-          {% for row in dash.last_scrapes %}
-          <tr>
-            <td>{{ row.source }}</td>
-            <td><span class="status-pill {{ row.status }}">{{ row.status }}</span></td>
-            <td>{{ row.scraped_at }}</td>
-            <td>{{ row.error_message or "—" }}</td>
-          </tr>
-          {% endfor %}
-          {% endif %}
-        </tbody>
-      </table>
+    <script>
+      const statusEl = document.getElementById("scrapeStatus");
+      const buttons = [
+        document.getElementById("runAllBtn"),
+        document.getElementById("runNbaBtn"),
+        document.getElementById("runMlbBtn"),
+      ];
 
-      <h2>Recent normalized stats</h2>
-      <table class="compact">
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th>Sport</th>
-            <th>Team</th>
-            <th>Stat</th>
-            <th>Value</th>
-            <th>Source</th>
-            <th>Scraped</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if dash.recent_stats|length == 0 %}
-          <tr><td colspan="7">No normalized stats yet.</td></tr>
-          {% else %}
-          {% for row in dash.recent_stats %}
-          <tr>
-            <td>{{ row.player_name or row.player_id or "—" }}</td>
-            <td>{{ row.sport or "—" }}</td>
-            <td>{{ row.team or "—" }}</td>
-            <td>{{ row.stat_type or "—" }}</td>
-            <td>{{ row.value if row.value is not none else "—" }}</td>
-            <td>{{ row.source }}</td>
-            <td>{{ row.scraped_at }}</td>
-          </tr>
-          {% endfor %}
-          {% endif %}
-        </tbody>
-      </table>
+      function setBusy(busy) {
+        buttons.forEach((b) => {
+          b.disabled = busy;
+        });
+      }
 
-      <h2>Scrape log</h2>
-      <table class="compact">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Time</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if dash.scrape_log|length == 0 %}
-          <tr><td colspan="5">Empty.</td></tr>
-          {% else %}
-          {% for row in dash.scrape_log %}
-          <tr>
-            <td>{{ row.id }}</td>
-            <td>{{ row.source }}</td>
-            <td><span class="status-pill {{ row.status }}">{{ row.status }}</span></td>
-            <td>{{ row.scraped_at }}</td>
-            <td>{{ row.error_message or "—" }}</td>
-          </tr>
-          {% endfor %}
-          {% endif %}
-        </tbody>
-      </table>
-    </main>
+      async function refreshDash() {
+        const res = await fetch("/api/prop-model");
+        if (!res.ok) return false;
+        const dash = await res.json();
+        if (dash.scrape_job && dash.scrape_job.running) {
+          statusEl.textContent = `Running ${dash.scrape_job.sport || ""}…`;
+          statusEl.classList.add("is-live");
+          setBusy(true);
+          return true;
+        }
+        statusEl.classList.remove("is-live");
+        if (dash.scrape_job && dash.scrape_job.error) {
+          statusEl.textContent = `Failed: ${String(dash.scrape_job.error).split("\\n")[0]}`;
+        } else if (dash.scrape_job && dash.scrape_job.finished_at) {
+          statusEl.textContent = `Finished ${dash.scrape_job.sport || ""} · ${dash.scrape_job.finished_at}`;
+        }
+        setBusy(false);
+        return false;
+      }
+
+      async function runScrape(sport) {
+        setBusy(true);
+        statusEl.classList.add("is-live");
+        statusEl.textContent = `Starting ${sport}…`;
+        const res = await fetch(`/api/prop-model/scrape?sport=${encodeURIComponent(sport)}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (!data.started) {
+          statusEl.classList.remove("is-live");
+          statusEl.textContent =
+            data.reason === "already_running"
+              ? "A scrape is already running."
+              : data.reason || "Could not start scrape";
+          setBusy(!!(data.job && data.job.running));
+          return;
+        }
+        statusEl.textContent = `Running ${sport}… this can take a few minutes`;
+        const poll = setInterval(async () => {
+          const still = await refreshDash();
+          if (!still) {
+            clearInterval(poll);
+            window.location.reload();
+          }
+        }, 4000);
+      }
+
+      document.getElementById("runAllBtn").addEventListener("click", () => runScrape("all"));
+      document.getElementById("runNbaBtn").addEventListener("click", () => runScrape("nba"));
+      document.getElementById("runMlbBtn").addEventListener("click", () => runScrape("mlb"));
+      refreshDash();
+    </script>
   </body>
 </html>

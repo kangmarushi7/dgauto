@@ -238,45 +238,48 @@ function writeNormalizedRows(rows) {
   let playersUpserted = 0;
   let statsInserted = 0;
 
-  for (const row of rows) {
-    if (row.player_id && row.player_name) {
-      db.upsertPlayer({
-        id: row.player_id,
-        name: row.player_name,
-        team: row.team,
-        sport: row.sport,
-        position: row.position,
-      });
-      playersUpserted += 1;
-    }
+  async function run() {
+    for (const row of rows) {
+      if (row.player_id && row.player_name) {
+        await db.upsertPlayer({
+          id: row.player_id,
+          name: row.player_name,
+          team: row.team,
+          sport: row.sport,
+          position: row.position,
+        });
+        playersUpserted += 1;
+      }
 
-    db.insertPlayerStatRaw({
-      player_id: row.player_id,
-      source: row.source,
-      scraped_at: row.scraped_at,
-      stat_json: {
+      await db.insertPlayerStatRaw({
         player_id: row.player_id,
-        player_name: row.player_name,
-        team: row.team,
-        sport: row.sport,
-        stat_type: row.stat_type,
-        value: row.value,
         source: row.source,
         scraped_at: row.scraped_at,
-        extra: row.extra || null,
-      },
-    });
-    statsInserted += 1;
+        stat_json: {
+          player_id: row.player_id,
+          player_name: row.player_name,
+          team: row.team,
+          sport: row.sport,
+          stat_type: row.stat_type,
+          value: row.value,
+          source: row.source,
+          scraped_at: row.scraped_at,
+          extra: row.extra || null,
+        },
+      });
+      statsInserted += 1;
+    }
+    return { playersUpserted, statsInserted, rowCount: rows.length };
   }
 
-  return { playersUpserted, statsInserted, rowCount: rows.length };
+  return run();
 }
 
 /**
- * Normalize raw JSON for a sport/date into SQLite.
+ * Normalize raw JSON for a sport/date into the shared DB (Postgres via DATABASE_URL, else SQLite).
  * @param {{ sport: 'nba'|'mlb', date?: string }} opts
  */
-function normalizeSport({ sport, date } = {}) {
+async function normalizeSport({ sport, date } = {}) {
   if (!sport || !["nba", "mlb"].includes(sport)) {
     throw new Error("sport must be 'nba' or 'mlb'");
   }
@@ -295,11 +298,11 @@ function normalizeSport({ sport, date } = {}) {
   }
 
   const rows = sport === "nba" ? flattenNba(files) : flattenMlb(files);
-  const result = writeNormalizedRows(rows);
+  const result = await writeNormalizedRows(rows);
   return { sport, date: dateStr, files: files.length, ...result };
 }
 
-function normalizeLatest(sport) {
+async function normalizeLatest(sport) {
   const dates = listDateDirs(sport);
   if (!dates.length) {
     return { sport, message: "No raw date folders found", files: 0, rowCount: 0 };

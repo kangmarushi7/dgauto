@@ -277,7 +277,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
       if (playerLimit > 0) batters = batters.slice(0, playerLimit);
       const file = writeRawJson("mlb", "mlb-batters", { season_year: year, players: batters }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "mlb-batters",
         status: batters.length ? "success" : "partial",
         detail_json: { count: batters.length, file },
@@ -286,7 +286,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "mlb-batters", error: msg });
-      db.insertScrapeLog({ source: "mlb-batters", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "mlb-batters", status: "failure", error_message: msg });
     }
 
     try {
@@ -296,7 +296,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
       if (playerLimit > 0) pitchers = pitchers.slice(0, playerLimit);
       const file = writeRawJson("mlb", "mlb-pitchers", { season_year: year, players: pitchers }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "mlb-pitchers",
         status: pitchers.length ? "success" : "partial",
         detail_json: { count: pitchers.length, file },
@@ -305,7 +305,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "mlb-pitchers", error: msg });
-      db.insertScrapeLog({ source: "mlb-pitchers", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "mlb-pitchers", status: "failure", error_message: msg });
     }
 
     try {
@@ -314,7 +314,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
       const parks = await scrapeParkFactors(page, year);
       const file = writeRawJson("mlb", "mlb-park-factors", { season_year: year, parks, factors: parks }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "mlb-park-factors",
         status: parks.length ? "success" : "partial",
         detail_json: { count: parks.length, file },
@@ -323,7 +323,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "mlb-park-factors", error: msg });
-      db.insertScrapeLog({ source: "mlb-park-factors", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "mlb-park-factors", status: "failure", error_message: msg });
     }
 
     try {
@@ -332,7 +332,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
       const xstats = await scrapeSavantXstats(page);
       const file = writeRawJson("mlb", "mlb-xstats", { players: xstats }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "mlb-xstats",
         status: xstats.length ? "success" : "partial",
         detail_json: { count: xstats.length, file },
@@ -341,7 +341,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "mlb-xstats", error: msg });
-      db.insertScrapeLog({ source: "mlb-xstats", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "mlb-xstats", status: "failure", error_message: msg });
     }
 
     try {
@@ -350,7 +350,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
       const splits = await scrapePlatoonProxy(page, year);
       const file = writeRawJson("mlb", "mlb-platoon-splits", { players: splits }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "mlb-platoon-splits",
         status: splits.length ? "success" : "partial",
         detail_json: { count: splits.length, file },
@@ -359,7 +359,7 @@ async function runMlbStatsScrape({ date = todayStamp(), playerLimit = config.mlb
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "mlb-platoon-splits", error: msg });
-      db.insertScrapeLog({ source: "mlb-platoon-splits", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "mlb-platoon-splits", status: "failure", error_message: msg });
     }
   });
 

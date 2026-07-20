@@ -240,7 +240,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       const players = await scrapePer36(page, year);
       const file = writeRawJson("nba", "nba-per36", { season_year: year, players }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "nba-per36",
         status: players.length ? "success" : "partial",
         detail_json: { count: players.length, file },
@@ -265,7 +265,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
           const msg = err.message || String(err);
           console.warn(`[nba] game log failed for ${player.name}: ${msg}`);
           failed.push({ source: `nba-gamelog:${player.name}`, error: msg });
-          db.insertScrapeLog({
+          await db.insertScrapeLog({
             source: `nba-gamelog:${player.name}`,
             status: "failure",
             error_message: msg,
@@ -274,7 +274,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       }
       const glFile = writeRawJson("nba", "nba-gamelogs", { season_year: year, players: gamelogs }, date);
       summary.files.push(glFile);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "nba-gamelogs",
         status: gamelogs.length ? "success" : "partial",
         detail_json: { count: gamelogs.length, file: glFile },
@@ -283,7 +283,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       const msg = err.message || String(err);
       console.error(`[nba] per-36 failed: ${msg}`);
       failed.push({ source: "nba-per36", error: msg });
-      db.insertScrapeLog({ source: "nba-per36", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "nba-per36", status: "failure", error_message: msg });
     }
 
     // --- Team pace ---
@@ -293,7 +293,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       const teams = await scrapeTeamPace(page, year);
       const file = writeRawJson("nba", "nba-team-pace", { season_year: year, teams }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "nba-team-pace",
         status: teams.length ? "success" : "partial",
         detail_json: { count: teams.length, file },
@@ -302,7 +302,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "nba-team-pace", error: msg });
-      db.insertScrapeLog({ source: "nba-team-pace", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "nba-team-pace", status: "failure", error_message: msg });
     }
 
     // --- DvP ---
@@ -312,7 +312,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       const ranks = await scrapeDvp(page);
       const file = writeRawJson("nba", "nba-dvp", { ranks }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "nba-dvp",
         status: ranks.length ? "success" : "partial",
         detail_json: { count: ranks.length, file },
@@ -321,7 +321,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "nba-dvp", error: msg });
-      db.insertScrapeLog({ source: "nba-dvp", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "nba-dvp", status: "failure", error_message: msg });
     }
 
     // --- Injuries ---
@@ -331,7 +331,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
       const injuries = await scrapeInjuries(page);
       const file = writeRawJson("nba", "nba-injuries", { injuries }, date);
       summary.files.push(file);
-      db.insertScrapeLog({
+      await db.insertScrapeLog({
         source: "nba-injuries",
         status: injuries.length ? "success" : "partial",
         detail_json: { count: injuries.length, file },
@@ -340,7 +340,7 @@ async function runNbaStatsScrape({ date = todayStamp(), playerLimit = config.nba
     } catch (err) {
       const msg = err.message || String(err);
       failed.push({ source: "nba-injuries", error: msg });
-      db.insertScrapeLog({ source: "nba-injuries", status: "failure", error_message: msg });
+      await db.insertScrapeLog({ source: "nba-injuries", status: "failure", error_message: msg });
     }
   });
 

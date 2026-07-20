@@ -152,11 +152,14 @@ X-Cron-Secret: some-long-random-string
 
 ## Prop Model Engine (separate package)
 
-NBA + MLB player-prop pipeline lives in `prop-model-engine/` (Node.js + Playwright + SQLite). Phase 1 covers stats scraping and normalization only.
+NBA + MLB player-prop pipeline lives in `prop-model-engine/` (Node.js + Playwright). Phase 1 covers stats scraping and normalization only.
+
+**Storage:** uses the same Railway `DATABASE_URL` Postgres as the main app (`pm_*` tables). SQLite is only a local fallback when `DATABASE_URL` is unset.
 
 ```powershell
 cd D:\DG\prop-model-engine
 copy .env.example .env
+# DATABASE_URL is already on Railway; for local scrapes, copy it from the root .env
 npm install
 npx playwright install chromium
 npm run db:init
@@ -165,5 +168,3 @@ npm run scrape:mlb
 ```
 
 Open the linked page in the DG dashboard: `http://127.0.0.1:8000/prop-model`
-
-Optional: set `PROP_MODEL_DB_PATH` in the root `.env` if the SQLite file is not at `prop-model-engine/data/prop-model.db`.

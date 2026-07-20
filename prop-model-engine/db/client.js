@@ -1,81 +1,172 @@
 const fs = require("fs");
 const path = require("path");
-const Database = require("better-sqlite3");
 const config = require("../config");
 
-let db;
+let mode = null; // 'postgres' | 'sqlite'
+let sqliteDb = null;
+let pgPool = null;
+
+function toPgParams(sql) {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
 
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function getDb() {
-  if (db) return db;
+function getMode() {
+  if (mode) return mode;
+  mode = config.databaseUrl ? "postgres" : "sqlite";
+  return mode;
+}
+
+async function getPg() {
+  if (pgPool) return pgPool;
+  const { Pool } = require("pg");
+  pgPool = new Pool({
+    connectionString: config.databaseUrl,
+    ssl: config.databaseUrl.includes("localhost") || config.databaseUrl.includes("127.0.0.1")
+      ? false
+      : { rejectUnauthorized: false },
+  });
+  return pgPool;
+}
+
+function getSqlite() {
+  if (sqliteDb) return sqliteDb;
+  const Database = require("better-sqlite3");
   ensureDir(config.dbPath);
-  db = new Database(config.dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  initSchema(db);
-  return db;
+  sqliteDb = new Database(config.dbPath);
+  sqliteDb.pragma("journal_mode = WAL");
+  sqliteDb.pragma("foreign_keys = ON");
+  return sqliteDb;
 }
 
-function initSchema(database = getDb()) {
-  const schemaPath = path.join(__dirname, "schema.sql");
-  const sql = fs.readFileSync(schemaPath, "utf8");
-  database.exec(sql);
+async function initSchema() {
+  const dialect = getMode();
+  if (dialect === "postgres") {
+    const pool = await getPg();
+    const schemaPath = path.join(__dirname, "schema.postgres.sql");
+    const sql = fs.readFileSync(schemaPath, "utf8");
+    await pool.query(sql);
+    return { dialect: "postgres", target: config.databaseUrl.replace(/:[^:@/]+@/, ":***@") };
+  }
+  const db = getSqlite();
+  const schemaPath = path.join(__dirname, "schema.sqlite.sql");
+  db.exec(fs.readFileSync(schemaPath, "utf8"));
+  return { dialect: "sqlite", target: config.dbPath };
 }
 
-function upsertPlayer({ id, name, team, sport, position }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO players (id, name, team, sport, position, updated_at)
-    VALUES (@id, @name, @team, @sport, @position, datetime('now'))
+async function run(sql, params = []) {
+  if (getMode() === "postgres") {
+    const pool = await getPg();
+    return pool.query(toPgParams(sql), params);
+  }
+  const stmt = getSqlite().prepare(sql);
+  return stmt.run(...params);
+}
+
+async function query(sql, params = []) {
+  if (getMode() === "postgres") {
+    const pool = await getPg();
+    const result = await pool.query(toPgParams(sql), params);
+    return result.rows;
+  }
+  return getSqlite().prepare(sql).all(...params);
+}
+
+async function queryOne(sql, params = []) {
+  const rows = await query(sql, params);
+  return rows[0] || null;
+}
+
+async function upsertPlayer({ id, name, team, sport, position }) {
+  if (getMode() === "postgres") {
+    await run(
+      `
+      INSERT INTO pm_players (id, name, team, sport, position, updated_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        team = COALESCE(EXCLUDED.team, pm_players.team),
+        sport = EXCLUDED.sport,
+        position = COALESCE(EXCLUDED.position, pm_players.position),
+        updated_at = NOW()
+    `,
+      [id, name, team || null, sport, position || null]
+    );
+    return;
+  }
+  await run(
+    `
+    INSERT INTO pm_players (id, name, team, sport, position, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
-      team = COALESCE(excluded.team, players.team),
+      team = COALESCE(excluded.team, pm_players.team),
       sport = excluded.sport,
-      position = COALESCE(excluded.position, players.position),
+      position = COALESCE(excluded.position, pm_players.position),
       updated_at = datetime('now')
-  `);
-  return stmt.run({ id, name, team: team || null, sport, position: position || null });
+  `,
+    [id, name, team || null, sport, position || null]
+  );
 }
 
-function insertPlayerStatRaw({ player_id, source, stat_json, scraped_at }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO player_stats_raw (player_id, source, stat_json, scraped_at)
-    VALUES (?, ?, ?, ?)
-  `);
+async function insertPlayerStatRaw({ player_id, source, stat_json, scraped_at }) {
   const payload = typeof stat_json === "string" ? stat_json : JSON.stringify(stat_json);
-  return stmt.run(player_id || null, source, payload, scraped_at);
+  if (getMode() === "postgres") {
+    await run(
+      `
+      INSERT INTO pm_player_stats_raw (player_id, source, stat_json, scraped_at)
+      VALUES (?, ?, ?::jsonb, ?)
+    `,
+      [player_id || null, source, payload, scraped_at]
+    );
+    return;
+  }
+  await run(
+    `
+    INSERT INTO pm_player_stats_raw (player_id, source, stat_json, scraped_at)
+    VALUES (?, ?, ?, ?)
+  `,
+    [player_id || null, source, payload, scraped_at]
+  );
 }
 
-function insertScrapeLog({ source, status, error_message = null, detail_json = null }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO scrape_log (source, status, error_message, detail_json, scraped_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `);
+async function insertScrapeLog({ source, status, error_message = null, detail_json = null }) {
   const detail =
     detail_json == null
       ? null
       : typeof detail_json === "string"
         ? detail_json
         : JSON.stringify(detail_json);
-  return stmt.run(source, status, error_message, detail);
+
+  if (getMode() === "postgres") {
+    await run(
+      `
+      INSERT INTO pm_scrape_log (source, status, error_message, detail_json, scraped_at)
+      VALUES (?, ?, ?, ?::jsonb, NOW())
+    `,
+      [source, status, error_message, detail]
+    );
+    return;
+  }
+  await run(
+    `
+    INSERT INTO pm_scrape_log (source, status, error_message, detail_json, scraped_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `,
+    [source, status, error_message, detail]
+  );
 }
 
-function query(sql, params = []) {
-  return getDb().prepare(sql).all(...params);
-}
-
-function queryOne(sql, params = []) {
-  return getDb().prepare(sql).get(...params);
-}
-
-function getScrapeHealth(limit = 50) {
+async function getScrapeHealth(limit = 50) {
   return query(
     `
     SELECT id, source, status, error_message, detail_json, scraped_at
-    FROM scrape_log
+    FROM pm_scrape_log
     ORDER BY scraped_at DESC, id DESC
     LIMIT ?
   `,
@@ -83,32 +174,32 @@ function getScrapeHealth(limit = 50) {
   );
 }
 
-function getLastScrapeBySource() {
+async function getLastScrapeBySource() {
   return query(`
     SELECT source, status, error_message, scraped_at
-    FROM scrape_log
+    FROM pm_scrape_log
     WHERE id IN (
-      SELECT MAX(id) FROM scrape_log GROUP BY source
+      SELECT MAX(id) FROM pm_scrape_log GROUP BY source
     )
     ORDER BY source
   `);
 }
 
-function getPlayerCounts() {
+async function getPlayerCounts() {
   return query(`
     SELECT sport, COUNT(*) AS count
-    FROM players
+    FROM pm_players
     GROUP BY sport
   `);
 }
 
-function getRecentStats(limit = 100) {
+async function getRecentStats(limit = 100) {
   return query(
     `
     SELECT ps.id, ps.player_id, p.name AS player_name, p.team, p.sport,
            ps.source, ps.scraped_at, ps.stat_json
-    FROM player_stats_raw ps
-    LEFT JOIN players p ON p.id = ps.player_id
+    FROM pm_player_stats_raw ps
+    LEFT JOIN pm_players p ON p.id = ps.player_id
     ORDER BY ps.scraped_at DESC, ps.id DESC
     LIMIT ?
   `,
@@ -116,15 +207,20 @@ function getRecentStats(limit = 100) {
   );
 }
 
-function close() {
-  if (db) {
-    db.close();
-    db = null;
+async function close() {
+  if (pgPool) {
+    await pgPool.end();
+    pgPool = null;
   }
+  if (sqliteDb) {
+    sqliteDb.close();
+    sqliteDb = null;
+  }
+  mode = null;
 }
 
 module.exports = {
-  getDb,
+  getMode,
   initSchema,
   upsertPlayer,
   insertPlayerStatRaw,

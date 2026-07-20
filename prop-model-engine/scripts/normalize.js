@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env") });
 
 const { normalizeSport, normalizeLatest, todayStamp } = require("../lib/normalizer");
 const db = require("../db/client");
 
-function main() {
-  db.initSchema();
+async function main() {
+  await db.initSchema();
   const sport = (process.argv[2] || "all").toLowerCase();
   const date = process.env.SCRAPE_DATE || process.argv[3] || null;
 
@@ -16,11 +17,14 @@ function main() {
       process.exit(1);
     }
     const result = date
-      ? normalizeSport({ sport: s, date })
-      : normalizeLatest(s) || normalizeSport({ sport: s, date: todayStamp() });
+      ? await normalizeSport({ sport: s, date })
+      : (await normalizeLatest(s)) || (await normalizeSport({ sport: s, date: todayStamp() }));
     console.log(result);
   }
-  db.close();
+  await db.close();
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

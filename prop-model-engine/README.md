@@ -9,10 +9,14 @@ Later phases (lines, projections, edge engine, calibration) plug into the same D
 ```powershell
 cd D:\DG\prop-model-engine
 copy .env.example .env
+# Set DATABASE_URL to the same Postgres URL as the DG app (Railway already has it).
 npm install
 npx playwright install chromium
 npm run db:init
 ```
+
+With `DATABASE_URL` set, tables are created as `pm_*` on the **shared Postgres**.
+Without it, the package falls back to local SQLite at `data/prop-model.db`.
 
 ## Manual scrapes
 
@@ -23,7 +27,7 @@ npm run normalize
 npm run scrape:all
 ```
 
-Raw JSON lands in `data/raw/{sport}/{YYYY-MM-DD}/`. Normalized rows go to SQLite (`data/prop-model.db` by default).
+Raw JSON lands in `data/raw/{sport}/{YYYY-MM-DD}/`. Normalized rows go to Postgres (`pm_*` tables via `DATABASE_URL`) or local SQLite.
 
 ## Daily scheduler
 
@@ -35,7 +39,7 @@ Cron times come from `.env` (`NBA_CRON`, `MLB_CRON`).
 
 ## Dashboard
 
-The DG FastAPI app exposes this package at **`/prop-model`** (scraper health, player counts, recent stats). It reads the same SQLite file via `PROP_MODEL_DB_PATH` (defaults to `prop-model-engine/data/prop-model.db`).
+The DG FastAPI app exposes this package at **`/prop-model`**. It reads the same `DATABASE_URL` Postgres (`pm_*` tables). On app startup it also ensures those tables exist.
 
 ## Phase status
 

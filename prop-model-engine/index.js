@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Prop Model Engine — scheduler entrypoint (Phase 1).
- * Runs NBA + MLB stats scrapers on a daily cron; also supports one-shot via npm scripts.
+ * Uses DATABASE_URL Postgres when set (same DB as DG app); otherwise local SQLite.
  */
 require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
 const cron = require("node-cron");
 const config = require("./config");
@@ -17,10 +18,10 @@ async function runNbaJob() {
   console.log(`[cron] NBA job ${date}`);
   try {
     await runNbaStatsScrape({ date });
-    console.log("[cron] NBA normalize:", normalizeSport({ sport: "nba", date }));
+    console.log("[cron] NBA normalize:", await normalizeSport({ sport: "nba", date }));
   } catch (err) {
     console.error("[cron] NBA job failed:", err.message || err);
-    db.insertScrapeLog({
+    await db.insertScrapeLog({
       source: "nba-cron",
       status: "failure",
       error_message: err.message || String(err),
@@ -33,10 +34,10 @@ async function runMlbJob() {
   console.log(`[cron] MLB job ${date}`);
   try {
     await runMlbStatsScrape({ date });
-    console.log("[cron] MLB normalize:", normalizeSport({ sport: "mlb", date }));
+    console.log("[cron] MLB normalize:", await normalizeSport({ sport: "mlb", date }));
   } catch (err) {
     console.error("[cron] MLB job failed:", err.message || err);
-    db.insertScrapeLog({
+    await db.insertScrapeLog({
       source: "mlb-cron",
       status: "failure",
       error_message: err.message || String(err),
@@ -44,10 +45,11 @@ async function runMlbJob() {
   }
 }
 
-function main() {
-  db.initSchema();
+async function main() {
+  const info = await db.initSchema();
   console.log("Prop Model Engine scheduler starting");
-  console.log(`  DB: ${config.dbPath}`);
+  console.log(`  dialect: ${info.dialect}`);
+  console.log(`  target:  ${info.target}`);
   console.log(`  NBA cron: ${config.nbaCron}`);
   console.log(`  MLB cron: ${config.mlbCron}`);
 
@@ -66,4 +68,7 @@ function main() {
   console.log("Scheduler armed. Use npm run scrape:nba / scrape:mlb for manual runs.");
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
