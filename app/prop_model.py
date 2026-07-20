@@ -9,9 +9,11 @@ from __future__ import annotations
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import text
 
@@ -34,6 +36,33 @@ _scrape_state: dict[str, Any] = {
 
 def uses_postgres() -> bool:
     return bool(os.getenv("DATABASE_URL", "").strip())
+
+
+def _jsonable(value: Any) -> Any:
+    """Make DB values safe for JSONResponse / Jinja tojson."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, time):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value).decode("utf-8", errors="replace")
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    return str(value)
+
+
+def _jsonable_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {k: _jsonable(v) for k, v in row.items()}
 
 
 def _run_schema_file(path: Path) -> None:
@@ -59,7 +88,7 @@ def _rows(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]
     try:
         with engine.begin() as conn:
             result = conn.execute(text(sql), params or {})
-            return [dict(r._mapping) for r in result]
+            return [_jsonable_row(dict(r._mapping)) for r in result]
     except Exception:
         return []
 

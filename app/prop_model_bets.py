@@ -8,13 +8,13 @@ from typing import Any
 from sqlalchemy import text
 
 from app.db import engine
-from app.prop_model import uses_postgres
+from app.prop_model import _jsonable_row, uses_postgres
 
 
 def _rows(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     with engine.begin() as conn:
         result = conn.execute(text(sql), params or {})
-        return [dict(r._mapping) for r in result]
+        return [_jsonable_row(dict(r._mapping)) for r in result]
 
 
 def _execute(sql: str, params: dict[str, Any] | None = None) -> None:
