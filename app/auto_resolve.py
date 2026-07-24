@@ -18,7 +18,7 @@ from app.api_football import (
 from app.bet_scenarios import resolve_kind_for_entry
 from app.db import list_bets, resolve_bet_entry
 from app.flashscore_client import find_match as flashscore_find_match
-from app.flashscore_client import refresh_cache as flashscore_refresh_cache
+from app.flashscore_client import refresh_cache_for_fixture_dates as flashscore_refresh_for_dates
 
 logger = logging.getLogger(__name__)
 
@@ -572,7 +572,8 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
 
     if use_flashscore:
         try:
-            flashscore_refresh_cache(force=True)
+            fixture_dates = [_parse_entry_date(r.get("fixture_date")) for r in open_rows]
+            flashscore_refresh_for_dates(fixture_dates, force=True)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Flashscore cache refresh failed (will use last cache if any): %s", exc

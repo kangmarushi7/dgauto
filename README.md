@@ -149,6 +149,9 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/lm-strat` - LM Strat filtered picks
 - `GET /prop-model` - Prop Model Engine dashboard (NBA/MLB Phase 1)
 - `GET /api/prop-model` - Prop Model Engine JSON (scraper health + stats)
+- `GET /api/bot/prematch` - pre-match model feed for trading bots
+- `GET /api/polymarket/exact-score?slug=` - football exact-score Yes prices (Gamma + CLOB)
+- `GET /api/polymarket/exact-score/prices?slug=` - prices array only
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets

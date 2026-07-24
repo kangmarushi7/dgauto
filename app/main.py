@@ -52,6 +52,7 @@ from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
+from app.polymarket_exact_score import exact_score_prices_array, pull_exact_score_prices
 from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_scrape_job_status
 from app.prop_model_scrape import start_scrape_background
 from app.prop_model_bets import (
@@ -403,6 +404,37 @@ async def bot_prematch_fixture(
             "fixture": row,
         }
     )
+
+
+@app.get("/api/polymarket/exact-score")
+async def polymarket_exact_score(
+    slug: str = Query(..., description="Primary fixture event slug, e.g. bra-san-cha-2026-07-25"),
+    use_clob: bool = Query(default=True, description="Fetch live CLOB book tops (else Gamma bid/ask only)"),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+):
+    """
+    Football exact-score Yes prices from Polymarket.
+    Discovers {slug}-exact-score on Gamma, maps Yes tokens, pulls CLOB tops.
+    """
+    _bot_api_authorized(x_api_key)
+    result = await run_in_threadpool(pull_exact_score_prices, slug, use_clob=use_clob)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("error") or "Exact-score event not found")
+    return JSONResponse(result)
+
+
+@app.get("/api/polymarket/exact-score/prices")
+async def polymarket_exact_score_prices_only(
+    slug: str = Query(..., description="Primary fixture event slug"),
+    use_clob: bool = True,
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+):
+    """Same as /api/polymarket/exact-score but returns only the prices array."""
+    _bot_api_authorized(x_api_key)
+    prices = await run_in_threadpool(exact_score_prices_array, slug, use_clob=use_clob)
+    if not prices:
+        raise HTTPException(status_code=404, detail="No exact-score markets found for slug")
+    return JSONResponse(prices)
 
 
 @app.get("/api/todays-bets")

@@ -34,10 +34,19 @@ If the body is empty after HTTP 200, the FSIGN has likely rotated — update the
 | WU / WV | URL slugs | URL slugs |
 | BA–BJ | — | set games |
 
+## Day offsets (settlement)
+
+Default settlement window: **−10 … +2** (`FLASHSCORE_DAY_OFFSETS`).
+Auto-resolve also expands offsets from each open bet’s `fixture_date` so
+Allsvenskan / Eliteserien / Liga MX / Superliga weekend cards are included.
+
+Flashscore often returns empty bodies beyond ~7–8 days — that is retention, not an FSIGN failure.
+
 ## Matching
 
-Normalize → tokens length ≥ 3 → +1 home overlap +1 away overlap; −1 if sides crossed.
-Accept score ≥ 2. Youth/reserve/women tournaments are penalized for senior queries.
+Normalize → tokens length ≥ 3 (drop `fc`/`club`/etc.) → **both** home and away must overlap.
+League hints (Sweden/Norway/Mexico/Denmark) rank candidates and reject wrong countries
+(e.g. Romania Superliga when settling Danish Superliga). Youth/reserve/women are penalized.
 
 ## Python API
 

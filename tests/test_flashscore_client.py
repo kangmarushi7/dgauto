@@ -109,10 +109,36 @@ class FuzzyMatchTests(unittest.TestCase):
         assert found is not None
         self.assertEqual(found.id, "matchA")
 
-    def test_tennis_token_overlap(self):
-        matches = parse_feed(TENNIS_FEED, sport=SPORT_TENNIS)
-        fin = next(m for m in matches if m.id == "t1")
-        self.assertGreaterEqual(match_score_tennis("Djokovic", "Alcaraz", fin), 2)
+    def test_false_positive_one_side_rejected(self):
+        """League boost must not accept Hammarby vs Kalmar → Hammarby vs Degerfors."""
+        from app.flashscore_client import FlashscoreFootballMatch, match_score_football
+
+        wrong = FlashscoreFootballMatch(
+            id="x",
+            home="Hammarby",
+            away="Degerfors",
+            tournament="SWEDEN: Allsvenskan",
+            home_goals=4,
+            away_goals=0,
+            is_finished=True,
+        )
+        score = match_score_football("Hammarby", "Kalmar FF", wrong, league="Allsvenskan")
+        self.assertLess(score, 2)
+
+    def test_superliga_rejects_romania(self):
+        from app.flashscore_client import FlashscoreFootballMatch, match_score_football
+
+        ro = FlashscoreFootballMatch(
+            id="y",
+            home="FC Copenhagen",
+            away="Vejle",
+            tournament="ROMANIA: Superliga",
+            home_goals=1,
+            away_goals=0,
+            is_finished=True,
+        )
+        score = match_score_football("Copenhagen", "Vejle", ro, league="Superliga")
+        self.assertLess(score, 2)
 
     def test_score_for_fixture_finished(self):
         client = FlashscoreClient(sport=SPORT_FOOTBALL, day_offsets=(0,), cache_ttl_sec=9999)

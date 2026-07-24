@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import logging
 import os
 import re
@@ -36,6 +36,39 @@ YOUTH_HINTS = re.compile(
     re.I,
 )
 
+# Generic tokens that must not alone prove a side match.
+_MATCH_STOPWORDS = frozenset(
+    {
+        "fc",
+        "cf",
+        "sc",
+        "afc",
+        "fk",
+        "bk",
+        "if",
+        "sk",
+        "ff",
+        "sv",
+        "ac",
+        "as",
+        "rc",
+        "cd",
+        "ud",
+        "sd",
+        "club",
+        "de",
+        "the",
+        "united",
+        "city",
+        "town",
+        "sporting",
+        "sports",
+        "calcio",
+        "association",
+        "associação",
+    }
+)
+
 DEFAULT_FSIGN = "SW9D1eZo"
 DEFAULT_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -43,22 +76,37 @@ DEFAULT_UA = (
 )
 CACHE_TTL_SEC = float(os.getenv("FLASHSCORE_CACHE_TTL_SEC", "180"))
 DEFAULT_DAY_OFFSETS = (-1, 0, 1, 2)
+# Flashscore daily feeds usually empty beyond ~7–10 days; keep settlement window bounded.
+SETTLE_MIN_OFFSET = int(os.getenv("FLASHSCORE_SETTLE_MIN_OFFSET", "-10"))
+SETTLE_MAX_OFFSET = int(os.getenv("FLASHSCORE_SETTLE_MAX_OFFSET", "2"))
 
-# League → tournament substring hints (lowercase).
+# League → tournament substring hints (lowercase). Prefer country-qualified names.
 LEAGUE_HINTS: dict[str, tuple[str, ...]] = {
-    "mls": ("mls", "major league soccer", "usa"),
-    "liga mx": ("liga mx", "mexico"),
+    "mls": ("mls", "major league soccer", "usa: mls"),
+    "liga mx": ("liga mx", "mexico: liga mx", "mexico"),
     "serie a": ("serie a", "brazil", "italy"),
     "brasileirao": ("serie a", "brazil", "brasileiro"),
-    "allsvenskan": ("allsvenskan", "sweden"),
-    "eliteserien": ("eliteserien", "norway"),
-    "superliga": ("superliga", "denmark"),
+    "allsvenskan": ("allsvenskan", "sweden: allsvenskan", "sweden"),
+    "eliteserien": ("eliteserien", "norway: eliteserien", "norway"),
+    "superliga": ("denmark: superliga", "danish superliga", "denmark"),
+    "superligaen": ("denmark: superliga", "denmark"),
     "premier league": ("premier league", "england"),
     "la liga": ("laliga", "la liga", "spain"),
     "bundesliga": ("bundesliga", "germany"),
     "eredivisie": ("eredivisie", "netherlands"),
     "liga portugal": ("liga portugal", "primeira"),
     "championship": ("championship", "england"),
+    "süper lig": ("super lig", "turkey"),
+    "super lig": ("super lig", "turkey"),
+}
+
+# Disambiguate leagues that share a short name (e.g. Superliga DK vs RO).
+LEAGUE_REQUIRED_TOURNAMENT: dict[str, tuple[str, ...]] = {
+    "superliga": ("denmark",),
+    "superligaen": ("denmark",),
+    "liga mx": ("mexico", "liga mx"),
+    "allsvenskan": ("sweden", "allsvenskan"),
+    "eliteserien": ("norway", "eliteserien"),
 }
 
 
@@ -379,11 +427,43 @@ def _normalize(text: str) -> str:
 
 
 def _tokens(text: str) -> set[str]:
-    return {t for t in _normalize(text).split() if len(t) >= 3}
+    return {
+        t
+        for t in _normalize(text).split()
+        if len(t) >= 3 and t not in _MATCH_STOPWORDS
+    }
 
 
 def _token_overlap(a: set[str], b: set[str]) -> bool:
     return bool(a & b)
+
+
+def _prefix_overlap(a: set[str], b: set[str]) -> bool:
+    """True when a truncated DG token prefixes a Flashscore token (or vice versa)."""
+    for ta in a:
+        for tb in b:
+            if len(ta) < 5 or len(tb) < 5:
+                continue
+            if ta == tb or ta.startswith(tb) or tb.startswith(ta):
+                return True
+    return False
+
+
+def _side_hit(query: set[str], candidate: set[str]) -> bool:
+    return _token_overlap(query, candidate) or _prefix_overlap(query, candidate)
+
+
+def _league_key(league: str | None) -> str:
+    return _normalize(league or "")
+
+
+def _tournament_allowed(league: str | None, tournament: str) -> bool:
+    key = _league_key(league)
+    required = LEAGUE_REQUIRED_TOURNAMENT.get(key)
+    if not required:
+        return True
+    tourney = _normalize(tournament)
+    return any(r in tourney for r in required)
 
 
 def match_score_football(
@@ -392,31 +472,37 @@ def match_score_football(
     fs: FlashscoreFootballMatch,
     league: str | None = None,
 ) -> int:
-    """Score ≥ 2 accepts. -1 if sides appear crossed."""
+    """Side overlaps only. Accept requires BOTH home and away hits (score >= 2).
+
+    League hints are ranking bonuses and hard filters — they never replace a missing side.
+    """
     qh, qa = _tokens(home), _tokens(away)
     fh, fa = _tokens(fs.home), _tokens(fs.away)
     if not qh or not qa or not fh or not fa:
         return -99
 
+    if not _tournament_allowed(league, fs.tournament):
+        return -50
+
+    home_hit = _side_hit(qh, fh)
+    away_hit = _side_hit(qa, fa)
+    crossed = _side_hit(qh, fa) or _side_hit(qa, fh)
+
     score = 0
-    if _token_overlap(qh, fh):
+    if home_hit:
         score += 1
-    if _token_overlap(qa, fa):
+    if away_hit:
         score += 1
-    if _token_overlap(qh, fa) or _token_overlap(qa, fh):
+    if crossed and not (home_hit and away_hit):
         score -= 1
 
-    # Soft boost when league hints match tournament.
-    if league:
-        hints = LEAGUE_HINTS.get(_normalize(league), ())
+    # Ranking only — does not satisfy the ≥2 accept threshold alone.
+    if league and home_hit and away_hit:
+        hints = LEAGUE_HINTS.get(_league_key(league), ())
         tourney = _normalize(fs.tournament)
         if hints and any(h in tourney for h in hints):
             score += 1
-        elif hints and not any(h in tourney for h in hints):
-            # mild penalty only when tournament looks like a different country/competition
-            pass
 
-    # Penalize youth/reserve/women when query looks senior.
     blob = f"{fs.home} {fs.away} {fs.tournament}"
     if YOUTH_HINTS.search(blob) and not YOUTH_HINTS.search(f"{home} {away} {league or ''}"):
         score -= 2
@@ -428,6 +514,34 @@ def match_score_tennis(p1: str, p2: str, fs: FlashscoreTennisMatch) -> int:
     query = _tokens(p1) | _tokens(p2)
     pool = _tokens(fs.player1) | _tokens(fs.player2)
     return len(query & pool)
+
+
+def day_offsets_for_dates(
+    fixture_dates: list[datetime | date | None],
+    *,
+    today: date | None = None,
+    min_offset: int = SETTLE_MIN_OFFSET,
+    max_offset: int = SETTLE_MAX_OFFSET,
+    base: tuple[int, ...] = DEFAULT_DAY_OFFSETS,
+) -> tuple[int, ...]:
+    """Map open-bet kickoffs to Flashscore day offsets (bounded window)."""
+    today_d = today or datetime.now(timezone.utc).date()
+    offsets: set[int] = set(base)
+    for value in fixture_dates:
+        if value is None:
+            continue
+        if isinstance(value, datetime):
+            day = value.astimezone(timezone.utc).date() if value.tzinfo else value.date()
+        elif isinstance(value, date):
+            day = value
+        else:
+            continue
+        base_off = (day - today_d).days
+        for delta in (-1, 0, 1):
+            off = base_off + delta
+            if min_offset <= off <= max_offset:
+                offsets.add(off)
+    return tuple(sorted(offsets))
 
 
 # ── Client / cache ──────────────────────────────────────────────────────────
@@ -469,12 +583,22 @@ class FlashscoreClient:
         self._id_index = by_id
         self._merged_at = time.monotonic()
 
-    def refresh_cache(self, *, force: bool = False) -> list[Any]:
+    def refresh_cache(
+        self,
+        *,
+        force: bool = False,
+        extra_offsets: tuple[int, ...] | list[int] | None = None,
+    ) -> list[Any]:
+        if extra_offsets:
+            merged_offsets = tuple(sorted(set(self.day_offsets) | {int(o) for o in extra_offsets}))
+            self.day_offsets = merged_offsets
+
         now = time.monotonic()
         if (
             not force
             and self._merged
             and (now - self._merged_at) < self.cache_ttl_sec
+            and all(off in self._by_day for off in self.day_offsets)
         ):
             return self._merged
 
@@ -486,7 +610,8 @@ class FlashscoreClient:
             except Exception as exc:  # noqa: BLE001 — soft-fail to last cache
                 return offset, None, str(exc).strip() or repr(exc)
 
-        with ThreadPoolExecutor(max_workers=min(4, len(self.day_offsets) or 1)) as pool:
+        workers = min(8, max(1, len(self.day_offsets)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(_one, off) for off in self.day_offsets]
             for fut in as_completed(futures):
                 offset, parsed, err = fut.result()
@@ -496,11 +621,18 @@ class FlashscoreClient:
                     bucket.fetched_at = time.monotonic()
                     bucket.last_error = None
                     if not parsed:
-                        logger.error(
-                            "Flashscore day=%s returned 0 matches after HTTP success — "
-                            "check FLASHSCORE_FSIGN rotation",
-                            offset,
-                        )
+                        # Far-back offsets often empty (Flashscore retention ~7d); only alert near today.
+                        if offset in (-1, 0, 1, 2):
+                            logger.error(
+                                "Flashscore day=%s returned 0 matches after HTTP success — "
+                                "check FLASHSCORE_FSIGN rotation",
+                                offset,
+                            )
+                        else:
+                            logger.info(
+                                "Flashscore day=%s empty (outside retention window)",
+                                offset,
+                            )
                 else:
                     bucket.last_error = err
                     logger.warning(
@@ -612,7 +744,8 @@ _tennis_client: FlashscoreClient | None = None
 def get_football_client() -> FlashscoreClient:
     global _football_client
     if _football_client is None:
-        offsets_raw = os.getenv("FLASHSCORE_DAY_OFFSETS", "-1,0,1,2")
+        # Settlement default: last 10 days through +2 so Nordic/MX weekend cards are covered.
+        offsets_raw = os.getenv("FLASHSCORE_DAY_OFFSETS", "-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2")
         offsets = tuple(int(x.strip()) for x in offsets_raw.split(",") if x.strip())
         _football_client = FlashscoreClient(
             sport=SPORT_FOOTBALL,
@@ -628,8 +761,23 @@ def get_tennis_client() -> FlashscoreClient:
     return _tennis_client
 
 
-def refresh_cache(*, force: bool = False) -> list[Any]:
-    return get_football_client().refresh_cache(force=force)
+def refresh_cache(
+    *,
+    force: bool = False,
+    extra_offsets: tuple[int, ...] | list[int] | None = None,
+) -> list[Any]:
+    return get_football_client().refresh_cache(force=force, extra_offsets=extra_offsets)
+
+
+def refresh_cache_for_fixture_dates(
+    fixture_dates: list[datetime | date | None],
+    *,
+    force: bool = True,
+) -> list[Any]:
+    """Refresh feeds covering the kickoff dates of open bets (plus default window)."""
+    offsets = day_offsets_for_dates(fixture_dates)
+    logger.info("Flashscore settlement day offsets: %s", offsets)
+    return refresh_cache(force=force, extra_offsets=offsets)
 
 
 def ensure_fresh() -> list[Any]:
