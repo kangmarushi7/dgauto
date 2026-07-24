@@ -4,27 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
-    <link rel="stylesheet" href="/static/betlog.css?v=9" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
+    <link rel="stylesheet" href="/static/betlog.css?v=10" />
     <script src="/static/table_tools.js?v=4" defer></script>
   </head>
   <body class="betlog-body">
     <div class="betlog-shell">
+      {% set nav_current = "bet-log" %}
+      {% include "includes/app_nav.html" %}
       <header class="betlog-topbar">
         <div class="betlog-brand">
-          <h1>Bet Log</h1>
+          <h1>Bet <span style="color:var(--dg-accent)">Log</span></h1>
           <p class="subtitle">Paper-trade DataGaffer scenarios — sync from Home, then auto-resolve or mark results manually.</p>
         </div>
-        <nav class="betlog-nav" aria-label="Main">
-          <a href="/">Home</a>
-          <a href="/todays-bets">Today's Bets</a>
-          <a href="/bet-log" class="is-active">Bet Log</a>
-          {% if legacy_count %}
-          <a href="/legacy-bet-log?season={{ season }}">Legacy<span class="nav-badge">{{ legacy_count }}</span></a>
-          {% else %}
-          <a href="/legacy-bet-log?season={{ season }}">Legacy</a>
-          {% endif %}
-        </nav>
       </header>
 
       {% include "includes/season_switch.html" %}

@@ -4,19 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NO Strat - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>NO Strat</h1>
+      {% set nav_current = "no-strat" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">NO <span>Strat</span></h1>
       <p class="subtitle">Team not-to-win filter: win chance &lt; 50% and team projected goals &lt; 1.00.</p>
-      <p class="top-links">
-        <a href="/">Back to Home</a> |
-        <a href="/lm-strat">Go to LM Strat</a> |
-        <a href="/no-bet-log">Go to NO Bet Log</a>
-      </p>
-      <div class="actions">
+<div class="actions">
         <button id="syncNoBtn" type="button">Sync NO Strat Bets</button>
         <span id="syncStatus"></span>
       </div>

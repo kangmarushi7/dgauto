@@ -871,6 +871,131 @@ def build_fixture_dashboard(
 
     versus = ((h2h.get("versus_grades") or {}).get("team_vs_team") or {}) if h2h else {}
 
+    form = extra.get("form_trends") or {}
+    home_form = form.get("home") if isinstance(form.get("home"), dict) else {}
+    away_form = form.get("away") if isinstance(form.get("away"), dict) else {}
+    home_l6 = home_form.get("last6") if isinstance(home_form.get("last6"), dict) else {}
+    away_l6 = away_form.get("last6") if isinstance(away_form.get("last6"), dict) else {}
+    mgr = extra.get("manager_h2h") or {}
+    mgr_stats = mgr.get("matchup_stats") if isinstance(mgr.get("matchup_stats"), dict) else {}
+    cs_chart = extra.get("correct_score_chart") or {}
+    home_rating = extra.get("home_rating") or {}
+    away_rating = extra.get("away_rating") or {}
+    home_xgr = extra.get("home_xg_regression") or {}
+    away_xgr = extra.get("away_xg_regression") or {}
+    home_ts = ((extra.get("home_team_stats") or {}).get("betting") or {})
+    away_ts = ((extra.get("away_team_stats") or {}).get("betting") or {})
+    pace_ctx = extra.get("pace_context") or {}
+    matchup_pace = extra.get("matchup_pace") or {}
+    all_odds = extra.get("all_odds") or {}
+    odds_markets = []
+    for mkt_name, mkt_payload in (all_odds.get("markets") or {}).items():
+        if not isinstance(mkt_payload, dict):
+            continue
+        lines: list[dict[str, Any]] = []
+        if isinstance(mkt_payload.get("odds"), list):
+            lines = [
+                {"value": o.get("value"), "odd": o.get("odd")}
+                for o in mkt_payload["odds"]
+                if isinstance(o, dict)
+            ][:6]
+        elif isinstance(mkt_payload.get("line"), dict):
+            line = mkt_payload["line"]
+            lines = [
+                {
+                    "value": line.get("value") or "Line",
+                    "odd": line.get("odd") or mkt_payload.get("sim_odds"),
+                }
+            ]
+            if mkt_payload.get("sim_odds") is not None:
+                lines.append({"value": "DG sim odds", "odd": mkt_payload.get("sim_odds")})
+            if mkt_payload.get("sim_probability") is not None:
+                lines.append({"value": "DG sim %", "odd": mkt_payload.get("sim_probability")})
+        elif mkt_payload.get("line") is not None:
+            lines = [
+                {
+                    "value": f"Line {mkt_payload.get('line')}",
+                    "odd": mkt_payload.get("sim_odds") or mkt_payload.get("sim_probability"),
+                }
+            ]
+        else:
+            for key, val in mkt_payload.items():
+                if isinstance(val, dict):
+                    lines.append(
+                        {
+                            "value": key.replace("_", " "),
+                            "odd": val.get("odd") or val.get("odds") or val.get("sim_odds") or val.get("probability"),
+                        }
+                    )
+                elif val is not None:
+                    lines.append({"value": key.replace("_", " "), "odd": val})
+            lines = lines[:6]
+        if lines:
+            odds_markets.append(
+                {
+                    "market": mkt_name.replace("_", " "),
+                    "lines": lines,
+                }
+            )
+
+    dg_intel = {
+        "ratings": {
+            "home": home_rating,
+            "away": away_rating,
+        },
+        "pace": {
+            **matchup_pace,
+            **pace_ctx,
+        },
+        "xg_regression": {
+            "home": home_xgr,
+            "away": away_xgr,
+        },
+        "form_trends": {
+            "home": {
+                "gf": _num(home_l6.get("goals_for")),
+                "ga": _num(home_l6.get("goals_against")),
+                "total": _num(home_l6.get("goals_total")),
+            },
+            "away": {
+                "gf": _num(away_l6.get("goals_for")),
+                "ga": _num(away_l6.get("goals_against")),
+                "total": _num(away_l6.get("goals_total")),
+            },
+        },
+        "team_betting": {
+            "home": home_ts,
+            "away": away_ts,
+        },
+        "rankings": {
+            "home": extra.get("home_rankings") or {},
+            "away": extra.get("away_rankings") or {},
+        },
+        "manager_h2h": {
+            "home_manager": mgr.get("home_manager"),
+            "away_manager": mgr.get("away_manager"),
+            "matches": mgr.get("matches"),
+            "over_2_5_pct": (
+                round((_num(mgr_stats.get("over_2_5_pct")) or 0) * 100, 1)
+                if (_num(mgr_stats.get("over_2_5_pct")) or 0) <= 1
+                else _num(mgr_stats.get("over_2_5_pct"))
+            ),
+            "btts_pct": (
+                round((_num(mgr_stats.get("btts_pct")) or 0) * 100, 1)
+                if (_num(mgr_stats.get("btts_pct")) or 0) <= 1
+                else _num(mgr_stats.get("btts_pct"))
+            ),
+        }
+        if mgr
+        else None,
+        "highlight_roles": extra.get("highlight_roles") or [],
+        "extra_book_markets": odds_markets,
+        "correct_score_chart_url": cs_chart.get("chart_url"),
+        "correct_score_model": (cs or {}).get("model") or "dixon_coles",
+        "dg_home_scorelines": cs_chart.get("home_scorelines") or [],
+        "dg_away_scorelines": cs_chart.get("away_scorelines") or [],
+    }
+
     return {
         "fixture_id": raw.get("fixture_id"),
         "fixture": f"{home_name} vs {away_name}",
@@ -919,6 +1044,7 @@ def build_fixture_dashboard(
         "all_markets": markets_sorted,
         "scorelines": scorelines,
         "score_matrix": cs,
+        "dg_intel": dg_intel,
         "match_flow": _match_flow(perc, fh, xg),
         "market_inefficiency": [m for m in markets_sorted if m.get("edge") is not None][:8],
         "risk": risk_panel,

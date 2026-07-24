@@ -4,16 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>+EV Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=3" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>+EV Bet Log</h1>
-      <p class="subtitle">Tracked +EV fixture bets that pass model xG / projection filters.</p>
-      <p class="top-links"><a href="/">Back to Home</a> | <a href="/plus-ev-strat">Go to +EV Strat</a></p>
+      {% set nav_current = "plus-ev-bet-log" %}
+      {% include "includes/app_nav.html" %}
 
-      {% include "includes/season_switch.html" %}
+      <h1 class="app-brand">+EV <span>Bet Log</span></h1>
+      <p class="subtitle">Tracked +EV fixture bets that pass model xG / projection filters.</p>
+{% include "includes/season_switch.html" %}
 
       <div class="actions">
         <button id="syncBtn">Sync +EV Bets</button>

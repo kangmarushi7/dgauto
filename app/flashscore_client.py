@@ -58,16 +58,45 @@ _MATCH_STOPWORDS = frozenset(
         "club",
         "de",
         "the",
-        "united",
-        "city",
-        "town",
         "sporting",
         "sports",
         "calcio",
         "association",
-        "associação",
     }
 )
+
+# DG / book abbreviations → Flashscore-style names (normalized keys).
+TEAM_NAME_ALIASES: dict[str, tuple[str, ...]] = {
+    "nycfc": ("new york city", "ny city", "new york city fc"),
+    "lafc": ("los angeles fc", "los angeles", "la fc"),
+    "lag": ("los angeles galaxy", "la galaxy"),
+    "paranaense": ("athletico pr", "athletico-pr", "athletico paranaense", "ath paranaense"),
+    "athletico pr": ("paranaense", "athletico-pr", "athletico paranaense"),
+    "bromma": ("brommapojkarna", "if brommapojkarna"),
+    "brommapojkarna": ("bromma", "if brommapojkarna"),
+    "ham kam": ("hamkam", "ham-kam"),
+    "hamkam": ("ham kam", "ham-kam"),
+    "dc united": ("d c united", "dc utd"),
+    "salt lake": ("real salt lake", "rsl"),
+    "real salt lake": ("salt lake", "rsl"),
+    "columbus": ("columbus crew",),
+    "houston": ("houston dynamo",),
+    "inter miami": ("miami", "inter miami cf"),
+    "atlanta": ("atlanta united",),
+    "minnesota": ("minnesota united",),
+    "bodo glimt": ("bodo/glimt", "bodoe glimt", "fk bodo glimt"),
+    "bodo/glimt": ("bodo glimt", "bodoe glimt"),
+    "orgryte is": ("orgryte",),
+    "orgryte": ("orgryte is",),
+    "vasteras": ("vasteras sk", "vasteras sk fk"),
+    "kalmar ff": ("kalmar",),
+    "kalmar": ("kalmar ff",),
+    "bk hacken": ("hacken",),
+    "hacken": ("bk hacken",),
+    "aalesund": ("aalesunds", "aalesunds fk"),
+    "copenhagen": ("fc copenhagen", "fc kobenhavn", "kobenhavn"),
+    "fc kobenhavn": ("copenhagen", "fc copenhagen"),
+}
 
 DEFAULT_FSIGN = "SW9D1eZo"
 DEFAULT_UA = (
@@ -77,15 +106,16 @@ DEFAULT_UA = (
 CACHE_TTL_SEC = float(os.getenv("FLASHSCORE_CACHE_TTL_SEC", "180"))
 DEFAULT_DAY_OFFSETS = (-1, 0, 1, 2)
 # Flashscore daily feeds usually empty beyond ~7–10 days; keep settlement window bounded.
-SETTLE_MIN_OFFSET = int(os.getenv("FLASHSCORE_SETTLE_MIN_OFFSET", "-10"))
+SETTLE_MIN_OFFSET = int(os.getenv("FLASHSCORE_SETTLE_MIN_OFFSET", "-14"))
 SETTLE_MAX_OFFSET = int(os.getenv("FLASHSCORE_SETTLE_MAX_OFFSET", "2"))
 
 # League → tournament substring hints (lowercase). Prefer country-qualified names.
 LEAGUE_HINTS: dict[str, tuple[str, ...]] = {
-    "mls": ("mls", "major league soccer", "usa: mls"),
+    "mls": ("mls", "major league soccer", "usa: mls", "usa"),
+    "major league soccer": ("mls", "major league soccer", "usa: mls", "usa"),
     "liga mx": ("liga mx", "mexico: liga mx", "mexico"),
-    "serie a": ("serie a", "brazil", "italy"),
-    "brasileirao": ("serie a", "brazil", "brasileiro"),
+    "serie a": ("serie a", "serie a betano", "brazil", "italy"),
+    "brasileirao": ("serie a", "serie a betano", "brazil", "brasileiro"),
     "allsvenskan": ("allsvenskan", "sweden: allsvenskan", "sweden"),
     "eliteserien": ("eliteserien", "norway: eliteserien", "norway"),
     "superliga": ("denmark: superliga", "danish superliga", "denmark"),
@@ -107,6 +137,8 @@ LEAGUE_REQUIRED_TOURNAMENT: dict[str, tuple[str, ...]] = {
     "liga mx": ("mexico", "liga mx"),
     "allsvenskan": ("sweden", "allsvenskan"),
     "eliteserien": ("norway", "eliteserien"),
+    "mls": ("usa", "mls"),
+    "major league soccer": ("usa", "mls"),
 }
 
 
@@ -426,12 +458,52 @@ def _normalize(text: str) -> str:
     return lowered
 
 
+def _alias_phrases(text: str) -> set[str]:
+    """Expand a team name into normalized phrases via TEAM_NAME_ALIASES."""
+    norm = _normalize(text)
+    phrases = {norm}
+    if not norm:
+        return phrases
+    for key, aliases in TEAM_NAME_ALIASES.items():
+        key_n = _normalize(key)
+        alias_norms = {_normalize(a) for a in aliases}
+        # Exact key/alias hit, or alias contained as whole phrase token run.
+        if norm == key_n or norm in alias_norms:
+            phrases.add(key_n)
+            phrases |= alias_norms
+            continue
+        # Compact acronyms stored as single tokens (lafc, nycfc).
+        if norm.replace(" ", "") == key_n.replace(" ", "") or any(
+            norm.replace(" ", "") == a.replace(" ", "") for a in alias_norms
+        ):
+            phrases.add(key_n)
+            phrases |= alias_norms
+    return phrases
+
+
 def _tokens(text: str) -> set[str]:
-    return {
-        t
-        for t in _normalize(text).split()
-        if len(t) >= 3 and t not in _MATCH_STOPWORDS
-    }
+    """Tokenize for matching: aliases, compacted compounds (Ham-Kam→hamkam), stopwords."""
+    phrases = _alias_phrases(text)
+    toks: set[str] = set()
+    for phrase in phrases:
+        parts = [p for p in phrase.split() if p]
+        for part in parts:
+            if len(part) >= 3 and part not in _MATCH_STOPWORDS:
+                toks.add(part)
+            elif len(part) == 2 and len(parts) > 1:
+                # Keep short markers like "dc" in "dc united".
+                toks.add(part)
+        if len(parts) >= 2:
+            toks.add("".join(parts))
+    # Never leave a side empty if the raw name had content.
+    if not toks:
+        raw = _normalize(text)
+        toks = {p for p in raw.split() if len(p) >= 2}
+        if len(raw.split()) >= 2:
+            toks.add("".join(raw.split()))
+        if raw:
+            toks.add(raw.replace(" ", ""))
+    return toks
 
 
 def _token_overlap(a: set[str], b: set[str]) -> bool:
@@ -744,8 +816,10 @@ _tennis_client: FlashscoreClient | None = None
 def get_football_client() -> FlashscoreClient:
     global _football_client
     if _football_client is None:
-        # Settlement default: last 10 days through +2 so Nordic/MX weekend cards are covered.
-        offsets_raw = os.getenv("FLASHSCORE_DAY_OFFSETS", "-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2")
+        offsets_raw = os.getenv(
+            "FLASHSCORE_DAY_OFFSETS",
+            "-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2",
+        )
         offsets = tuple(int(x.strip()) for x in offsets_raw.split(",") if x.strip())
         _football_client = FlashscoreClient(
             sport=SPORT_FOOTBALL,

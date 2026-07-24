@@ -140,6 +140,79 @@ class FuzzyMatchTests(unittest.TestCase):
         score = match_score_football("Copenhagen", "Vejle", ro, league="Superliga")
         self.assertLess(score, 2)
 
+    def test_compound_and_abbrev_aliases(self):
+        from app.flashscore_client import FlashscoreFootballMatch, match_score_football
+
+        hamkam = FlashscoreFootballMatch(
+            id="1",
+            home="Bodo/Glimt",
+            away="HamKam",
+            tournament="NORWAY: Eliteserien",
+            home_goals=3,
+            away_goals=0,
+            is_finished=True,
+        )
+        self.assertGreaterEqual(
+            match_score_football("Bodo/Glimt", "Ham-Kam", hamkam, league="Eliteserien"),
+            2,
+        )
+
+        mls = FlashscoreFootballMatch(
+            id="2",
+            home="Columbus Crew",
+            away="New York City",
+            tournament="USA: MLS",
+            home_goals=1,
+            away_goals=0,
+            is_finished=True,
+        )
+        self.assertGreaterEqual(
+            match_score_football("Columbus", "NYCFC", mls, league="Major League Soccer"),
+            2,
+        )
+
+        lafc = FlashscoreFootballMatch(
+            id="3",
+            home="Los Angeles FC",
+            away="Real Salt Lake",
+            tournament="USA: MLS",
+            home_goals=3,
+            away_goals=1,
+            is_finished=True,
+        )
+        self.assertGreaterEqual(
+            match_score_football("LAFC", "Salt Lake", lafc, league="Major League Soccer"),
+            2,
+        )
+
+        br = FlashscoreFootballMatch(
+            id="4",
+            home="Sao Paulo",
+            away="Athletico-PR",
+            tournament="BRAZIL: Serie A Betano",
+            home_goals=1,
+            away_goals=0,
+            is_finished=True,
+        )
+        self.assertGreaterEqual(
+            match_score_football("Sao Paulo", "Paranaense", br, league="Serie A"),
+            2,
+        )
+
+        houston = FlashscoreFootballMatch(
+            id="5",
+            home="Houston Dynamo",
+            away="DC United",
+            tournament="USA: MLS",
+            home_goals=1,
+            away_goals=0,
+            is_finished=True,
+        )
+        self.assertGreaterEqual(
+            match_score_football("Houston", "DC United", houston, league="Major League Soccer"),
+            2,
+        )
+
     def test_score_for_fixture_finished(self):
         client = FlashscoreClient(sport=SPORT_FOOTBALL, day_offsets=(0,), cache_ttl_sec=9999)
         from app.flashscore_client import _CacheBucket

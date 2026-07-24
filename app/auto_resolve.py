@@ -138,6 +138,16 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "brann": ["sk brann"],
     "molde": ["molde fk"],
     "bodo glimt": ["bodoe glimt", "bodo/glimt", "fk bodo glimt"],
+    "ham kam": ["hamkam", "ham-kam"],
+    "hamkam": ["ham kam", "ham-kam"],
+    "nycfc": ["new york city", "ny city", "new york city fc"],
+    "lafc": ["los angeles fc", "los angeles", "la fc"],
+    "paranaense": ["athletico pr", "athletico-pr", "athletico paranaense"],
+    "bromma": ["brommapojkarna", "if brommapojkarna"],
+    "columbus": ["columbus crew"],
+    "houston": ["houston dynamo"],
+    "salt lake": ["real salt lake", "rsl"],
+    "dc united": ["d c united"],
 }
 
 
@@ -666,4 +676,13 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         "max_runtime_sec": MAX_RUNTIME_SEC,
         "settle_source": SETTLE_SOURCE,
         "resolved_via": resolved_via,
+        "api_football_configured": api_football_configured(),
+        "hint": (
+            None
+            if api_football_configured() or skipped_not_found == 0
+            else (
+                "Some fixtures are older than Flashscore retention (~7–8 days). "
+                "Set API_FOOTBALL_KEY to settle those via API-Football fallback."
+            )
+        ),
     }

@@ -155,6 +155,16 @@ def scrape_datagaffer_sync() -> dict:
                 "trends_by_team_id",
                 "player_form",
                 "heat_averages",
+                "cs_charts_by_id",
+                "ratings_by_team_id",
+                "all_odds_by_match",
+                "form_trends_by_id",
+                "xg_regression_by_team_id",
+                "team_stats_by_id",
+                "manager_h2h_by_id",
+                "highlighted_matchups",
+                "pace_profiles",
+                "rankings",
             )
         },
     }

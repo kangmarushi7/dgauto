@@ -4,18 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LM Strat - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>LM Strat</h1>
+      {% set nav_current = "lm-strat" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">LM <span>Strat</span></h1>
       <p class="subtitle">Strict Over 1.5 filter: team GF >= 1, H2H O1.5 >= 80%, and both teams Form O1.5 >= 80%.</p>
-      <p class="top-links">
-        <a href="/">Back to Home</a> |
-        <a href="/lm-bet-log">Go to LM Bet Log</a>
-      </p>
-      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+<p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
 
       <section class="recommendation-card">
         <h2>Qualified LM Over 1.5 Bets</h2>

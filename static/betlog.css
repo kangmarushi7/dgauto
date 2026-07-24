@@ -1,35 +1,33 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap");
 
 :root {
-  --bl-bg: #0f1419;
-  --bl-surface: #1a222c;
-  --bl-surface-2: #232d3a;
-  --bl-border: rgba(255, 255, 255, 0.08);
-  --bl-text: #e8eef4;
-  --bl-muted: #8b9cb0;
-  --bl-accent: #10b981;
-  --bl-accent-dim: rgba(16, 185, 129, 0.15);
-  --bl-danger: #f87171;
-  --bl-warn: #fbbf24;
-  --bl-radius: 12px;
-  --bl-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --bl-bg: transparent;
+  --bl-surface: #ffffff;
+  --bl-surface-2: #f0f6f2;
+  --bl-border: #c9d8cf;
+  --bl-text: #152821;
+  --bl-muted: #6b7f75;
+  --bl-accent: #0b6e56;
+  --bl-accent-dim: #d8efe6;
+  --bl-danger: #b42318;
+  --bl-warn: #9a6700;
+  --bl-radius: 14px;
+  --bl-shadow: 0 18px 40px rgba(21, 40, 33, 0.08);
 }
 
 body.betlog-body {
   margin: 0;
-  font-family: "DM Sans", system-ui, sans-serif;
-  background: var(--bl-bg);
+  font-family: "Outfit", "Segoe UI", sans-serif;
+  background: transparent;
   color: var(--bl-text);
   min-height: 100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(59, 130, 246, 0.06), transparent);
+  background-image: none;
 }
 
 .betlog-shell {
-  max-width: min(100%, 1440px);
+  max-width: min(100%, 1280px);
   margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 1.75rem 0 3rem;
 }
 
 .betlog-topbar {
@@ -37,52 +35,55 @@ body.betlog-body {
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 28px;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .betlog-brand h1 {
-  margin: 0 0 6px;
-  font-size: 1.75rem;
+  margin: 0 0 0.4rem;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .betlog-brand .subtitle {
   margin: 0;
   color: var(--bl-muted);
-  font-size: 0.95rem;
-  max-width: 520px;
-  line-height: 1.45;
+  font-size: 1rem;
+  max-width: 34rem;
+  line-height: 1.5;
 }
 
 .betlog-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.55rem 0.85rem;
   align-items: center;
 }
 
 .betlog-nav a {
   color: var(--bl-muted);
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  transition: color 0.15s;
 }
 
 .betlog-nav a:hover {
-  color: var(--bl-text);
-  background: var(--bl-surface);
+  color: var(--bl-accent);
+  background: transparent;
 }
 
 .betlog-nav a.is-active {
   color: var(--bl-accent);
-  background: var(--bl-accent-dim);
-  border-color: rgba(16, 185, 129, 0.35);
+  font-weight: 600;
+  background: transparent;
+  border: 0;
 }
 
 .betlog-nav .nav-badge {
@@ -140,7 +141,7 @@ body.betlog-body {
 
 .season-switch__btn:hover {
   color: var(--bl-text);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(21, 40, 33, 0.12);
 }
 
 .season-switch__btn.is-active {
@@ -154,16 +155,9 @@ body.betlog-body {
 }
 
 .betlog-actions .btn-primary {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: var(--bl-accent);
   color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.12s, box-shadow 0.12s;
+  border: 0;
 }
 
 .betlog-actions .btn-primary:hover:not(:disabled) {
@@ -184,7 +178,7 @@ body.betlog-body {
 }
 
 .betlog-actions .btn-secondary:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(21, 40, 33, 0.12);
 }
 
 .betlog-actions button:disabled {
@@ -384,7 +378,7 @@ body.betlog-body .betlog-kpi .betlog-kpi-value.pnl-neg {
 
 .betlog-chip:hover {
   color: var(--bl-text);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(21, 40, 33, 0.12);
 }
 
 .betlog-chip.is-active {
@@ -485,7 +479,7 @@ body.betlog-body .betlog-kpi .betlog-kpi-value.pnl-neg {
 .betlog-body .betlog-bets-table .col-filter-btn:hover {
   opacity: 1;
   color: var(--bl-text);
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
 }
 
 .betlog-body .betlog-bets-table .col-filter-btn--active {
@@ -505,8 +499,8 @@ body.betlog-body .excel-filter-popover {
   flex-direction: column;
   width: 260px;
   max-width: min(92vw, 320px);
-  background: #1e2732 !important;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #f0f6f2 !important;
+  border: 1px solid rgba(21, 40, 33, 0.12);
   border-radius: 8px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
   font-family: "DM Sans", system-ui, sans-serif;
@@ -522,8 +516,8 @@ body.betlog-body .excel-filter-title {
   font-weight: 600;
   font-size: 0.75rem;
   color: #8b9cb0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1a222c;
+  border-bottom: 1px solid #e6eee9;
+  background: #ffffff;
 }
 
 body.betlog-body .excel-filter-sort {
@@ -531,8 +525,8 @@ body.betlog-body .excel-filter-sort {
   flex-direction: column;
   gap: 0;
   padding: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1e2732;
+  border-bottom: 1px solid #e6eee9;
+  background: #f0f6f2;
 }
 
 body.betlog-body .excel-filter-popover button.excel-filter-link {
@@ -552,14 +546,14 @@ body.betlog-body .excel-filter-popover button.excel-filter-link {
 }
 
 body.betlog-body .excel-filter-popover button.excel-filter-link:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: #f0f6f2 !important;
 }
 
 body.betlog-body .excel-filter-search-wrap {
   display: block;
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1e2732;
+  border-bottom: 1px solid #e6eee9;
+  background: #f0f6f2;
 }
 
 body.betlog-body .excel-filter-popover .excel-filter-search {
@@ -567,9 +561,9 @@ body.betlog-body .excel-filter-popover .excel-filter-search {
   display: block;
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(21, 40, 33, 0.1);
   border-radius: 4px;
-  background: #151c24;
+  background: #f7fbf8;
   color: #e8eef4;
   font-size: 0.8125rem;
   font-family: inherit;
@@ -590,7 +584,7 @@ body.betlog-body .excel-filter-popover .excel-filter-list {
   overflow-y: auto;
   padding: 4px 0;
   margin: 0;
-  background: #1e2732;
+  background: #f0f6f2;
 }
 
 body.betlog-body .excel-filter-popover label.excel-filter-row {
@@ -608,12 +602,12 @@ body.betlog-body .excel-filter-popover label.excel-filter-row {
 }
 
 body.betlog-body .excel-filter-popover label.excel-filter-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: #f7fbf8;
 }
 
 body.betlog-body .excel-filter-popover .excel-filter-row--select-all {
   font-weight: 600;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #e6eee9;
   margin-bottom: 2px;
   padding-bottom: 8px;
 }
@@ -642,16 +636,16 @@ body.betlog-body .excel-filter-actions {
   gap: 8px;
   justify-content: flex-end;
   padding: 8px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1a222c;
+  border-top: 1px solid #e6eee9;
+  background: #ffffff;
 }
 
 body.betlog-body .excel-filter-popover button.excel-filter-btn {
   padding: 6px 12px;
   margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(21, 40, 33, 0.1) !important;
   border-radius: 4px;
-  background: #232d3a !important;
+  background: #eef5f1 !important;
   color: #e8eef4 !important;
   font-size: 0.75rem;
   font-weight: 500;
@@ -661,7 +655,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn {
 }
 
 body.betlog-body .excel-filter-popover button.excel-filter-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(21, 40, 33, 0.08) !important;
 }
 
 body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
@@ -690,12 +684,12 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #151c24;
+  background: #f7fbf8;
 }
 
 .betlog-bets-table th {
   position: static;
-  background: #151c24;
+  background: #f7fbf8;
   color: var(--bl-muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -805,7 +799,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
 }
 
 .betlog-bets-table tbody tr:hover td.col-resolve:last-child {
-  background: #1f2834;
+  background: #f0f6f2;
 }
 
 .betlog-bets-table .resolve-actions {
@@ -855,7 +849,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
 
 .betlog-stats-table tbody tr:hover,
 .betlog-bets-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: #fafcfb;
 }
 
 .betlog-stats-table .stats-category-cell {
@@ -873,7 +867,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
 }
 
 .betlog-stats-table tr.stats-row-category-start td {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(21, 40, 33, 0.08);
 }
 
 .betlog-stats-table .stats-hist {
@@ -974,7 +968,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
 }
 
 .betlog-body table.betlog-bets-table th {
-  background: #151c24;
+  background: #f7fbf8;
   color: var(--bl-muted);
 }
 
@@ -1014,7 +1008,7 @@ body.betlog-body .excel-filter-popover button.excel-filter-btn--primary {
   .betlog-nav a {
     text-align: center;
     padding: 9px 10px;
-    background: rgba(255, 255, 255, 0.04);
+    background: #f7fbf8;
   }
 
   .betlog-actions {

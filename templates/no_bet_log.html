@@ -4,16 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NO Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=3" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>NO Bet Log</h1>
-      <p class="subtitle">Separate log for NO Strat team not-to-win bets.</p>
-      <p class="top-links"><a href="/">Back to Home</a> | <a href="/no-strat">Go to NO Strat</a></p>
+      {% set nav_current = "no-bet-log" %}
+      {% include "includes/app_nav.html" %}
 
-      {% include "includes/season_switch.html" %}
+      <h1 class="app-brand">NO <span>Bet Log</span></h1>
+      <p class="subtitle">Separate log for NO Strat team not-to-win bets.</p>
+{% include "includes/season_switch.html" %}
 
       <div class="actions">
         <button id="syncBtn">Sync NO Strat Bets</button>

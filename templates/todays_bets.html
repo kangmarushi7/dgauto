@@ -4,17 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Today's Bets - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>Today's Bets</h1>
+      {% set nav_current = "todays-bets" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">Today's <span>Bets</span></h1>
       <p class="subtitle">Scenario-based fixtures filtered from the current slate.</p>
-      <p class="top-links">
-        <a href="/">Back to Home</a> | <a href="/bet-log">Go to Bet Log</a>
-      </p>
-      <p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
+<p class="meta">Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong></p>
 
       {% for scenario in scenarios %}
       <details class="accordion-card">

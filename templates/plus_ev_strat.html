@@ -4,20 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>+EV Strat - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
     <script src="/static/table_tools.js" defer></script>
   </head>
   <body>
     <main class="container">
-      <h1>+EV Strat</h1>
+      {% set nav_current = "plus-ev-strat" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">+EV <span>Strat</span></h1>
       <p class="subtitle">
         Positive EV with model backing: edge ≥ 2%, EV &gt; 0, and xG must support the line (e.g. team O1.5 needs team xG ≥ 1.85).
       </p>
-      <p class="top-links">
-        <a href="/">Back to Home</a> |
-        <a href="/plus-ev-bet-log">Go to +EV Bet Log</a>
-      </p>
-      <div class="actions">
+<div class="actions">
         <button id="syncBtn" type="button">Sync +EV Bets to Log</button>
         <span id="syncStatus"></span>
       </div>

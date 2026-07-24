@@ -1,0 +1,15 @@
+{# Shared app nav. Set nav_current before include, e.g. {% set nav_current = "home" %} #}
+<nav class="app-nav" aria-label="Main">
+  <a href="/" class="{% if nav_current == 'home' %}is-current{% endif %}">Home</a>
+  <a href="/todays-bets" class="{% if nav_current == 'todays-bets' %}is-current{% endif %}">Today's Bets</a>
+  <a href="/bet-log" class="{% if nav_current == 'bet-log' %}is-current{% endif %}">Bet Log</a>
+  <a href="/legacy-bet-log" class="{% if nav_current == 'legacy-bet-log' %}is-current{% endif %}">Legacy</a>
+  <a href="/lm-strat" class="{% if nav_current == 'lm-strat' %}is-current{% endif %}">LM Strat</a>
+  <a href="/no-strat" class="{% if nav_current == 'no-strat' %}is-current{% endif %}">NO Strat</a>
+  <a href="/plus-ev-strat" class="{% if nav_current == 'plus-ev-strat' %}is-current{% endif %}">+EV Strat</a>
+  <a href="/lm-bet-log" class="{% if nav_current == 'lm-bet-log' %}is-current{% endif %}">LM Log</a>
+  <a href="/no-bet-log" class="{% if nav_current == 'no-bet-log' %}is-current{% endif %}">NO Log</a>
+  <a href="/plus-ev-bet-log" class="{% if nav_current == 'plus-ev-bet-log' %}is-current{% endif %}">+EV Log</a>
+  <a href="/prop-model" class="{% if nav_current == 'prop-model' %}is-current{% endif %}">Prop Model</a>
+  <a href="/prop-model/bet-log" class="{% if nav_current == 'prop-bet-log' %}is-current{% endif %}">Prop Log</a>
+</nav>

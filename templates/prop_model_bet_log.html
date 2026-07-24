@@ -4,15 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prop Bet Log — DG</title>
-    <link rel="stylesheet" href="/static/prop_model.css?v=1" />
+    <link rel="stylesheet" href="/static/style.css?v=10" />
+    <link rel="stylesheet" href="/static/prop_model.css?v=3" />
   </head>
   <body class="pm-body">
     <div class="pm-shell">
-      <nav class="pm-topnav" aria-label="Prop Model">
-        <a href="/">Home</a>
-        <a href="/prop-model">Prop Model</a>
-        <a href="/prop-model/bet-log" class="is-current">Prop Bet Log</a>
-      </nav>
+      {% set nav_current = "prop-bet-log" %}
+      {% include "includes/app_nav.html" %}
 
       <header class="pm-hero">
         <h1 class="pm-brand">Prop <span>Bet Log</span></h1>

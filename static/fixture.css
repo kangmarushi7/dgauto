@@ -1,21 +1,21 @@
 /* Institutional quant fixture dashboard */
 
 :root {
-  --bg: #0a0e14;
-  --bg-elevated: #111820;
-  --glass: rgba(18, 26, 36, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --text: #e8edf4;
-  --muted: #8b9cb3;
-  --accent: #00d68f;
-  --accent-dim: rgba(0, 214, 143, 0.15);
-  --danger: #ff5c6c;
-  --warn: #f0b429;
-  --home: #3b9eff;
-  --away: #a78bfa;
-  --glow: 0 0 24px rgba(0, 214, 143, 0.35);
-  --font: "IBM Plex Sans", system-ui, sans-serif;
-  --mono: "JetBrains Mono", monospace;
+  --bg: transparent;
+  --bg-elevated: #ffffff;
+  --glass: rgba(255, 255, 255, 0.86);
+  --glass-border: #c9d8cf;
+  --text: #152821;
+  --muted: #6b7f75;
+  --accent: #0b6e56;
+  --accent-dim: #d8efe6;
+  --danger: #b42318;
+  --warn: #9a6700;
+  --home: #1a5f8a;
+  --away: #c2410c;
+  --glow: 0 10px 28px rgba(11, 110, 86, 0.12);
+  --font: "Outfit", "Segoe UI", sans-serif;
+  --mono: "Outfit", "Segoe UI", sans-serif;
 }
 
 * {
@@ -27,10 +27,8 @@
   min-height: 100vh;
   font-family: var(--font);
   color: var(--text);
-  background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 214, 143, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(59, 158, 255, 0.06), transparent);
+  background: transparent;
+  background-image: none;
 }
 
 .quant-shell {
@@ -75,15 +73,16 @@
 
 .glass {
   background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(21, 40, 33, 0.07);
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 
 .glass:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: #a9c4b6;
 }
 
 .panel {
@@ -250,7 +249,7 @@
 }
 
 .kpi-card--glow {
-  border-color: rgba(0, 214, 143, 0.35);
+  border-color: rgba(11, 110, 86, 0.18);
   box-shadow: var(--glow);
 }
 
@@ -388,7 +387,7 @@
 
 .verdict-value .verdict-badge,
 .verdict-tag.verdict-value {
-  background: rgba(0, 214, 143, 0.12);
+  background: rgba(11, 110, 86, 0.08);
   color: #5eecc4;
 }
 
@@ -440,7 +439,7 @@
 
 .scoreline-track {
   height: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -497,7 +496,7 @@
 
 .ineff-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid #f7fbf8;
 }
 
 .ineff-table tr:hover td {
@@ -557,7 +556,7 @@
 
 .meter-track {
   height: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -744,6 +743,103 @@
   font-size: 0.9rem;
 }
 
+.intel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.intel-card {
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--glass-border);
+}
+
+.intel-card--wide {
+  grid-column: 1 / -1;
+}
+
+.intel-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}
+
+.intel-card p {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+}
+
+.intel-dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.intel-dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.intel-dl dt {
+  color: var(--muted);
+}
+
+.intel-dl dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.intel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intel-tags li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(84, 221, 112, 0.12);
+  border: 1px solid rgba(84, 221, 112, 0.28);
+  font-size: 0.8rem;
+}
+
+.odds-mini {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.odds-mini li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 3px 0;
+  border-bottom: 1px solid #f0f6f2;
+}
+
+.cs-chart-wrap {
+  margin: 12px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b1a14;
+  border: 1px solid var(--glass-border);
+}
+
+.cs-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+
 .player-mini {
   margin: 0;
   padding: 0;
@@ -846,7 +942,7 @@
   font-size: 0.78rem;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: #f7fbf8;
 }
 
 .prop-line strong {
@@ -961,7 +1057,7 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: #f7fbf8;
   border: 1px solid var(--glass-border);
   font-size: 0.85rem;
 }
@@ -1032,7 +1128,7 @@
   font-size: 0.68rem;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
   color: var(--muted);
 }
 
@@ -1116,7 +1212,7 @@
 
 .opp-edge-bar {
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #e6eee9;
   border-radius: 2px;
   margin: 10px 0;
   overflow: hidden;
@@ -1170,7 +1266,7 @@
 
 .verdict-no-edge,
 .verdict-avoid {
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
   color: var(--muted);
 }
 
@@ -1197,7 +1293,7 @@
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f0f6f2;
 }
 
 .movement-grid,
@@ -1239,7 +1335,7 @@
 }
 
 .trend-chip--positive {
-  border-color: rgba(0, 214, 143, 0.35);
+  border-color: rgba(11, 110, 86, 0.18);
 }
 
 .corr-list {
@@ -1254,7 +1350,7 @@
 
 .corr-bar {
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #e6eee9;
   border-radius: 3px;
   margin: 6px 0;
   overflow: hidden;
@@ -1447,7 +1543,7 @@
   .quant-nav a {
     padding: 8px 10px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
+    background: #f7fbf8;
   }
 
   .quant-brand {
