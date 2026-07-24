@@ -48,6 +48,15 @@ from app.plus_ev_strat import (
     resolve_plus_ev_bet,
     sync_plus_ev_bets,
 )
+from app.correct_score_strat import (
+    build_correct_score_picks,
+    correct_score_dashboard,
+    enrich_correct_score_entries,
+    group_into_baskets,
+    load_correct_score_bet_log,
+    resolve_correct_score_bet,
+    sync_correct_score_bets,
+)
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
@@ -124,6 +133,17 @@ def _strat_log_payload(
         **season_context(season_id),
         "entries": enrich_fn(filtered) if enrich_fn else filtered,
         "dashboard": dashboard_fn(filtered),
+    }
+
+
+def _correct_score_log_payload(*, season: int | None = None) -> dict:
+    season_id = _resolve_season(season)
+    entries = filter_entries_by_season(load_correct_score_bet_log(), season_id)
+    return {
+        **season_context(season_id),
+        "entries": enrich_correct_score_entries(entries),
+        "baskets": group_into_baskets(entries),
+        "dashboard": correct_score_dashboard(entries),
     }
 
 
@@ -340,6 +360,22 @@ async def plus_ev_bet_log_page(request: Request, season: int | None = Query(defa
         enrich_fn=enrich_plus_ev_entries,
     )
     return templates.TemplateResponse(request, "plus_ev_bet_log.html", payload)
+
+
+@app.get("/correct-score-strat")
+async def correct_score_strat_page(request: Request):
+    """Shell only — baskets need live Polymarket books, so the page fetches them."""
+    return templates.TemplateResponse(
+        request,
+        "cs_strat.html",
+        {"data": read_latest()},
+    )
+
+
+@app.get("/correct-score-bet-log")
+async def correct_score_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    payload = _correct_score_log_payload(season=season)
+    return templates.TemplateResponse(request, "cs_bet_log.html", payload)
 
 
 @app.get("/lm-bet-log")
@@ -601,6 +637,68 @@ async def plus_ev_bet_log_auto_resolve(season: int | None = Query(default=None))
         enrich_fn=enrich_plus_ev_entries,
     )
     return JSONResponse({"result": result, **data})
+
+
+@app.get("/api/correct-score-strat")
+async def correct_score_strat_data(
+    max_fixtures: int | None = Query(default=None, ge=1, le=200),
+    use_clob: bool = Query(default=True),
+    qualified_only: bool = Query(default=False),
+):
+    """Price DataGaffer's top scorelines on Polymarket and size each basket."""
+    latest = read_latest()
+    picks = await run_in_threadpool(
+        build_correct_score_picks,
+        latest,
+        use_clob=use_clob,
+        max_fixtures=max_fixtures,
+        include_rejected=not qualified_only,
+    )
+    return JSONResponse(
+        {
+            "scraped_at": latest.get("scraped_at"),
+            "qualified": sum(1 for p in picks if p.get("qualified")),
+            "picks": picks,
+        }
+    )
+
+
+@app.get("/api/correct-score-bet-log")
+async def correct_score_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_correct_score_log_payload(season=season))
+
+
+@app.post("/api/correct-score-bet-log/sync")
+async def correct_score_bet_log_sync(
+    season: int | None = Query(default=None),
+    max_fixtures: int | None = Query(default=None, ge=1, le=200),
+):
+    latest = read_latest()
+    picks = await run_in_threadpool(
+        build_correct_score_picks,
+        latest,
+        max_fixtures=max_fixtures,
+        include_rejected=False,
+    )
+    result = await run_in_threadpool(sync_correct_score_bets, picks)
+    return JSONResponse({"result": result, **_correct_score_log_payload(season=season)})
+
+
+@app.post("/api/correct-score-bet-log/{bet_id}/resolve")
+async def correct_score_bet_log_resolve(
+    bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    try:
+        updated = resolve_correct_score_bet(bet_id, str(payload.get("result", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"updated": updated, **_correct_score_log_payload(season=season)})
+
+
+@app.post("/api/correct-score-bet-log/auto-resolve")
+async def correct_score_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "cs")
+    return JSONResponse({"result": result, **_correct_score_log_payload(season=season)})
 
 
 @app.get("/api/lm-bet-log")

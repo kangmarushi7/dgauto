@@ -665,12 +665,18 @@ def build_fixture_dashboard(
     extra = extra or {}
     home = raw.get("home") or {}
     away = raw.get("away") or {}
+    if not isinstance(home, dict):
+        home = {"name": str(home or "Home")}
+    if not isinstance(away, dict):
+        away = {"name": str(away or "Away")}
     league = raw.get("league") or {}
-    sim = raw.get("sim_stats") or {}
-    perc = sim.get("percents") or {}
-    fh = sim.get("first_half") or {}
-    xg = sim.get("xg") or {}
-    book = raw.get("book_odds") or {}
+    if not isinstance(league, dict):
+        league = {"name": str(league or "")}
+    sim = raw.get("sim_stats") if isinstance(raw.get("sim_stats"), dict) else {}
+    perc = sim.get("percents") if isinstance(sim.get("percents"), dict) else {}
+    fh = sim.get("first_half") if isinstance(sim.get("first_half"), dict) else {}
+    xg = sim.get("xg") if isinstance(sim.get("xg"), dict) else {}
+    book = raw.get("book_odds") if isinstance(raw.get("book_odds"), dict) else {}
 
     home_name = home.get("name") or "Home"
     away_name = away.get("name") or "Away"

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Correct Score Strat - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=10" />
+    <link rel="stylesheet" href="/static/cs_strat.css?v=1" />
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "cs-strat" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Correct Score Strat</h1>
+      <p class="subtitle">
+        Buy DataGaffer's top 5 projected scorelines (or top 4 when 5 price past 100%) on Polymarket,
+        staked for equal payouts so <strong>any single line that hits returns a profit</strong>.
+      </p>
+
+      <div class="actions">
+        <button id="loadBtn" type="button">Price Baskets</button>
+        <button id="syncBtn" type="button" class="btn-secondary">Sync Qualified to CS Log</button>
+        <label class="cs-toggle">
+          <input type="checkbox" id="qualifiedOnly" /> Qualified only
+        </label>
+        <span id="status"></span>
+      </div>
+      <p class="meta">
+        Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong>
+      </p>
+
+      <section class="recommendation-card">
+        <h2>Basket Economics</h2>
+        <p class="hit-note">
+          Stakes are split in proportion to price, so every leg pays the same. Guaranteed ROI is the
+          return on the whole basket when one line lands; EV weights that payout by the model's
+          combined hit chance. A basket is only playable while the summed ask prices stay under 100%.
+        </p>
+        <p class="hit-note" id="summary">Not priced yet — hit “Price Baskets”.</p>
+      </section>
+
+      <div id="baskets"></div>
+    </main>
+
+    <script>
+      const IST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function fmtDate(value) {
+        if (!value || value === "Never") return value || "";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? value : IST.format(d).replace(",", "");
+      }
+
+      const statusEl = document.getElementById("status");
+      const summaryEl = document.getElementById("summary");
+      const basketsEl = document.getElementById("baskets");
+      const loadBtn = document.getElementById("loadBtn");
+      const syncBtn = document.getElementById("syncBtn");
+      const qualifiedOnly = document.getElementById("qualifiedOnly");
+
+      document.getElementById("scrapedAt").textContent = fmtDate(
+        document.getElementById("scrapedAt").textContent.trim()
+      );
+
+      function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function num(value, digits = 2) {
+        return value === null || value === undefined ? "—" : Number(value).toFixed(digits);
+      }
+
+      function renderLegs(pick) {
+        const table = el("table", "cs-legs");
+        const head = el("thead");
+        const hrow = el("tr");
+        for (const h of [
+          "Scoreline",
+          "DG model %",
+          "Poly ask",
+          "Decimal odds",
+          "Stake (units)",
+          "Payout",
+          "Profit if it hits",
+          "Book depth",
+        ]) {
+          hrow.appendChild(el("th", null, h));
+        }
+        head.appendChild(hrow);
+        table.appendChild(head);
+
+        const body = el("tbody");
+        for (const leg of pick.legs || []) {
+          const row = el("tr");
+          row.appendChild(el("td", "cs-score", leg.label));
+          row.appendChild(el("td", null, `${num(leg.dg_pct)}%`));
+          row.appendChild(el("td", null, `${num((leg.price || 0) * 100, 1)}¢`));
+          row.appendChild(el("td", null, num(leg.decimal_odds)));
+          row.appendChild(el("td", null, num(leg.stake_units, 4)));
+          row.appendChild(el("td", null, num(leg.payout_units, 3)));
+          row.appendChild(el("td", "cs-pos", `+${num(leg.profit_if_hits, 3)}`));
+          row.appendChild(
+            el("td", "cs-dim", leg.ask_shares ? `${num(leg.ask_shares, 0)} sh` : leg.price_source)
+          );
+          body.appendChild(row);
+        }
+        table.appendChild(body);
+        return table;
+      }
+
+      function renderPick(pick) {
+        const card = el("section", `recommendation-card cs-card${pick.qualified ? " is-live" : ""}`);
+
+        const head = el("div", "cs-head");
+        const title = el("div");
+        const h2 = el("h2");
+        if (pick.fixture_id) {
+          const link = el("a", null, pick.fixture);
+          link.href = `/fixture/${pick.fixture_id}`;
+          h2.appendChild(link);
+        } else {
+          h2.textContent = pick.fixture;
+        }
+        title.appendChild(h2);
+        title.appendChild(
+          el(
+            "p",
+            "hit-note",
+            `${fmtDate(pick.fixture_date)} · ${pick.league_name || "—"} · xG ${num(pick.home_xg)} - ${num(pick.away_xg)}`
+          )
+        );
+        head.appendChild(title);
+
+        const chips = el("div", "cs-chips");
+        chips.appendChild(
+          el("span", `app-chip${pick.qualified ? "" : " neutral"}`, pick.qualified ? "Playable" : "No bet")
+        );
+        if (pick.verdict) chips.appendChild(el("span", "app-chip neutral", pick.verdict));
+        if (pick.polymarket_url) {
+          const link = el("a", "app-chip neutral", "Polymarket ↗");
+          link.href = pick.polymarket_url;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          chips.appendChild(link);
+        }
+        head.appendChild(chips);
+        card.appendChild(head);
+
+        if (!pick.legs || !pick.legs.length) {
+          card.appendChild(el("p", "hit-note", pick.reason || "No tradeable legs."));
+          return card;
+        }
+
+        const stats = el("div", "cs-stats");
+        const entries = [
+          [`Top ${pick.size} basket`, `${num(pick.total_price * 100, 1)}% priced`],
+          ["Guaranteed ROI", `${num(pick.guaranteed_roi_pct, 1)}%`],
+          ["Profit on any hit", `+${num(pick.guaranteed_profit_units, 3)} u`],
+          ["Model hit chance", `${num(pick.model_hit_pct, 1)}%`],
+          ["Market implied", `${num(pick.implied_hit_pct, 1)}%`],
+          ["Edge", `${pick.edge_pct > 0 ? "+" : ""}${num(pick.edge_pct, 1)} pts`],
+          ["EV", `${pick.ev_units > 0 ? "+" : ""}${num(pick.ev_units, 3)} u`],
+          ["Staked", `${num(pick.staked_units, 3)} u`],
+        ];
+        for (const [label, value] of entries) {
+          const box = el("div", "cs-stat");
+          box.appendChild(el("span", "cs-stat-label", label));
+          box.appendChild(el("strong", null, value));
+          stats.appendChild(box);
+        }
+        card.appendChild(stats);
+        card.appendChild(renderLegs(pick));
+
+        if (pick.reason) card.appendChild(el("p", "hit-note", pick.reason));
+        if (pick.polymarket_flipped) {
+          card.appendChild(
+            el("p", "hit-note", "Polymarket lists this fixture with sides reversed — scorelines are shown in DataGaffer's home-away order.")
+          );
+        }
+        return card;
+      }
+
+      function render(payload) {
+        const picks = payload.picks || [];
+        basketsEl.innerHTML = "";
+        if (!picks.length) {
+          basketsEl.appendChild(
+            el(
+              "section",
+              "recommendation-card",
+              "No upcoming fixtures priced. Refresh fixtures from DataGaffer, or the slate has no Polymarket exact-score markets."
+            )
+          );
+          summaryEl.textContent = "0 fixtures evaluated.";
+          return;
+        }
+        for (const pick of picks) basketsEl.appendChild(renderPick(pick));
+        const totalGuaranteed = picks
+          .filter((p) => p.qualified)
+          .reduce((acc, p) => acc + (p.guaranteed_profit_units || 0), 0);
+        summaryEl.textContent =
+          `${picks.length} fixtures evaluated · ${payload.qualified} playable · ` +
+          `${totalGuaranteed.toFixed(3)} units guaranteed if one line hits in every playable basket`;
+      }
+
+      async function load() {
+        statusEl.textContent = "Pricing baskets on Polymarket…";
+        loadBtn.disabled = true;
+        try {
+          const res = await fetch(`/api/correct-score-strat?qualified_only=${qualifiedOnly.checked}`);
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          render(JSON.parse(raw));
+          statusEl.textContent = "";
+        } catch (err) {
+          statusEl.textContent = `Pricing failed: ${err.message || err}`;
+        } finally {
+          loadBtn.disabled = false;
+        }
+      }
+
+      loadBtn.addEventListener("click", load);
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Syncing qualified baskets…";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch("/api/correct-score-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          const r = data.result || {};
+          statusEl.textContent =
+            `Logged ${r.baskets} baskets (${r.inserted} legs)` +
+            (r.skipped_existing ? `, ${r.skipped_existing} already tracked` : "");
+        } catch (err) {
+          statusEl.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      load();
+    </script>
+  </body>
+</html>

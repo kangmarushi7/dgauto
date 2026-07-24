@@ -55,6 +55,8 @@ class ExactScorePrice:
     ask: float | None
     mid: float | None
     gamma_yes: float | None
+    bid_size: float | None = None
+    ask_size: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +68,8 @@ class ExactScorePrice:
             "ask": self.ask,
             "mid": self.mid,
             "gammaYes": self.gamma_yes,
+            "bidSize": self.bid_size,
+            "askSize": self.ask_size,
         }
 
 
@@ -212,28 +216,58 @@ def gamma_yes_price(market: dict[str, Any]) -> float | None:
     return None
 
 
-def get_orderbook_top(token_id: str) -> tuple[float | None, float | None]:
-    """Best bid = max bid price, best ask = min ask price from CLOB book."""
+def get_orderbook_book_top(token_id: str) -> dict[str, float | None]:
+    """Best bid/ask with the share count resting at that price."""
+    empty: dict[str, float | None] = {"bid": None, "ask": None, "bidSize": None, "askSize": None}
     if not token_id:
-        return None, None
+        return empty
     url = f"{CLOB_BASE}/book?token_id={quote(str(token_id), safe='')}"
     try:
         book = _http_get_json(url)
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
         logger.warning("CLOB book failed token=%s…: %s", str(token_id)[:12], exc)
-        return None, None
+        return empty
     if not isinstance(book, dict):
-        return None, None
+        return empty
 
-    bids = book.get("bids") or []
-    asks = book.get("asks") or []
-    bid_prices = [_safe_float(level.get("price")) for level in bids if isinstance(level, dict)]
-    ask_prices = [_safe_float(level.get("price")) for level in asks if isinstance(level, dict)]
-    bid_prices = [p for p in bid_prices if p is not None]
-    ask_prices = [p for p in ask_prices if p is not None]
-    best_bid = max(bid_prices) if bid_prices else None
-    best_ask = min(ask_prices) if ask_prices else None
-    return best_bid, best_ask
+    def _best(levels: Any, *, highest: bool) -> tuple[float | None, float | None]:
+        parsed = [
+            (_safe_float(lv.get("price")), _safe_float(lv.get("size")))
+            for lv in (levels or [])
+            if isinstance(lv, dict)
+        ]
+        parsed = [(p, s) for p, s in parsed if p is not None]
+        if not parsed:
+            return None, None
+        return max(parsed, key=lambda x: x[0]) if highest else min(parsed, key=lambda x: x[0])
+
+    best_bid, bid_size = _best(book.get("bids"), highest=True)
+    best_ask, ask_size = _best(book.get("asks"), highest=False)
+    return {"bid": best_bid, "ask": best_ask, "bidSize": bid_size, "askSize": ask_size}
+
+
+def get_orderbook_top(token_id: str) -> tuple[float | None, float | None]:
+    """Best bid = max bid price, best ask = min ask price from CLOB book."""
+    top = get_orderbook_book_top(token_id)
+    return top["bid"], top["ask"]
+
+
+def books_for_tokens(
+    token_ids: list[str],
+    *,
+    workers: int | None = None,
+) -> dict[str, dict[str, float | None]]:
+    """Fetch CLOB tops for a specific set of tokens in parallel."""
+    tokens = [str(t) for t in token_ids if t]
+    if not tokens:
+        return {}
+    limit = workers if workers is not None else CLOB_WORKERS
+    out: dict[str, dict[str, float | None]] = {}
+    with ThreadPoolExecutor(max_workers=max(1, min(limit, len(tokens)))) as pool:
+        futs = {pool.submit(get_orderbook_book_top, tid): tid for tid in tokens}
+        for fut in as_completed(futs):
+            out[futs[fut]] = fut.result()
+    return out
 
 
 def _gamma_book_fallback(market: dict[str, Any]) -> tuple[float | None, float | None]:
@@ -337,26 +371,18 @@ def pull_exact_score_prices(
         }
 
     catalog = map_exact_score_markets(event)
-    workers = clob_workers if clob_workers is not None else CLOB_WORKERS
-    book_by_token: dict[str, tuple[float | None, float | None]] = {}
-
+    book_by_token: dict[str, dict[str, float | None]] = {}
     if use_clob and catalog:
-        tokens = [str(r["yesTokenId"]) for r in catalog]
-
-        def _one(tid: str) -> tuple[str, float | None, float | None]:
-            bid, ask = get_orderbook_top(tid)
-            return tid, bid, ask
-
-        with ThreadPoolExecutor(max_workers=max(1, min(workers, len(tokens)))) as pool:
-            futs = [pool.submit(_one, tid) for tid in tokens]
-            for fut in as_completed(futs):
-                tid, bid, ask = fut.result()
-                book_by_token[tid] = (bid, ask)
+        book_by_token = books_for_tokens(
+            [str(r["yesTokenId"]) for r in catalog],
+            workers=clob_workers,
+        )
 
     prices: list[ExactScorePrice] = []
     for row in catalog:
         tid = str(row["yesTokenId"])
-        bid, ask = book_by_token.get(tid, (None, None))
+        top = book_by_token.get(tid) or {}
+        bid, ask = top.get("bid"), top.get("ask")
         if bid is None and ask is None:
             bid, ask = row.get("gammaBid"), row.get("gammaAsk")
         prices.append(
@@ -369,6 +395,8 @@ def pull_exact_score_prices(
                 ask=ask,
                 mid=_mid(bid, ask),
                 gamma_yes=row.get("gammaYes"),
+                bid_size=top.get("bidSize"),
+                ask_size=top.get("askSize"),
             )
         )
 

@@ -104,9 +104,9 @@ def run_fixture_refresh() -> dict[str, Any]:
 
 
 def run_all_auto_resolves() -> dict[str, Any]:
-    """Resolve open bets for main bet log (incl. legacy), LM, and NO strat bet logs."""
-    summary: dict[str, Any] = {"main": None, "lm": None, "no": None, "ev": None}
-    for log_type in ("main", "lm", "no", "ev"):
+    """Resolve open bets across the main (incl. legacy), LM, NO, +EV, and CS logs."""
+    summary: dict[str, Any] = {"main": None, "lm": None, "no": None, "ev": None, "cs": None}
+    for log_type in ("main", "lm", "no", "ev", "cs"):
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:
@@ -201,7 +201,7 @@ def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
                 misfire_grace_time=3600,
             )
             logger.info(
-                "Scheduled auto-resolve at %s :%02d %s (main + lm + no + ev bet logs)",
+                "Scheduled auto-resolve at %s :%02d %s (main + lm + no + ev + cs bet logs)",
                 ", ".join(f"{h:02d}" for h in resolve_hours),
                 minute,
                 getattr(tz, "key", tz),

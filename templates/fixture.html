@@ -352,7 +352,7 @@
 
         <section class="glass panel">
           <h2 class="panel-title">Projected Scorelines</h2>
-          <p class="panel-lead muted">{{ detail.dg_intel.correct_score_model | replace('_', ' ') | title }} model (DataGaffer parity)</p>
+          <p class="panel-lead muted">{{ (detail.dg_intel.correct_score_model or 'dixon_coles') | replace('_', ' ') | title }} model (DataGaffer parity)</p>
           <div class="scoreline-bars">
             {% for s in detail.scorelines %}
             <div class="scoreline-row">
@@ -375,35 +375,37 @@
           {% endif %}
         </section>
 
-        {% set intel = detail.dg_intel %}
-        {% if intel.ratings.home or intel.ratings.away or intel.pace.score is not none %}
+        {% set intel = detail.dg_intel or {} %}
+        {% set pace = intel.pace or {} %}
+        {% set ratings = intel.ratings or {} %}
+        {% if ratings.home or ratings.away or pace.score is defined and pace.score is not none %}
         <section class="glass panel panel--wide">
           <h2 class="panel-title">DG Ratings &amp; Pace</h2>
           <div class="intel-grid">
             <div class="intel-card">
               <h3>{{ detail.home_team }}</h3>
               <dl class="intel-dl">
-                <div><dt>DGRtg</dt><dd>{{ intel.ratings.home.DGRtg if intel.ratings.home and intel.ratings.home.DGRtg is not none else '—' }}</dd></div>
-                <div><dt>ORtg / DRtg</dt><dd>{{ intel.ratings.home.ORtg if intel.ratings.home and intel.ratings.home.ORtg is not none else '—' }} / {{ intel.ratings.home.DRtg if intel.ratings.home and intel.ratings.home.DRtg is not none else '—' }}</dd></div>
-                <div><dt>Pace / AGIX</dt><dd>{{ intel.ratings.home.pace_index if intel.ratings.home and intel.ratings.home.pace_index is not none else '—' }} / {{ intel.ratings.home.agix_index if intel.ratings.home and intel.ratings.home.agix_index is not none else '—' }}</dd></div>
+                <div><dt>DGRtg</dt><dd>{{ ratings.home.DGRtg if ratings.home and ratings.home.DGRtg is defined and ratings.home.DGRtg is not none else '—' }}</dd></div>
+                <div><dt>ORtg / DRtg</dt><dd>{{ ratings.home.ORtg if ratings.home and ratings.home.ORtg is defined and ratings.home.ORtg is not none else '—' }} / {{ ratings.home.DRtg if ratings.home and ratings.home.DRtg is defined and ratings.home.DRtg is not none else '—' }}</dd></div>
+                <div><dt>Pace / AGIX</dt><dd>{{ ratings.home.pace_index if ratings.home and ratings.home.pace_index is defined and ratings.home.pace_index is not none else '—' }} / {{ ratings.home.agix_index if ratings.home and ratings.home.agix_index is defined and ratings.home.agix_index is not none else '—' }}</dd></div>
               </dl>
             </div>
             <div class="intel-card">
               <h3>{{ detail.away_team }}</h3>
               <dl class="intel-dl">
-                <div><dt>DGRtg</dt><dd>{{ intel.ratings.away.DGRtg if intel.ratings.away and intel.ratings.away.DGRtg is not none else '—' }}</dd></div>
-                <div><dt>ORtg / DRtg</dt><dd>{{ intel.ratings.away.ORtg if intel.ratings.away and intel.ratings.away.ORtg is not none else '—' }} / {{ intel.ratings.away.DRtg if intel.ratings.away and intel.ratings.away.DRtg is not none else '—' }}</dd></div>
-                <div><dt>Pace / AGIX</dt><dd>{{ intel.ratings.away.pace_index if intel.ratings.away and intel.ratings.away.pace_index is not none else '—' }} / {{ intel.ratings.away.agix_index if intel.ratings.away and intel.ratings.away.agix_index is not none else '—' }}</dd></div>
+                <div><dt>DGRtg</dt><dd>{{ ratings.away.DGRtg if ratings.away and ratings.away.DGRtg is defined and ratings.away.DGRtg is not none else '—' }}</dd></div>
+                <div><dt>ORtg / DRtg</dt><dd>{{ ratings.away.ORtg if ratings.away and ratings.away.ORtg is defined and ratings.away.ORtg is not none else '—' }} / {{ ratings.away.DRtg if ratings.away and ratings.away.DRtg is defined and ratings.away.DRtg is not none else '—' }}</dd></div>
+                <div><dt>Pace / AGIX</dt><dd>{{ ratings.away.pace_index if ratings.away and ratings.away.pace_index is defined and ratings.away.pace_index is not none else '—' }} / {{ ratings.away.agix_index if ratings.away and ratings.away.agix_index is defined and ratings.away.agix_index is not none else '—' }}</dd></div>
               </dl>
             </div>
-            {% if intel.pace.score is not none %}
+            {% if pace.score is defined and pace.score is not none %}
             <div class="intel-card intel-card--wide">
-              <h3>Matchup Pace {{ intel.pace.score }}{% if intel.pace.bucket %} · bucket {{ intel.pace.bucket }}{% endif %}</h3>
+              <h3>Matchup Pace {{ pace.score }}{% if pace.bucket %} · bucket {{ pace.bucket }}{% endif %}</h3>
               <p class="muted">
-                Hist avg goals {{ intel.pace.avg_goals if intel.pace.avg_goals is not none else '—' }}
-                · O2.5 {{ intel.pace.over_2_5_pct if intel.pace.over_2_5_pct is not none else '—' }}%
-                · BTTS {{ intel.pace.btts_pct if intel.pace.btts_pct is not none else '—' }}%
-                {% if intel.pace.lift_over_2_5 is not none %}· O2.5 lift {{ '%+.1f'|format(intel.pace.lift_over_2_5) }}{% endif %}
+                Hist avg goals {{ pace.avg_goals if pace.avg_goals is defined and pace.avg_goals is not none else '—' }}
+                · O2.5 {{ pace.over_2_5_pct if pace.over_2_5_pct is defined and pace.over_2_5_pct is not none else '—' }}%
+                · BTTS {{ pace.btts_pct if pace.btts_pct is defined and pace.btts_pct is not none else '—' }}%
+                {% if pace.lift_over_2_5 is defined and pace.lift_over_2_5 is not none %}· O2.5 lift {{ '%+.1f'|format(pace.lift_over_2_5) }}{% endif %}
               </p>
             </div>
             {% endif %}
@@ -411,67 +413,72 @@
         </section>
         {% endif %}
 
-        {% if intel.xg_regression.home or intel.xg_regression.away or intel.form_trends.home.gf is not none %}
+        {% set xgr = intel.xg_regression or {} %}
+        {% set form = intel.form_trends or {} %}
+        {% set home_form = form.home or {} %}
+        {% set away_form = form.away or {} %}
+        {% if xgr.home or xgr.away or (home_form.gf is defined and home_form.gf is not none) %}
         <section class="glass panel panel--wide">
           <h2 class="panel-title">xG Regression &amp; Form</h2>
           <div class="intel-grid">
             <div class="intel-card">
               <h3>{{ detail.home_team }} xG L6</h3>
               <p>
-                xGF {{ intel.xg_regression.home.avg_xg_for if intel.xg_regression.home and intel.xg_regression.home.avg_xg_for is not none else '—' }}
-                vs GF {{ intel.xg_regression.home.avg_goals_for if intel.xg_regression.home and intel.xg_regression.home.avg_goals_for is not none else '—' }}
-                {% if intel.xg_regression.home and intel.xg_regression.home.attack_delta is not none %}
-                <span class="muted">(Δ {{ '%+.2f'|format(intel.xg_regression.home.attack_delta) }})</span>
+                xGF {{ xgr.home.avg_xg_for if xgr.home and xgr.home.avg_xg_for is defined and xgr.home.avg_xg_for is not none else '—' }}
+                vs GF {{ xgr.home.avg_goals_for if xgr.home and xgr.home.avg_goals_for is defined and xgr.home.avg_goals_for is not none else '—' }}
+                {% if xgr.home and xgr.home.attack_delta is defined and xgr.home.attack_delta is not none %}
+                <span class="muted">(Δ {{ '%+.2f'|format(xgr.home.attack_delta) }})</span>
                 {% endif %}
               </p>
               <p class="muted">
                 Form L6 GF/GA
-                {{ intel.form_trends.home.gf if intel.form_trends.home.gf is not none else '—' }}
+                {{ home_form.gf if home_form.gf is defined and home_form.gf is not none else '—' }}
                 /
-                {{ intel.form_trends.home.ga if intel.form_trends.home.ga is not none else '—' }}
+                {{ home_form.ga if home_form.ga is defined and home_form.ga is not none else '—' }}
               </p>
             </div>
             <div class="intel-card">
               <h3>{{ detail.away_team }} xG L6</h3>
               <p>
-                xGF {{ intel.xg_regression.away.avg_xg_for if intel.xg_regression.away and intel.xg_regression.away.avg_xg_for is not none else '—' }}
-                vs GF {{ intel.xg_regression.away.avg_goals_for if intel.xg_regression.away and intel.xg_regression.away.avg_goals_for is not none else '—' }}
-                {% if intel.xg_regression.away and intel.xg_regression.away.attack_delta is not none %}
-                <span class="muted">(Δ {{ '%+.2f'|format(intel.xg_regression.away.attack_delta) }})</span>
+                xGF {{ xgr.away.avg_xg_for if xgr.away and xgr.away.avg_xg_for is defined and xgr.away.avg_xg_for is not none else '—' }}
+                vs GF {{ xgr.away.avg_goals_for if xgr.away and xgr.away.avg_goals_for is defined and xgr.away.avg_goals_for is not none else '—' }}
+                {% if xgr.away and xgr.away.attack_delta is defined and xgr.away.attack_delta is not none %}
+                <span class="muted">(Δ {{ '%+.2f'|format(xgr.away.attack_delta) }})</span>
                 {% endif %}
               </p>
               <p class="muted">
                 Form L6 GF/GA
-                {{ intel.form_trends.away.gf if intel.form_trends.away.gf is not none else '—' }}
+                {{ away_form.gf if away_form.gf is defined and away_form.gf is not none else '—' }}
                 /
-                {{ intel.form_trends.away.ga if intel.form_trends.away.ga is not none else '—' }}
+                {{ away_form.ga if away_form.ga is defined and away_form.ga is not none else '—' }}
               </p>
             </div>
           </div>
         </section>
         {% endif %}
 
-        {% if intel.team_betting.home or intel.team_betting.away or intel.manager_h2h or intel.highlight_roles %}
+        {% set team_bet = intel.team_betting or {} %}
+        {% if team_bet.home or team_bet.away or intel.manager_h2h or intel.highlight_roles %}
         <section class="glass panel panel--wide">
           <h2 class="panel-title">Season Betting · Manager · Highlights</h2>
           <div class="intel-grid">
-            {% if intel.team_betting.home %}
+            {% if team_bet.home %}
             <div class="intel-card">
               <h3>{{ detail.home_team }} season</h3>
-              <p>O2.5 {{ intel.team_betting.home.over_2_5 if intel.team_betting.home.over_2_5 is not none else '—' }} · BTTS {{ intel.team_betting.home.btts if intel.team_betting.home.btts is not none else '—' }} · Corners O9.5 {{ intel.team_betting.home.corners_o9_5 if intel.team_betting.home.corners_o9_5 is not none else '—' }}</p>
+              <p>O2.5 {{ team_bet.home.over_2_5 if team_bet.home.over_2_5 is defined and team_bet.home.over_2_5 is not none else '—' }} · BTTS {{ team_bet.home.btts if team_bet.home.btts is defined and team_bet.home.btts is not none else '—' }} · Corners O9.5 {{ team_bet.home.corners_o9_5 if team_bet.home.corners_o9_5 is defined and team_bet.home.corners_o9_5 is not none else '—' }}</p>
             </div>
             {% endif %}
-            {% if intel.team_betting.away %}
+            {% if team_bet.away %}
             <div class="intel-card">
               <h3>{{ detail.away_team }} season</h3>
-              <p>O2.5 {{ intel.team_betting.away.over_2_5 if intel.team_betting.away.over_2_5 is not none else '—' }} · BTTS {{ intel.team_betting.away.btts if intel.team_betting.away.btts is not none else '—' }} · Corners O9.5 {{ intel.team_betting.away.corners_o9_5 if intel.team_betting.away.corners_o9_5 is not none else '—' }}</p>
+              <p>O2.5 {{ team_bet.away.over_2_5 if team_bet.away.over_2_5 is defined and team_bet.away.over_2_5 is not none else '—' }} · BTTS {{ team_bet.away.btts if team_bet.away.btts is defined and team_bet.away.btts is not none else '—' }} · Corners O9.5 {{ team_bet.away.corners_o9_5 if team_bet.away.corners_o9_5 is defined and team_bet.away.corners_o9_5 is not none else '—' }}</p>
             </div>
             {% endif %}
             {% if intel.manager_h2h %}
             <div class="intel-card">
               <h3>Manager H2H</h3>
               <p>{{ intel.manager_h2h.home_manager or '—' }} vs {{ intel.manager_h2h.away_manager or '—' }} · {{ intel.manager_h2h.matches or 0 }} meetings</p>
-              <p class="muted">O2.5 {{ intel.manager_h2h.over_2_5_pct if intel.manager_h2h.over_2_5_pct is not none else '—' }} · BTTS {{ intel.manager_h2h.btts_pct if intel.manager_h2h.btts_pct is not none else '—' }}</p>
+              <p class="muted">O2.5 {{ intel.manager_h2h.over_2_5_pct if intel.manager_h2h.over_2_5_pct is defined and intel.manager_h2h.over_2_5_pct is not none else '—' }} · BTTS {{ intel.manager_h2h.btts_pct if intel.manager_h2h.btts_pct is defined and intel.manager_h2h.btts_pct is not none else '—' }}</p>
             </div>
             {% endif %}
             {% if intel.highlight_roles %}
@@ -479,7 +486,7 @@
               <h3>Slate highlights</h3>
               <ul class="intel-tags">
                 {% for r in intel.highlight_roles %}
-                <li>{{ r.role }}{% if r.total is not none %} · {{ r.total }}{% endif %}</li>
+                <li>{{ r.role }}{% if r.total is defined and r.total is not none %} · {{ r.total }}{% endif %}</li>
                 {% endfor %}
               </ul>
             </div>

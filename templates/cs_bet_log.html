@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Correct Score Bet Log - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=10" />
+    <link rel="stylesheet" href="/static/cs_strat.css?v=1" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "cs-bet-log" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Correct Score Bet Log</h1>
+      <p class="subtitle">
+        Polymarket scoreline baskets from DataGaffer projections. Each basket is staked for equal
+        payouts, so one winning line profits the whole basket.
+      </p>
+      {% include "includes/season_switch.html" %}
+
+      <div class="actions">
+        <button id="syncBtn">Sync Baskets</button>
+        <button id="autoResolveBtn">Auto Resolve Open Legs</button>
+        <span id="status"></span>
+      </div>
+
+      <section class="recommendations">
+        <div class="recommendation-card">
+          <h2>Basket Performance</h2>
+          <p class="hit-note" id="basketStats"></p>
+          <p class="hit-note" id="legStats"></p>
+        </div>
+      </section>
+
+      <section class="recommendation-card">
+        <h2>Baskets</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Fixture Date</th>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>Lines</th>
+              <th>Staked</th>
+              <th>Payout / hit</th>
+              <th>Guaranteed</th>
+              <th>Model %</th>
+              <th>Status</th>
+              <th>Unit PnL</th>
+            </tr>
+          </thead>
+          <tbody id="basketRows"></tbody>
+        </table>
+      </section>
+
+      <section class="recommendation-card">
+        <h2>Legs</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Fixture Date</th>
+              <th>Fixture</th>
+              <th>Scoreline</th>
+              <th>Model %</th>
+              <th>Price</th>
+              <th>Odds</th>
+              <th>Stake</th>
+              <th>Status</th>
+              <th>Unit PnL</th>
+              <th>Resolve</th>
+            </tr>
+          </thead>
+          <tbody id="legRows"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const LOG_SEASON = {{ season }};
+      function apiUrl(path) {
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}season=${LOG_SEASON}`;
+      }
+
+      const IST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      const statusEl = document.getElementById("status");
+      const basketRowsEl = document.getElementById("basketRows");
+      const legRowsEl = document.getElementById("legRows");
+      const basketStatsEl = document.getElementById("basketStats");
+      const legStatsEl = document.getElementById("legStats");
+      const syncBtn = document.getElementById("syncBtn");
+      const autoResolveBtn = document.getElementById("autoResolveBtn");
+
+      function fmtDate(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? value : IST.format(d).replace(",", "");
+      }
+
+      function td(text, className) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        if (className) el.className = className;
+        return el;
+      }
+
+      function num(value, digits = 2) {
+        return value === null || value === undefined ? "—" : Number(value).toFixed(digits);
+      }
+
+      function renderStats(d) {
+        basketStatsEl.textContent =
+          `Baskets: ${d.baskets} | Open: ${d.baskets_open} | Settled: ${d.baskets_settled} | ` +
+          `Hit: ${d.baskets_hit} (${d.basket_hit_pct}%) | Staked: ${d.basket_staked_units}u ` +
+          `(${d.basket_settled_staked_units}u settled) | ROI on settled: ${d.basket_roi_pct}% | ` +
+          `Avg size: ${d.avg_basket_size} lines`;
+        legStatsEl.textContent =
+          `Legs: ${d.placed} | Won: ${d.won} | Lost: ${d.lost} | Push: ${d.push} | ` +
+          `Avg odds: ${d.avg_odds ?? "—"} | Unit PnL: ${d.unit_pnl}`;
+      }
+
+      function renderBaskets(baskets) {
+        basketRowsEl.innerHTML = "";
+        if (!baskets.length) {
+          const tr = document.createElement("tr");
+          const cell = td("No correct-score baskets logged yet.");
+          cell.colSpan = 10;
+          tr.appendChild(cell);
+          basketRowsEl.appendChild(tr);
+          return;
+        }
+        for (const b of baskets) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(fmtDate(b.fixture_date)));
+          tr.appendChild(td(b.fixture));
+          tr.appendChild(td(b.league_name));
+
+          const scores = document.createElement("td");
+          const wrap = document.createElement("div");
+          wrap.className = "cs-basket-scores";
+          for (const score of b.scores || []) {
+            const tag = document.createElement("span");
+            tag.className = `cs-tag${score === b.hit_score ? " is-hit" : ""}`;
+            tag.textContent = score;
+            wrap.appendChild(tag);
+          }
+          scores.appendChild(wrap);
+          tr.appendChild(scores);
+
+          tr.appendChild(td(num(b.staked_units, 3)));
+          tr.appendChild(td(num(b.payout_units, 3)));
+          tr.appendChild(td(`+${num(b.guaranteed_profit_units, 3)}`, "cs-pos"));
+          tr.appendChild(td(`${num(b.model_hit_pct, 1)}%`));
+          tr.appendChild(td(b.status));
+          tr.appendChild(
+            td(b.pnl_units, b.pnl_units > 0 ? "cs-pos" : b.pnl_units < 0 ? "cs-neg" : null)
+          );
+          basketRowsEl.appendChild(tr);
+        }
+      }
+
+      async function resolveBet(id, result) {
+        const res = await fetch(apiUrl(`/api/correct-score-bet-log/${id}/resolve`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.detail || "Resolve failed";
+          return;
+        }
+        renderAll(data);
+      }
+
+      function renderLegs(entries) {
+        legRowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const cell = td("No legs logged yet.");
+          cell.colSpan = 10;
+          tr.appendChild(cell);
+          legRowsEl.appendChild(tr);
+          return;
+        }
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(fmtDate(e.fixture_date)));
+          tr.appendChild(td(e.fixture));
+          tr.appendChild(td(e.team_name, "cs-score"));
+          tr.appendChild(td(e.model_pct_fmt));
+          tr.appendChild(td(e.price_cents != null ? `${e.price_cents}¢` : "—"));
+          tr.appendChild(td(e.odds ?? ""));
+          tr.appendChild(td(num(e.units, 4)));
+          tr.appendChild(td(e.status || "open"));
+          tr.appendChild(
+            td(e.pnl_units ?? "", e.pnl_units > 0 ? "cs-pos" : e.pnl_units < 0 ? "cs-neg" : null)
+          );
+
+          const actions = document.createElement("td");
+          for (const [label, result] of [
+            ["Won", "won"],
+            ["Lost", "lost"],
+            ["Push", "push"],
+          ]) {
+            const btn = document.createElement("button");
+            btn.className = "small-btn";
+            btn.textContent = label;
+            btn.onclick = () => resolveBet(e.id, result);
+            actions.appendChild(btn);
+          }
+          tr.appendChild(actions);
+          legRowsEl.appendChild(tr);
+        }
+        if (window.TableTools) window.TableTools.reapply(legRowsEl.closest("table"));
+      }
+
+      function renderAll(payload) {
+        renderStats(payload.dashboard);
+        renderBaskets(payload.baskets || []);
+        renderLegs(payload.entries || []);
+      }
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Pricing and logging baskets…";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/correct-score-bet-log/sync"), { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          renderAll(data);
+          const r = data.result || {};
+          statusEl.textContent =
+            `Logged ${r.baskets} baskets (${r.inserted} legs)` +
+            (r.skipped_existing ? `, ${r.skipped_existing} already tracked` : "");
+        } catch (err) {
+          statusEl.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      autoResolveBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Auto resolving open legs…";
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/correct-score-bet-log/auto-resolve"), {
+            method: "POST",
+          });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
+          renderAll(data);
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open legs`;
+          if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
+          if (data.result.stopped_early) msg += " — partial run, click again";
+          statusEl.textContent = msg;
+        } catch (err) {
+          statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+
+      renderAll({
+        dashboard: {{ dashboard | tojson }},
+        baskets: {{ baskets | tojson }},
+        entries: {{ entries | tojson }},
+      });
+      if (window.TableTools) window.TableTools.enhanceAll();
+    </script>
+  </body>
+</html>

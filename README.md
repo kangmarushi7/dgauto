@@ -152,6 +152,9 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/bot/prematch` - pre-match model feed for trading bots
 - `GET /api/polymarket/exact-score?slug=` - football exact-score Yes prices (Gamma + CLOB)
 - `GET /api/polymarket/exact-score/prices?slug=` - prices array only
+- `GET /api/correct-score-strat` - priced correct-score baskets for the slate
+- `POST /api/correct-score-bet-log/sync` - log qualified correct-score baskets
+- `POST /api/correct-score-bet-log/auto-resolve` - settle open correct-score legs
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
@@ -159,6 +162,40 @@ X-Cron-Secret: some-long-random-string
 - `POST /api/auto-resolve/all` - resolve both logs in one call
 - `POST /api/cron/auto-resolve` - same as above (optional `X-Cron-Secret` header)
 - `GET /health` - health check
+
+## Correct Score Strat (Polymarket)
+
+`/correct-score-strat` prices DataGaffer's top projected scorelines on Polymarket's
+`…-exact-score` markets and stakes each basket for **equal payouts**, so the basket profits
+whenever any one of the bought lines hits.
+
+Buying a scoreline at price `p` (cents per share, settling at $1) returns `stake / p` on a hit.
+Splitting a budget `B` in proportion to price makes every payout `B / Σp`, so a single hit nets
+`B · (1 − Σp) / Σp` no matter which line landed. That is positive only while the summed ask
+prices stay under 100%, which is the qualifying test. Both the top-5 and top-4 baskets are
+priced and the higher expected value wins (a fifth line costing more than its model probability
+drags the basket down), with ties going to the wider basket. If neither clears the ROI floor the
+fixture is skipped.
+
+Baskets are logged leg-by-leg to `/correct-score-bet-log` (`log_type = "cs"`, `bet_type =
+"correct_score"`, `team_name` = the bought scoreline). Legs settle from the final score through
+the shared auto-resolve pipeline, and the log regroups them into baskets for hit-rate and ROI
+analysis. Re-syncing never touches a fixture that already has legs, so live baskets keep the
+prices they were sized at.
+
+Tuning (all optional):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CS_BASKET_UNITS` | `1.0` | Total stake per basket |
+| `CS_MIN_GUARANTEED_ROI` | `0.05` | Minimum return on stake when a line hits |
+| `CS_PRICE_BUFFER` | `0.005` | Slippage padding added to each ask |
+| `CS_MAX_LEG_PRICE` | `0.60` | Reject legs priced above this |
+| `CS_MIN_ASK_SHARES` | `0` | Minimum depth at the best ask (0 = off) |
+| `CS_MAX_HOURS_AHEAD` | `72` | Only price fixtures inside this window |
+| `CS_EV_TIE_TOLERANCE` | `0.01` | EV gap under which the wider basket is preferred |
+| `CS_REQUIRE_POSITIVE_EV` | `false` | Also require model probability above market |
+| `CS_FIXTURE_WORKERS` | `4` | Fixtures priced in parallel |
 
 ## Prop Model Engine (separate package)
 

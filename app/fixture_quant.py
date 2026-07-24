@@ -410,8 +410,12 @@ def build_risk_v2(
 
     variance = min(100, round(draw * 1.1 + spread * 1.5 + abs(tx - 2.7) * 12, 0))
     stability = max(0, min(100, round(100 - variance * 0.55 + (num(match.get("score")) or 50) * 0.25, 0)))
-    team_vol = min(100, round(abs(num(perc.get("home_win_pct")) or 50 - num(perc.get("away_win_pct")) or 50) * 0.8 + tx * 8, 0))
-    mkt_eff = min(100, round(72 - (max(edges) or 0) * 2 + neg * 6, 0))
+    home_win = num(perc.get("home_win_pct"))
+    away_win = num(perc.get("away_win_pct"))
+    win_gap = abs((home_win if home_win is not None else 50) - (away_win if away_win is not None else 50))
+    team_vol = min(100, round(win_gap * 0.8 + tx * 8, 0))
+    top_edge = max(edges) if edges else 0.0
+    mkt_eff = min(100, round(72 - top_edge * 2 + neg * 6, 0))
     sim_agree = max(0, min(100, round(num(match.get("score")) or 50, 0)))
     corr_risk = min(100, round(spread * 1.2 + (10 if neg else 0), 0))
 

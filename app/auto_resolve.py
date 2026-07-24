@@ -442,6 +442,13 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
     total = home_goals + away_goals
     kind = resolve_kind_for_entry(entry).lower()
 
+    if kind in {"correct_score", "exact_score"}:
+        # team_name carries the bought scoreline as "home-away".
+        m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", str(entry.get("team_name") or ""))
+        if not m:
+            return None
+        return "won" if (home_goals, away_goals) == (int(m.group(1)), int(m.group(2))) else "lost"
+
     if kind in {"over1.5", "over 1.5"}:
         return "won" if total >= 2 else "lost"
 

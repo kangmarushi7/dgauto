@@ -1,0 +1,114 @@
+/* Correct Score strat + bet log */
+
+.cs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--dg-ink-soft);
+}
+
+.cs-card {
+  margin-bottom: 1rem;
+}
+
+.cs-card.is-live {
+  border-left: 4px solid var(--dg-accent);
+}
+
+.cs-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.cs-head h2 {
+  margin: 0;
+}
+
+.cs-head .hit-note {
+  margin: 0.25rem 0 0;
+}
+
+.cs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cs-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0;
+}
+
+.cs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--dg-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.cs-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dg-muted);
+}
+
+.cs-stat strong {
+  font-size: 1.02rem;
+  font-family: var(--dg-font-display);
+}
+
+table.cs-legs {
+  width: 100%;
+}
+
+.cs-score {
+  font-family: var(--dg-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.cs-pos {
+  color: var(--dg-ok);
+  font-weight: 600;
+}
+
+.cs-neg {
+  color: var(--dg-danger);
+  font-weight: 600;
+}
+
+.cs-dim {
+  color: var(--dg-muted);
+  font-size: 0.85rem;
+}
+
+.cs-basket-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.cs-tag {
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--dg-line);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.cs-tag.is-hit {
+  background: var(--dg-ok-soft);
+  border-color: var(--dg-ok);
+  color: var(--dg-ok);
+}
