@@ -100,7 +100,14 @@ AUTO_RESOLVE_TIME=04:30
 AUTO_RESOLVE_TIMEZONE=Asia/Kolkata
 AUTO_RESOLVE_MAX_RUNTIME_SEC=240
 API_FOOTBALL_KEY=your_key_here
+
+# Open-bet settlement: Flashscore ninja feed first, API-Football fallback
+BET_SETTLE_SOURCE=flashscore,api_football
+FLASHSCORE_FSIGN=SW9D1eZo
+FLASHSCORE_DAY_OFFSETS=-1,0,1,2
 ```
+
+See [docs/flashscore.md](docs/flashscore.md) for feed format, field map, and FSIGN rotation notes.
 
 Manual run (both logs): `POST /api/auto-resolve/all`
 

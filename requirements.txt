@@ -7,5 +7,6 @@ sqlalchemy
 psycopg[binary]
 apscheduler
 tzdata
+curl_cffi
 # Must match Docker base image browsers (mcr.microsoft.com/playwright/python:v1.61.0-jammy)
 playwright==1.61.0

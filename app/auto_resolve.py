@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import logging
 import os
 import re
 import time
@@ -16,9 +17,14 @@ from app.api_football import (
 )
 from app.bet_scenarios import resolve_kind_for_entry
 from app.db import list_bets, resolve_bet_entry
+from app.flashscore_client import find_match as flashscore_find_match
+from app.flashscore_client import refresh_cache as flashscore_refresh_cache
+
+logger = logging.getLogger(__name__)
 
 # Allow enough time for date lookups + fallback team/H2H searches on large open books.
 MAX_RUNTIME_SEC = int(os.getenv("AUTO_RESOLVE_MAX_RUNTIME_SEC", "240"))
+SETTLE_SOURCE = (os.getenv("BET_SETTLE_SOURCE") or "flashscore,api_football").strip().lower()
 
 # Generic club suffixes / tokens ignored when comparing core team names.
 _TEAM_STOPWORDS = frozenset(
@@ -497,10 +503,62 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
     return None
 
 
+def _settle_sources() -> list[str]:
+    return [s.strip() for s in SETTLE_SOURCE.split(",") if s.strip()]
+
+
+def _event_from_flashscore(entry: dict[str, Any]) -> dict[str, Any] | None:
+    home, away = _parse_fixture(str(entry.get("fixture") or ""))
+    if not home or not away:
+        return None
+    try:
+        match = flashscore_find_match(home, away, league=str(entry.get("league_name") or "") or None)
+    except Exception as exc:  # noqa: BLE001 — soft-fail; try next source
+        logger.warning("Flashscore lookup failed for %s vs %s: %s", home, away, exc)
+        return None
+    if match is None:
+        return None
+    return match.to_event_dict()
+
+
+def _find_settlement_event(
+    entry: dict[str, Any],
+    date_cache: dict[str, list[dict[str, Any]]],
+    team_id_cache: dict[str, int | None],
+    h2h_cache: dict[str, list[dict[str, Any]]],
+    team_recent_cache: dict[str, list[dict[str, Any]]],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Try configured settlement sources in order. Returns (event, source_name)."""
+    for source in _settle_sources():
+        if source in {"flashscore", "fs", "ninja"}:
+            event = _event_from_flashscore(entry)
+            if event is not None:
+                return event, "flashscore"
+            continue
+        if source in {"api_football", "api-football", "apifootball"}:
+            if not api_football_configured():
+                continue
+            event = _find_best_event(
+                entry,
+                date_cache,
+                team_id_cache,
+                h2h_cache,
+                team_recent_cache,
+            )
+            if event is not None:
+                return event, "api_football"
+            continue
+    return None, None
+
+
 def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     rows = list_bets(log_type)
     open_rows = [r for r in rows if str(r.get("status") or "").lower() == "open"]
-    if not api_football_configured():
+    sources = _settle_sources()
+    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    use_api = any(s in {"api_football", "api-football", "apifootball"} for s in sources)
+
+    if not use_flashscore and use_api and not api_football_configured():
         return {
             "open_checked": len(open_rows),
             "resolved": 0,
@@ -509,14 +567,23 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             "skipped_unresolved": 0,
             "skipped_timeout": 0,
             "stopped_early": False,
-            "error": "API_FOOTBALL_KEY not set. Add your key from dashboard.api-football.com to .env",
+            "error": "API_FOOTBALL_KEY not set and Flashscore settlement disabled",
         }
+
+    if use_flashscore:
+        try:
+            flashscore_refresh_cache(force=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Flashscore cache refresh failed (will use last cache if any): %s", exc
+            )
 
     resolved = 0
     skipped_not_found = 0
     skipped_not_final = 0
     skipped_unresolved = 0
     stopped_early = False
+    resolved_via: dict[str, int] = {"flashscore": 0, "api_football": 0}
     started = time.monotonic()
 
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
@@ -547,7 +614,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             break
 
         seed = group_entries[0]
-        # Skip deep API lookups for matches that cannot be finished yet.
+        # Skip deep lookups for matches that cannot be finished yet.
         kickoff = _parse_entry_date(seed.get("fixture_date"))
         if kickoff is not None:
             kick_naive = kickoff.replace(tzinfo=None) if kickoff.tzinfo else kickoff
@@ -556,7 +623,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
                 skipped_not_final += len(group_entries)
                 continue
 
-        event = _find_best_event(
+        event, source = _find_settlement_event(
             seed,
             date_cache,
             team_id_cache,
@@ -566,9 +633,15 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         if not event:
             skipped_not_found += len(group_entries)
             continue
-        if not fixture_is_final(event, kickoff=kickoff):
+
+        if source == "flashscore":
+            is_final = str(event.get("strStatus") or "").upper() == "FT"
+        else:
+            is_final = fixture_is_final(event, kickoff=kickoff)
+        if not is_final:
             skipped_not_final += len(group_entries)
             continue
+
         for entry in group_entries:
             result = _resolve_result(entry, event)
             if result not in {"won", "lost", "push"}:
@@ -578,6 +651,8 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             updated = resolve_bet_entry(log_type, str(entry.get("id")), result, pnl, _now_iso())
             if updated:
                 resolved += 1
+                if source:
+                    resolved_via[source] = resolved_via.get(source, 0) + 1
 
     return {
         "open_checked": len(open_rows),
@@ -588,4 +663,6 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         "skipped_timeout": skipped_timeout,
         "stopped_early": stopped_early,
         "max_runtime_sec": MAX_RUNTIME_SEC,
+        "settle_source": SETTLE_SOURCE,
+        "resolved_via": resolved_via,
     }
