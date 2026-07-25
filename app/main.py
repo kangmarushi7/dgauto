@@ -68,6 +68,7 @@ from app.correct_score_strat import (
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
+from app.unified_bets import bet_log_entries, count_flagged_ev, home_summary_stats, todays_bets_payload
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
 from app.polymarket_exact_score import exact_score_prices_array, pull_exact_score_prices
 from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_scrape_job_status
@@ -179,12 +180,16 @@ def _home_context() -> dict:
     data = read_latest()
     matches = data.get("matches", [])
     slate = build_fixture_slate(matches)
-    return {"data": data, "slate": slate, "matches": matches}
+    # Cached — full +EV scan is expensive; refresh via /api/slate or TTL.
+    flagged_ev = count_flagged_ev(data)
+    stats = home_summary_stats(match_count=len(slate), flagged_ev=flagged_ev)
+    return {"data": data, "slate": slate, "matches": matches, "stats": stats}
 
 
 @app.get("/")
 async def dashboard(request: Request):
-    return templates.TemplateResponse(request, "index.html", _home_context())
+    ctx = await run_in_threadpool(_home_context)
+    return templates.TemplateResponse(request, "index.html", ctx)
 
 
 @app.get("/fixture/{fixture_id}")
@@ -211,12 +216,13 @@ async def fixture_api(fixture_id: int):
 
 @app.get("/api/slate")
 async def slate_data():
-    ctx = _home_context()
+    ctx = await run_in_threadpool(_home_context)
     return JSONResponse(
         {
             "scraped_at": ctx["data"].get("scraped_at"),
             "slate": ctx["slate"],
-            "match_count": len(ctx["matches"]),
+            "match_count": len(ctx["slate"]),
+            "flagged_ev": ctx["stats"].get("flagged_ev", 0),
         }
     )
 
@@ -233,14 +239,56 @@ async def health_db():
 
 
 @app.get("/todays-bets")
-async def todays_bets(request: Request):
+async def todays_bets_page(request: Request, strategy: str | None = Query(default=None)):
+    payload = await run_in_threadpool(todays_bets_payload, strategy=strategy)
+    return templates.TemplateResponse(
+        request,
+        "todays_bets.html",
+        {"payload": payload},
+    )
+
+
+@app.get("/api/bets/today")
+async def api_bets_today(strategy: str | None = Query(default=None)):
+    return JSONResponse(await run_in_threadpool(todays_bets_payload, strategy=strategy))
+
+
+@app.get("/api/bets/log")
+async def api_bets_log(
+    strategy: str | None = Query(default=None),
+    result: str | None = Query(default=None),
+    days: int = Query(default=30),
+    page: int = Query(default=1),
+    page_size: int = Query(default=50),
+):
+    days_arg = None if days <= 0 else days
+    payload = await run_in_threadpool(
+        bet_log_entries,
+        strategy=strategy,
+        result=result,
+        days=days_arg,
+        page=page,
+        page_size=page_size,
+    )
+    return JSONResponse(payload)
+
+
+@app.get("/legacy/scenarios")
+async def legacy_scenarios_page(request: Request):
     data = read_latest()
     scenarios = build_todays_bets_scenarios(data.get("matches", []))
     return templates.TemplateResponse(
         request,
-        "todays_bets.html",
+        "legacy_scenarios.html",
         {"data": data, "scenarios": scenarios},
     )
+
+
+@app.get("/legacy/recommended")
+async def legacy_recommended_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _bet_log_payload(legacy=False, season=season_id)
+    return templates.TemplateResponse(request, "legacy_recommended.html", payload)
 
 
 @app.get("/prop-model")
@@ -312,10 +360,22 @@ async def prop_model_bet_log_resolve(bet_id: int, request: Request):
 
 
 @app.get("/bet-log")
-async def bet_log_page(request: Request, season: int | None = Query(default=None)):
-    season_id = _resolve_season(season)
-    payload = _bet_log_payload(legacy=False, season=season_id)
-    return templates.TemplateResponse(request, "bet_log.html", payload)
+async def bet_log_page(
+    request: Request,
+    strategy: str | None = Query(default=None),
+    result: str | None = Query(default=None),
+    days: int = Query(default=30),
+):
+    days_arg = None if days <= 0 else days
+    payload = await run_in_threadpool(
+        bet_log_entries,
+        strategy=strategy,
+        result=result,
+        days=days_arg,
+        page=1,
+        page_size=50,
+    )
+    return templates.TemplateResponse(request, "bet_log.html", {"payload": payload})
 
 
 @app.get("/lm-strat")

@@ -1,0 +1,279 @@
+/* Unified Today's Bets + Bet Log */
+
+.bets-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  margin: 0 0 1.25rem;
+}
+
+.bets-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, var(--dg-muted));
+}
+
+.bets-toolbar select,
+.bets-toolbar button {
+  font: inherit;
+}
+
+.bets-toolbar select {
+  min-width: 10rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line, var(--dg-line));
+  border-radius: 10px;
+  background: var(--surface, var(--dg-surface-solid));
+  color: var(--ink, var(--dg-ink));
+}
+
+.bets-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--line, var(--dg-line));
+  background: var(--surface, var(--dg-surface-solid));
+  font-family: var(--dg-font-mono, ui-monospace, monospace);
+  font-size: 0.88rem;
+  color: var(--ink-soft, var(--dg-ink-soft));
+  margin-bottom: 1rem;
+}
+
+.bets-summary-pill.is-pos {
+  color: var(--green, var(--dg-ok));
+  border-color: color-mix(in srgb, var(--green, var(--dg-ok)) 35%, var(--line, var(--dg-line)));
+}
+
+.bets-summary-pill.is-neg {
+  color: var(--red, var(--dg-danger));
+}
+
+.bets-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.bets-kpi {
+  background: var(--surface, var(--dg-surface-solid));
+  border: 1px solid var(--line, var(--dg-line));
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.bets-kpi__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, var(--dg-muted));
+  margin: 0 0 0.35rem;
+}
+
+.bets-kpi__value {
+  margin: 0;
+  font-family: var(--dg-font-mono, ui-monospace, monospace);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ink, var(--dg-ink));
+}
+
+.bets-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line, var(--dg-line));
+  border-radius: 14px;
+  background: var(--surface, var(--dg-surface-solid));
+}
+
+.bets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.bets-table th,
+.bets-table td {
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line, var(--dg-line));
+  vertical-align: top;
+}
+
+.bets-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, var(--dg-muted));
+  font-weight: 600;
+  background: color-mix(in srgb, var(--bg, var(--dg-paper)) 70%, white);
+  white-space: nowrap;
+}
+
+.bets-table th[aria-sort] {
+  cursor: pointer;
+}
+
+.bets-table th:focus-visible,
+.bets-table button:focus-visible,
+.bets-toolbar select:focus-visible,
+.bets-toolbar button:focus-visible {
+  outline: 2px solid var(--forest, var(--dg-accent));
+  outline-offset: 2px;
+}
+
+.bets-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.bets-table .mono {
+  font-family: var(--dg-font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.bets-fixture {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.bets-fixture__name {
+  color: var(--ink, var(--dg-ink));
+  font-weight: 550;
+}
+
+.bets-fixture__league {
+  color: var(--muted, var(--dg-muted));
+  font-size: 0.8rem;
+}
+
+.bets-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bets-pill--pending {
+  color: var(--amber, #c97a2e);
+  background: color-mix(in srgb, var(--amber, #c97a2e) 14%, white);
+}
+
+.bets-pill--open {
+  color: var(--green, #1f7a50);
+  background: color-mix(in srgb, var(--green, #1f7a50) 14%, white);
+}
+
+.bets-pill--settled {
+  color: var(--ink-soft, var(--dg-ink-soft));
+  background: color-mix(in srgb, var(--muted, var(--dg-muted)) 14%, white);
+}
+
+.bets-pill--won {
+  color: var(--green, #1f7a50);
+  background: color-mix(in srgb, var(--green, #1f7a50) 14%, white);
+}
+
+.bets-pill--lost {
+  color: var(--red, #b5482f);
+  background: color-mix(in srgb, var(--red, #b5482f) 14%, white);
+}
+
+.bets-pill--push {
+  color: var(--muted, var(--dg-muted));
+  background: color-mix(in srgb, var(--muted, var(--dg-muted)) 14%, white);
+}
+
+.bets-pos {
+  color: var(--green, #1f7a50);
+}
+
+.bets-neg {
+  color: var(--red, #b5482f);
+}
+
+.bets-empty {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.bets-empty h2 {
+  margin: 0 0 0.5rem;
+  font-family: var(--dg-font-display);
+  font-size: 1.35rem;
+}
+
+.bets-empty p {
+  margin: 0;
+  color: var(--ink-soft, var(--dg-ink-soft));
+}
+
+.bets-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.bets-pager__meta {
+  font-family: var(--dg-font-mono, ui-monospace, monospace);
+  font-size: 0.85rem;
+  color: var(--muted, var(--dg-muted));
+}
+
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+}
+
+.home-stat-card {
+  background: var(--surface, var(--dg-surface-solid));
+  border: 1px solid var(--line, var(--dg-line));
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 8px 22px rgba(21, 40, 33, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--dg-shadow);
+}
+
+.home-stat-card__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, var(--dg-muted));
+}
+
+.home-stat-card__value {
+  margin: 0;
+  font-family: var(--dg-font-mono, ui-monospace, monospace);
+  font-size: 2rem;
+  font-weight: 650;
+  color: var(--ink, var(--dg-ink));
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .bets-kpis,
+  .home-stats {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,19 +1,80 @@
 {# Shared app nav. Set nav_current before include, e.g. {% set nav_current = "home" %} #}
-<nav class="app-nav" aria-label="Main">
-  <a href="/" class="{% if nav_current == 'home' %}is-current{% endif %}">Home</a>
-  <a href="/todays-bets" class="{% if nav_current == 'todays-bets' %}is-current{% endif %}">Today's Bets</a>
-  <a href="/bet-log" class="{% if nav_current == 'bet-log' %}is-current{% endif %}">Bet Log</a>
-  <a href="/legacy-bet-log" class="{% if nav_current == 'legacy-bet-log' %}is-current{% endif %}">Legacy</a>
-  <a href="/lm-strat" class="{% if nav_current == 'lm-strat' %}is-current{% endif %}">LM Strat</a>
-  <a href="/no-strat" class="{% if nav_current == 'no-strat' %}is-current{% endif %}">NO Strat</a>
-  <a href="/h2h-strat" class="{% if nav_current == 'h2h-strat' %}is-current{% endif %}">H2H Strat</a>
-  <a href="/plus-ev-strat" class="{% if nav_current == 'plus-ev-strat' %}is-current{% endif %}">+EV Strat</a>
-  <a href="/correct-score-strat" class="{% if nav_current == 'cs-strat' %}is-current{% endif %}">CS Strat</a>
-  <a href="/lm-bet-log" class="{% if nav_current == 'lm-bet-log' %}is-current{% endif %}">LM Log</a>
-  <a href="/no-bet-log" class="{% if nav_current == 'no-bet-log' %}is-current{% endif %}">NO Log</a>
-  <a href="/h2h-bet-log" class="{% if nav_current == 'h2h-bet-log' %}is-current{% endif %}">H2H Log</a>
-  <a href="/plus-ev-bet-log" class="{% if nav_current == 'plus-ev-bet-log' %}is-current{% endif %}">+EV Log</a>
-  <a href="/correct-score-bet-log" class="{% if nav_current == 'cs-bet-log' %}is-current{% endif %}">CS Log</a>
-  <a href="/prop-model" class="{% if nav_current == 'prop-model' %}is-current{% endif %}">Prop Model</a>
-  <a href="/prop-model/bet-log" class="{% if nav_current == 'prop-bet-log' %}is-current{% endif %}">Prop Log</a>
+{% set strategies_active = nav_current in ['lm-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'prop-model'] %}
+{% set logs_active = nav_current in ['lm-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'prop-bet-log'] %}
+{% set legacy_active = nav_current in ['legacy', 'legacy-scenarios', 'legacy-recommended', 'legacy-bet-log'] %}
+
+<nav class="app-nav" aria-label="Main" data-app-nav>
+  <button type="button" class="app-nav__toggle" aria-expanded="false" aria-controls="appNavMenu" id="appNavToggle">
+    Menu
+  </button>
+
+  <div class="app-nav__menu" id="appNavMenu">
+    <a href="/" class="{% if nav_current == 'home' %}is-current{% endif %}">Home</a>
+    <a href="/todays-bets" class="{% if nav_current == 'todays-bets' %}is-current{% endif %}">Today's Bets</a>
+    <a href="/bet-log" class="{% if nav_current == 'bet-log' %}is-current{% endif %}">Bet Log</a>
+
+    <div class="app-nav__dropdown{% if strategies_active %} is-active{% endif %}" data-nav-dropdown>
+      <button
+        type="button"
+        class="app-nav__trigger{% if strategies_active %} is-current{% endif %}"
+        aria-expanded="false"
+        aria-haspopup="true"
+        aria-controls="navStrategies"
+        id="navStrategiesBtn"
+      >
+        Strategies
+        <span class="app-nav__caret" aria-hidden="true"></span>
+      </button>
+      <div class="app-nav__panel" id="navStrategies" role="menu" hidden>
+        <a href="/lm-strat" role="menuitem" class="{% if nav_current == 'lm-strat' %}is-current{% endif %}">Line Movement (LM)</a>
+        <a href="/no-strat" role="menuitem" class="{% if nav_current == 'no-strat' %}is-current{% endif %}">No-Vig Model (NO)</a>
+        <a href="/h2h-strat" role="menuitem" class="{% if nav_current == 'h2h-strat' %}is-current{% endif %}">Head to Head (H2H)</a>
+        <a href="/plus-ev-strat" role="menuitem" class="{% if nav_current == 'plus-ev-strat' %}is-current{% endif %}">+EV Finder</a>
+        <a href="/correct-score-strat" role="menuitem" class="{% if nav_current == 'cs-strat' %}is-current{% endif %}">Closing Steam (CS)</a>
+        <a href="/prop-model" role="menuitem" class="{% if nav_current == 'prop-model' %}is-current{% endif %}">Prop Model</a>
+      </div>
+    </div>
+
+    <div class="app-nav__dropdown{% if logs_active %} is-active{% endif %}" data-nav-dropdown>
+      <button
+        type="button"
+        class="app-nav__trigger{% if logs_active %} is-current{% endif %}"
+        aria-expanded="false"
+        aria-haspopup="true"
+        aria-controls="navLogs"
+        id="navLogsBtn"
+      >
+        Logs
+        <span class="app-nav__caret" aria-hidden="true"></span>
+      </button>
+      <div class="app-nav__panel" id="navLogs" role="menu" hidden>
+        <a href="/lm-bet-log" role="menuitem" class="{% if nav_current == 'lm-bet-log' %}is-current{% endif %}">LM Log</a>
+        <a href="/no-bet-log" role="menuitem" class="{% if nav_current == 'no-bet-log' %}is-current{% endif %}">NO Log</a>
+        <a href="/h2h-bet-log" role="menuitem" class="{% if nav_current == 'h2h-bet-log' %}is-current{% endif %}">H2H Log</a>
+        <a href="/plus-ev-bet-log" role="menuitem" class="{% if nav_current == 'plus-ev-bet-log' %}is-current{% endif %}">+EV Log</a>
+        <a href="/correct-score-bet-log" role="menuitem" class="{% if nav_current == 'cs-bet-log' %}is-current{% endif %}">CS Log</a>
+        <a href="/prop-model/bet-log" role="menuitem" class="{% if nav_current == 'prop-bet-log' %}is-current{% endif %}">Prop Log</a>
+      </div>
+    </div>
+
+    <div class="app-nav__dropdown{% if legacy_active %} is-active{% endif %}" data-nav-dropdown>
+      <button
+        type="button"
+        class="app-nav__trigger{% if legacy_active %} is-current{% endif %}"
+        aria-expanded="false"
+        aria-haspopup="true"
+        aria-controls="navLegacy"
+        id="navLegacyBtn"
+      >
+        Legacy
+        <span class="app-nav__caret" aria-hidden="true"></span>
+      </button>
+      <div class="app-nav__panel" id="navLegacy" role="menu" hidden>
+        <a href="/legacy/scenarios" role="menuitem" class="{% if nav_current == 'legacy-scenarios' %}is-current{% endif %}">Scenario Bets</a>
+        <a href="/legacy/recommended" role="menuitem" class="{% if nav_current == 'legacy-recommended' %}is-current{% endif %}">Recommended Log</a>
+        <a href="/legacy-bet-log" role="menuitem" class="{% if nav_current == 'legacy-bet-log' %}is-current{% endif %}">Pre-split Log</a>
+      </div>
+    </div>
+  </div>
 </nav>
+<script src="/static/nav.js?v=1" defer></script>

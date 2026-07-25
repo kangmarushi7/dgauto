@@ -143,11 +143,13 @@ X-Cron-Secret: some-long-random-string
 ## API endpoints
 
 - `POST /api/refresh` - refresh latest slate data
+- `GET /api/bets/today` - cross-strategy bets for today's slate
+- `GET /api/bets/log` - unified settled bet history (`strategy`, `result`, `days`, `page`)
 - `POST /api/cron/refresh` - same as refresh (optional `X-Cron-Secret` header)
 - `GET /api/data` - latest slate data
 - `GET /api/todays-bets` - scenario-filtered bets
 - `GET /api/lm-strat` - LM Strat filtered picks
-- `GET /api/h2h-strat` - H2H Trends picks (Min 3 meetings, ≥75% hit rate)
+- `GET /api/h2h-strat` - H2H Trends picks (Min 6 meetings, ≥75% hit rate)
 - `POST /api/h2h-bet-log/sync` - sync H2H Strat bets (1u each, separate log)
 - `POST /api/h2h-bet-log/auto-resolve` - settle open H2H bets
 - `GET /prop-model` - Prop Model Engine dashboard (NBA/MLB Phase 1)
@@ -169,7 +171,7 @@ X-Cron-Secret: some-long-random-string
 ## H2H Strat (DataGaffer Trends)
 
 [`/h2h-strat`](https://www.datagaffer.com/head_2_head) mirrors the Head 2 Head **Trends** filters:
-Min **3** historical meetings and **≥75%** hit rate on Goals (O2.5 / O3.5 / BTTS), Corners
+Min **6** historical meetings and **≥75%** hit rate on Goals (O2.5 / O3.5 / BTTS), Corners
 (O8.5 / O9.5 / O10.5), SOT (O7.5 / O8.5 / O9.5), and Win/Draw (home / draw / away). Each
 qualified market is logged at **1 unit** to `/h2h-bet-log` (`log_type = "h2h"`). Goals and
 1X2 settle from final scores; corners/SOT use API-Football statistics when configured.

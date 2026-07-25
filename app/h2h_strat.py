@@ -18,7 +18,7 @@ from app.db import insert_bets, list_bets, resolve_bet_entry
 from app.dg_feeds import _load_json, FEED_PATHS
 
 LOG_TYPE = "h2h"
-MIN_H2H = 3
+MIN_H2H = 6
 MIN_HIT_PCT = 75.0
 STAKE_UNITS = 1.0
 

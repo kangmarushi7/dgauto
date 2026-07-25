@@ -1,28 +1,42 @@
 /* DG app — shared design system (Prop Model editorial look) */
 
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 
 :root {
-  --dg-ink: #152821;
-  --dg-ink-soft: #3d5349;
-  --dg-muted: #6b7f75;
-  --dg-paper: #f3f7f4;
+  --bg: #f2f5f0;
+  --surface: #ffffff;
+  --ink: #132119;
+  --ink-soft: #4b5c50;
+  --muted: #8b978c;
+  --line: #e2e9de;
+  --forest: #163c2c;
+  --forest-deep: #0e271c;
+  --green: #1f7a50;
+  --green-bright: #2fae72;
+  --amber: #c97a2e;
+  --red: #b5482f;
+
+  --dg-ink: var(--ink);
+  --dg-ink-soft: var(--ink-soft);
+  --dg-muted: var(--muted);
+  --dg-paper: var(--bg);
   --dg-surface: rgba(255, 255, 255, 0.78);
-  --dg-surface-solid: #ffffff;
-  --dg-line: #c9d8cf;
-  --dg-accent: #0b6e56;
-  --dg-accent-hover: #085544;
+  --dg-surface-solid: var(--surface);
+  --dg-line: var(--line);
+  --dg-accent: var(--forest);
+  --dg-accent-hover: var(--forest-deep);
   --dg-accent-soft: #d8efe6;
-  --dg-warn: #9a6700;
+  --dg-warn: var(--amber);
   --dg-warn-soft: #fef3c7;
-  --dg-danger: #b42318;
+  --dg-danger: var(--red);
   --dg-danger-soft: #fee4e2;
-  --dg-ok: #027a48;
+  --dg-ok: var(--green);
   --dg-ok-soft: #d1fadf;
-  --dg-shadow: 0 18px 40px rgba(21, 40, 33, 0.08);
+  --dg-shadow: 0 18px 40px rgba(19, 33, 25, 0.08);
   --dg-radius: 14px;
   --dg-font-display: "Fraunces", Georgia, serif;
-  --dg-font: "Outfit", "Segoe UI", sans-serif;
+  --dg-font: "Inter", "Segoe UI", sans-serif;
+  --dg-font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   /* Prop Model aliases */
   --pm-ink: var(--dg-ink);
@@ -135,6 +149,110 @@ body.quant-body::before {
   animation: dg-rise 0.55s ease both;
 }
 
+.app-nav__toggle {
+  display: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--forest);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
+.app-nav__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.95rem;
+  align-items: center;
+}
+
+.app-nav__dropdown {
+  position: relative;
+}
+
+.app-nav__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--dg-ink-soft);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app-nav__trigger:hover,
+.app-nav__trigger.is-current,
+.app-nav__dropdown.is-active .app-nav__trigger {
+  color: var(--dg-accent);
+}
+
+.app-nav__trigger.is-current,
+.app-nav__dropdown.is-active .app-nav__trigger {
+  font-weight: 600;
+}
+
+.app-nav__caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.app-nav__dropdown.is-open .app-nav__caret {
+  transform: rotate(180deg);
+}
+
+.app-nav__panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  min-width: 13.5rem;
+  padding: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--dg-shadow);
+  z-index: 40;
+  display: grid;
+  gap: 0.1rem;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.app-nav__dropdown.is-open .app-nav__panel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-nav__panel a {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.app-nav__panel a:hover,
+.app-nav__panel a:focus-visible,
+.app-nav__panel a.is-current {
+  background: color-mix(in srgb, var(--forest) 8%, white);
+  color: var(--forest);
+  text-decoration: none;
+}
+
 .app-nav a,
 .pm-topnav a,
 .home-nav a,
@@ -167,6 +285,63 @@ body.quant-body::before {
 .quant-nav a.is-current {
   color: var(--dg-accent);
   font-weight: 600;
+}
+
+.app-nav a:focus-visible,
+.app-nav__trigger:focus-visible,
+.app-nav__toggle:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (max-width: 1079px) {
+  .app-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-nav__toggle {
+    display: inline-flex;
+    align-self: flex-start;
+  }
+
+  .app-nav__menu {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    padding: 0.5rem 0 0;
+  }
+
+  .app-nav.is-menu-open .app-nav__menu {
+    display: flex;
+  }
+
+  .app-nav__dropdown {
+    width: 100%;
+  }
+
+  .app-nav__trigger {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0.55rem 0;
+  }
+
+  .app-nav__panel {
+    position: static;
+    min-width: 0;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    padding: 0 0 0.35rem 0.75rem;
+    opacity: 1;
+    transform: none;
+  }
+
+  .app-nav__panel[hidden] {
+    display: none !important;
+  }
 }
 
 .top-links {

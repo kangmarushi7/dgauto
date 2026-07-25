@@ -4,147 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=10" />
-    <link rel="stylesheet" href="/static/betlog.css?v=10" />
-    <script src="/static/table_tools.js?v=4" defer></script>
+    <link rel="stylesheet" href="/static/style.css?v=11" />
+    <link rel="stylesheet" href="/static/bets.css?v=1" />
   </head>
-  <body class="betlog-body">
-    <div class="betlog-shell">
+  <body>
+    <main class="container">
       {% set nav_current = "bet-log" %}
       {% include "includes/app_nav.html" %}
-      <header class="betlog-topbar">
-        <div class="betlog-brand">
-          <h1>Bet <span style="color:var(--dg-accent)">Log</span></h1>
-          <p class="subtitle">Paper-trade DataGaffer scenarios — sync from Home, then auto-resolve or mark results manually.</p>
-        </div>
+
+      <header class="app-hero">
+        <h1 class="app-brand">Bet <span>Log</span></h1>
+        <p class="subtitle">Settled bets across LM, NO, H2H, +EV, CS, Prop, and Recommended.</p>
       </header>
 
-      {% include "includes/season_switch.html" %}
+      <div id="rangePill" class="bets-summary-pill" aria-live="polite"></div>
 
-      <div class="betlog-actions">
-        <button type="button" id="syncBtn" class="btn-primary">Sync recommended</button>
-        <button type="button" id="autoResolveBtn" class="btn-secondary">Auto resolve open</button>
-        <span id="status" class="betlog-status"></span>
+      <div class="bets-toolbar">
+        <label>
+          Strategy
+          <select id="strategyFilter" aria-label="Filter by strategy">
+            <option value="">All strategies</option>
+          </select>
+        </label>
+        <label>
+          Result
+          <select id="resultFilter" aria-label="Filter by result">
+            <option value="">All results</option>
+            <option value="won">Win</option>
+            <option value="lost">Loss</option>
+            <option value="push">Push</option>
+          </select>
+        </label>
+        <label>
+          Range
+          <select id="daysFilter" aria-label="Date range">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="0">All time</option>
+          </select>
+        </label>
       </div>
 
-      <section class="betlog-summary" aria-label="Overall performance">
-        <div id="overallKpis" class="betlog-kpi-grid"></div>
-      </section>
-
-      <details class="betlog-panel" open>
-        <summary>
-          <span>Scenario breakdown</span>
-          <span class="betlog-panel-meta" id="scenarioPanelMeta"></span>
-        </summary>
-        <div class="betlog-panel-body">
-          <div class="betlog-table-wrap betlog-table-wrap--full">
-            <table class="betlog-stats-table" id="scenarioStatsTable">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>Outcome</th>
-                  <th>Placed</th>
-                  <th>Won</th>
-                  <th>Lost</th>
-                  <th>Win%</th>
-                  <th>Avg odds</th>
-                  <th>Unit PnL</th>
-                  <th>Hist%</th>
-                </tr>
-              </thead>
-              <tbody id="scenarioStatsBody"></tbody>
-            </table>
-          </div>
+      <div id="betsRoot"></div>
+      <div class="bets-pager" id="pager" hidden>
+        <span class="bets-pager__meta" id="pagerMeta"></span>
+        <div>
+          <button type="button" class="btn-secondary" id="prevPage">Previous</button>
+          <button type="button" class="btn-secondary" id="nextPage">Next</button>
         </div>
-      </details>
-
-      <details class="betlog-panel betlog-panel--bets betlog-panel--today" open>
-        <summary>
-          <span>Today's Bets</span>
-          <span class="betlog-panel-meta" id="todayBetsPanelMeta"></span>
-        </summary>
-        <div class="betlog-panel-body betlog-panel-body--bets">
-          <div class="betlog-bets-table-wrap" aria-label="Today's bets table">
-            <table class="betlog-bets-table betlog-bets-table--today">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Fixture</th>
-                <th>Team</th>
-                <th>Bet</th>
-                <th>Odds</th>
-                <th>Status</th>
-                <th class="col-resolve">Resolve</th>
-                <th>League</th>
-                <th>Category</th>
-                <th>U</th>
-                <th>PnL</th>
-              </tr>
-            </thead>
-            <tbody id="todayBetRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <details class="betlog-panel betlog-panel--bets" open>
-        <summary>
-          <span>All bets</span>
-          <span class="betlog-panel-meta" id="betsPanelMeta"></span>
-        </summary>
-        <div class="betlog-panel-body betlog-panel-body--bets">
-          <div class="betlog-bets-table-wrap" aria-label="All bets table">
-            <table class="betlog-bets-table" data-column-filters="1">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Fixture</th>
-                <th>Team</th>
-                <th>Bet</th>
-                <th>Odds</th>
-                <th>Status</th>
-                <th class="col-resolve" data-filter-source-col="5">Resolve</th>
-                <th>League</th>
-                <th>Category</th>
-                <th>U</th>
-                <th>PnL</th>
-              </tr>
-            </thead>
-            <tbody id="betRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-    </div>
-
+      </div>
+    </main>
     <script>
-      window.BET_LOG_CONFIG = {
-        apiBase: "/api/bet-log",
-        showSync: true,
-        emptyBetsMsg: "No scenario bets yet. Sync recommended bets from Home.",
-        season: {{ season }},
-      };
+      window.INITIAL_BET_LOG = {{ payload | tojson }};
     </script>
-    <script src="/static/bet_log.js?v=7" defer></script>
-    <script>
-      (function () {
-        const initialDashboard = {{ dashboard | tojson }};
-        const initialEntries = {{ entries | tojson }};
-
-        function boot() {
-          if (!window.BetLogApp) {
-            console.error("BetLogApp failed to load — hard refresh (Ctrl+F5)");
-            return;
-          }
-          BetLogApp.init(initialDashboard, initialEntries);
-        }
-
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", boot);
-        } else {
-          boot();
-        }
-      })();
-    </script>
+    <script src="/static/unified_bet_log.js?v=1" defer></script>
   </body>
 </html>

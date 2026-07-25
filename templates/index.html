@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=10" />
-    <link rel="stylesheet" href="/static/home.css?v=10" />
+    <link rel="stylesheet" href="/static/style.css?v=11" />
+    <link rel="stylesheet" href="/static/home.css?v=11" />
+    <link rel="stylesheet" href="/static/bets.css?v=1" />
   </head>
   <body class="home-page-wrap">
     <main class="home-page">
@@ -25,6 +26,17 @@
         </p>
       </header>
 
+      <section class="home-stats" aria-label="Today summary">
+        <article class="home-stat-card">
+          <p class="home-stat-card__label">Fixtures today</p>
+          <p class="home-stat-card__value" id="statFixtures">{{ stats.fixtures_today }}</p>
+        </article>
+        <article class="home-stat-card">
+          <p class="home-stat-card__label">Flagged +EV</p>
+          <p class="home-stat-card__value" id="statEv">{{ stats.flagged_ev }}</p>
+        </article>
+      </section>
+
       <section class="slate-section" aria-label="Today's slate">
         <h2 class="slate-section-title">Today's Slate</h2>
         <div id="slateCarousel" class="slate-carousel"></div>
@@ -33,13 +45,14 @@
 
     <script>
       window.INITIAL_SLATE = {{ slate | tojson }};
+      window.INITIAL_HOME_STATS = {{ stats | tojson }};
     </script>
-    <script src="/static/home.js?v=4" defer></script>
+    <script src="/static/home.js?v=5" defer></script>
     <script>
       (function () {
         function boot() {
           if (!window.HomeApp) return;
-          HomeApp.init(window.INITIAL_SLATE || []);
+          HomeApp.init(window.INITIAL_SLATE || [], window.INITIAL_HOME_STATS || {});
         }
         if (document.readyState === "loading") {
           document.addEventListener("DOMContentLoaded", boot);

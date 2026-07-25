@@ -121,8 +121,16 @@
     }
   }
 
-  function renderHome(slate) {
+  function renderStats(stats) {
+    const fixtures = el("statFixtures");
+    const ev = el("statEv");
+    if (fixtures) fixtures.textContent = String(stats.fixtures_today ?? 0);
+    if (ev) ev.textContent = String(stats.flagged_ev ?? 0);
+  }
+
+  function renderHome(slate, stats) {
     renderSlateCarousel(slate);
+    if (stats) renderStats(stats);
   }
 
   function wireRefresh() {
@@ -144,7 +152,10 @@
         const slateData = await slateRes.json();
         const scrapedAtEl = el("scrapedAt");
         if (scrapedAtEl) scrapedAtEl.textContent = formatScrapedAt(slateData.scraped_at);
-        renderHome(slateData.slate || []);
+        renderHome(slateData.slate || [], {
+          fixtures_today: slateData.match_count ?? (slateData.slate || []).length,
+          flagged_ev: slateData.flagged_ev ?? 0,
+        });
         status.textContent = "Done";
       } catch {
         status.textContent = "Failed: network error";
@@ -155,10 +166,10 @@
   }
 
   window.HomeApp = {
-    init(slate) {
+    init(slate, stats) {
       const scrapedAtEl = el("scrapedAt");
       if (scrapedAtEl) scrapedAtEl.textContent = formatScrapedAt(scrapedAtEl.textContent.trim());
-      renderHome(slate || []);
+      renderHome(slate || [], stats || window.INITIAL_HOME_STATS || {});
       wireRefresh();
     },
   };
