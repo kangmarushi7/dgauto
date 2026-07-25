@@ -3,9 +3,12 @@
 Source: https://www.datagaffer.com/head_2_head (backed by head2head.json)
 
 Rules (match Trends tab defaults):
-  - Min 3 historical H2H meetings
+  - Min 6 historical H2H meetings
   - Hit rate >= 75% on the selected market
   - 1 unit stake per logged bet
+
+Goals + Win/Draw odds are fetched from Polymarket (primary + more-markets) when
+pricing is enabled. Corners / SOT stay unpriced until Polymarket lists them.
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ import uuid
 from app.bet_log import compute_bet_stats
 from app.db import insert_bets, list_bets, resolve_bet_entry
 from app.dg_feeds import _load_json, FEED_PATHS
+from app.polymarket_h2h_markets import attach_polymarket_odds
 
 LOG_TYPE = "h2h"
 MIN_H2H = 6
@@ -157,9 +161,16 @@ def load_h2h_bet_log() -> list[dict[str, Any]]:
     return list_bets(LOG_TYPE)
 
 
-def sync_h2h_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
+def sync_h2h_bets(
+    picks: list[dict[str, Any]],
+    *,
+    fetch_pm_odds: bool = True,
+    use_clob: bool = True,
+) -> dict[str, Any]:
+    """Insert new H2H picks. When ``fetch_pm_odds`` is True, price Goals/ML on Polymarket first."""
+    priced = attach_polymarket_odds(picks, use_clob=use_clob) if fetch_pm_odds else list(picks)
     candidates: list[dict[str, Any]] = []
-    for p in picks:
+    for p in priced:
         candidates.append(
             {
                 "id": str(uuid.uuid4()),

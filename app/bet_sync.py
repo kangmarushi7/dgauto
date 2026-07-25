@@ -23,6 +23,13 @@ AUTO_SYNC_CS = os.getenv("AUTO_SYNC_CS_ON_REFRESH", "true").strip().lower() in {
     "yes",
     "on",
 }
+# H2H Polymarket pricing on auto-sync — off by default (manual Sync always prices).
+AUTO_SYNC_H2H_PM = os.getenv("AUTO_SYNC_H2H_PM_ON_REFRESH", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _safe(name: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
@@ -62,7 +69,13 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     summary["main"] = _safe("main", lambda: sync_recommended_bets(matches))
     summary["lm"] = _safe("lm", lambda: sync_lm_bets(build_lm_strat_picks(matches)))
     summary["no"] = _safe("no", lambda: sync_no_bets(build_no_strat_picks(matches)))
-    summary["h2h"] = _safe("h2h", lambda: sync_h2h_bets(build_h2h_strat_picks(matches)))
+    summary["h2h"] = _safe(
+        "h2h",
+        lambda: sync_h2h_bets(
+            build_h2h_strat_picks(matches),
+            fetch_pm_odds=AUTO_SYNC_H2H_PM,
+        ),
+    )
     summary["ev"] = _safe("ev", lambda: sync_plus_ev_bets(build_plus_ev_picks(state)))
     summary["arahus"] = _safe(
         "arahus",

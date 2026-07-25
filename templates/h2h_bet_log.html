@@ -39,6 +39,7 @@
             <th>Category</th>
             <th>Market</th>
             <th>Hit %</th>
+            <th>Odds</th>
             <th>Units</th>
             <th>Status</th>
             <th>Unit PnL</th>
@@ -125,7 +126,7 @@
         if (!entries.length) {
           const tr = document.createElement("tr");
           const cell = td("No H2H bets logged yet. Sync from H2H Strat.");
-          cell.colSpan = 10;
+          cell.colSpan = 11;
           tr.appendChild(cell);
           rowsEl.appendChild(tr);
           ensureTableTools();
@@ -139,6 +140,13 @@
           tr.appendChild(td(e.category_label || ""));
           tr.appendChild(td(e.market_label || e.bet_type));
           tr.appendChild(td(e.qualifier_pct != null ? e.qualifier_pct : ""));
+          const oddsTd = document.createElement("td");
+          if (e.odds != null && Number(e.odds) > 0) {
+            oddsTd.textContent = Number(e.odds).toFixed(3);
+          } else {
+            oddsTd.textContent = "—";
+          }
+          tr.appendChild(oddsTd);
           tr.appendChild(td(e.units));
           tr.appendChild(td(e.status));
           tr.appendChild(td(e.pnl_units != null ? e.pnl_units : ""));

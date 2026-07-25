@@ -48,6 +48,7 @@ from app.h2h_strat import (
     resolve_h2h_bet,
     sync_h2h_bets,
 )
+from app.polymarket_h2h_markets import attach_polymarket_odds
 from app.plus_ev_strat import (
     build_plus_ev_picks,
     enrich_plus_ev_entries,
@@ -426,10 +427,14 @@ async def no_bet_log_page(request: Request, season: int | None = Query(default=N
     return templates.TemplateResponse(request, "no_bet_log.html", payload)
 
 
+def _h2h_picks_with_pm_odds(matches: list) -> list:
+    return attach_polymarket_odds(build_h2h_strat_picks(matches))
+
+
 @app.get("/h2h-strat")
 async def h2h_strat_page(request: Request):
     data = read_latest()
-    picks = await run_in_threadpool(build_h2h_strat_picks, data.get("matches", []))
+    picks = await run_in_threadpool(_h2h_picks_with_pm_odds, data.get("matches", []))
     return templates.TemplateResponse(
         request,
         "h2h_strat.html",
@@ -721,7 +726,7 @@ async def no_bet_log_auto_resolve(season: int | None = Query(default=None)):
 @app.get("/api/h2h-strat")
 async def h2h_strat_data():
     latest = read_latest()
-    picks = await run_in_threadpool(build_h2h_strat_picks, latest.get("matches", []))
+    picks = await run_in_threadpool(_h2h_picks_with_pm_odds, latest.get("matches", []))
     return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
 
 
@@ -740,8 +745,12 @@ async def h2h_bet_log_data(season: int | None = Query(default=None)):
 @app.post("/api/h2h-bet-log/sync")
 async def h2h_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
-    picks = await run_in_threadpool(build_h2h_strat_picks, latest.get("matches", []))
-    result = sync_h2h_bets(picks)
+
+    def _sync() -> dict:
+        picks = build_h2h_strat_picks(latest.get("matches", []))
+        return sync_h2h_bets(picks, fetch_pm_odds=True)
+
+    result = await run_in_threadpool(_sync)
     payload = _strat_log_payload(
         load_h2h_bet_log(),
         h2h_dashboard,

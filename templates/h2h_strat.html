@@ -38,12 +38,14 @@
               <th>Market</th>
               <th>H2H</th>
               <th>Hit %</th>
+              <th>Odds</th>
+              <th>PM</th>
             </tr>
           </thead>
           <tbody>
             {% if picks|length == 0 %}
             <tr>
-              <td colspan="7">No H2H markets hit Min 6 + 75% on this slate.</td>
+              <td colspan="9">No H2H markets hit Min 6 + 75% on this slate.</td>
             </tr>
             {% else %}
             {% for p in picks %}
@@ -61,6 +63,14 @@
               <td>{{ p["label"] }}</td>
               <td>{{ p["h2h_meetings"] }}</td>
               <td>{{ p["hit_pct"] }}</td>
+              <td>{% if p.get("odds") %}{{ "%.3f"|format(p["odds"]) }}{% else %}—{% endif %}</td>
+              <td>
+                {% if p.get("polymarket_url") %}
+                <a class="app-chip neutral" href="{{ p['polymarket_url'] }}" target="_blank" rel="noreferrer">PM ↗</a>
+                {% else %}
+                —
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
             {% endif %}
