@@ -41,14 +41,15 @@ from app.no_strat import (
     sync_no_bets,
 )
 from app.h2h_strat import (
+    attach_h2h_odds,
     build_h2h_strat_picks,
     enrich_h2h_entries,
     h2h_dashboard,
     load_h2h_bet_log,
     resolve_h2h_bet,
+    set_h2h_odds,
     sync_h2h_bets,
 )
-from app.polymarket_h2h_markets import attach_polymarket_odds
 from app.plus_ev_strat import (
     build_plus_ev_picks,
     enrich_plus_ev_entries,
@@ -450,7 +451,7 @@ async def no_bet_log_page(request: Request, season: int | None = Query(default=N
 
 
 def _h2h_picks_with_pm_odds(matches: list) -> list:
-    return attach_polymarket_odds(build_h2h_strat_picks(matches))
+    return attach_h2h_odds(build_h2h_strat_picks(matches))
 
 
 @app.get("/h2h-strat")
@@ -786,6 +787,21 @@ async def h2h_bet_log_sync(season: int | None = Query(default=None)):
 @app.post("/api/h2h-bet-log/{bet_id}/resolve")
 async def h2h_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
     updated = resolve_h2h_bet(bet_id, str(payload.get("result", "")))
+    data = _strat_log_payload(
+        load_h2h_bet_log(),
+        h2h_dashboard,
+        season=season,
+        enrich_fn=enrich_h2h_entries,
+    )
+    return JSONResponse({"updated": updated, **data})
+
+
+@app.post("/api/h2h-bet-log/{bet_id}/odds")
+async def h2h_bet_log_set_odds(bet_id: str, payload: dict, season: int | None = Query(default=None)):
+    try:
+        updated = set_h2h_odds(bet_id, payload.get("odds"))
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
     data = _strat_log_payload(
         load_h2h_bet_log(),
         h2h_dashboard,

@@ -119,6 +119,70 @@
         render(data);
       }
 
+      async function setOdds(id, odds) {
+        statusEl.textContent = "Saving odds...";
+        const res = await fetch(apiUrl(`/api/h2h-bet-log/${id}/odds`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ odds }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.detail || "Odds update failed";
+          return;
+        }
+        statusEl.textContent = "Odds saved";
+        render(data);
+      }
+
+      function renderOddsCell(e) {
+        const oddsTd = document.createElement("td");
+        if (e.can_edit_odds) {
+          const wrap = document.createElement("div");
+          wrap.className = "h2h-odds-edit";
+          wrap.style.display = "flex";
+          wrap.style.alignItems = "center";
+          wrap.style.gap = "0.35rem";
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = "1.01";
+          input.step = "0.01";
+          input.placeholder = "Odds";
+          input.style.width = "4.5rem";
+          input.style.padding = "0.25rem 0.35rem";
+          input.style.border = "1px solid var(--line, #e2e9de)";
+          input.style.borderRadius = "6px";
+          input.style.font = "inherit";
+          if (e.odds != null && Number(e.odds) > 0) {
+            input.value = Number(e.odds).toFixed(3);
+          }
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = e.odds != null && Number(e.odds) > 0 ? "Update" : "Set";
+          btn.className = "btn-secondary";
+          btn.style.padding = "0.25rem 0.5rem";
+          btn.style.fontSize = "0.75rem";
+          btn.addEventListener("click", () => {
+            const val = Number(input.value);
+            if (!Number.isFinite(val) || val <= 1) {
+              statusEl.textContent = "Enter odds > 1.0";
+              return;
+            }
+            setOdds(e.id, val);
+          });
+          wrap.appendChild(input);
+          wrap.appendChild(btn);
+          oddsTd.appendChild(wrap);
+          return oddsTd;
+        }
+        if (e.odds != null && Number(e.odds) > 0) {
+          oddsTd.textContent = Number(e.odds).toFixed(3);
+        } else {
+          oddsTd.textContent = "—";
+        }
+        return oddsTd;
+      }
+
       function render(data) {
         renderStats(data.dashboard || {});
         rowsEl.innerHTML = "";
@@ -140,13 +204,7 @@
           tr.appendChild(td(e.category_label || ""));
           tr.appendChild(td(e.market_label || e.bet_type));
           tr.appendChild(td(e.qualifier_pct != null ? e.qualifier_pct : ""));
-          const oddsTd = document.createElement("td");
-          if (e.odds != null && Number(e.odds) > 0) {
-            oddsTd.textContent = Number(e.odds).toFixed(3);
-          } else {
-            oddsTd.textContent = "—";
-          }
-          tr.appendChild(oddsTd);
+          tr.appendChild(renderOddsCell(e));
           tr.appendChild(td(e.units));
           tr.appendChild(td(e.status));
           tr.appendChild(td(e.pnl_units != null ? e.pnl_units : ""));

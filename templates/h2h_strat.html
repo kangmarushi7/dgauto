@@ -16,7 +16,7 @@
       <p class="subtitle">
         DataGaffer
         <a href="https://www.datagaffer.com/head_2_head" target="_blank" rel="noopener">Head 2 Head</a>
-        Trends — Min 6 H2H · ≥75% hit rate · Goals / SOT / Corners / Win-Draw · 1u stake.
+        Trends — Min 6 H2H · ≥75% hit rate · Goals/ML via Polymarket · Corners via DataGaffer · SOT odds set manually on the log · 1u stake.
       </p>
       <div class="actions">
         <button id="syncH2hBtn" type="button">Sync H2H Strat Bets</button>
@@ -67,6 +67,10 @@
               <td>
                 {% if p.get("polymarket_url") %}
                 <a class="app-chip neutral" href="{{ p['polymarket_url'] }}" target="_blank" rel="noreferrer">PM ↗</a>
+                {% elif p.get("odds_source") == "datagaffer" %}
+                <span class="app-chip neutral" title="DataGaffer book odds">DG</span>
+                {% elif p.get("category") == "shots_on_target" and not p.get("odds") %}
+                <span class="hit-note">Set on log</span>
                 {% else %}
                 —
                 {% endif %}

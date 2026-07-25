@@ -17,8 +17,9 @@ from typing import Any
 import uuid
 
 from app.bet_log import compute_bet_stats
-from app.db import insert_bets, list_bets, resolve_bet_entry
+from app.db import insert_bets, list_bets, resolve_bet_entry, update_bet_odds
 from app.dg_feeds import _load_json, FEED_PATHS
+from app.h2h_book_odds import attach_datagaffer_corner_odds
 from app.polymarket_h2h_markets import attach_polymarket_odds
 
 LOG_TYPE = "h2h"
@@ -161,14 +162,57 @@ def load_h2h_bet_log() -> list[dict[str, Any]]:
     return list_bets(LOG_TYPE)
 
 
+def attach_h2h_odds(
+    picks: list[dict[str, Any]],
+    *,
+    use_clob: bool = True,
+    fetch_pm: bool = True,
+) -> list[dict[str, Any]]:
+    """Polymarket for Goals/ML, DataGaffer all_odds for matching corner lines."""
+    priced = attach_polymarket_odds(picks, use_clob=use_clob) if fetch_pm else [dict(p) for p in picks]
+    return attach_datagaffer_corner_odds(priced)
+
+
+def _refresh_open_corner_odds() -> int:
+    """Backfill odds on open corner log rows from DataGaffer when the line matches."""
+    from app.h2h_book_odds import _CORNER_BET_TYPES, corner_book_odds, load_corners_odds_index
+
+    try:
+        index = load_corners_odds_index()
+    except Exception:  # noqa: BLE001
+        return 0
+    updated = 0
+    for entry in load_h2h_bet_log():
+        if str(entry.get("status") or "").lower() != "open":
+            continue
+        bt = str(entry.get("bet_type") or "")
+        want = _CORNER_BET_TYPES.get(bt)
+        if want is None:
+            continue
+        existing = entry.get("odds")
+        if existing is not None and float(existing or 0) > 1:
+            continue
+        fixture = str(entry.get("fixture") or "")
+        home = away = ""
+        if " vs " in fixture:
+            parts = fixture.split(" vs ", 1)
+            home, away = parts[0].strip(), parts[1].strip()
+        priced = corner_book_odds(home, away, want, index=index)
+        if not priced:
+            continue
+        if update_bet_odds(LOG_TYPE, str(entry["id"]), float(priced["odds"])):
+            updated += 1
+    return updated
+
+
 def sync_h2h_bets(
     picks: list[dict[str, Any]],
     *,
     fetch_pm_odds: bool = True,
     use_clob: bool = True,
 ) -> dict[str, Any]:
-    """Insert new H2H picks. When ``fetch_pm_odds`` is True, price Goals/ML on Polymarket first."""
-    priced = attach_polymarket_odds(picks, use_clob=use_clob) if fetch_pm_odds else list(picks)
+    """Insert new H2H picks. Prices Goals/ML on Polymarket and corners on DataGaffer."""
+    priced = attach_h2h_odds(picks, use_clob=use_clob, fetch_pm=fetch_pm_odds)
     candidates: list[dict[str, Any]] = []
     for p in priced:
         candidates.append(
@@ -188,7 +232,37 @@ def sync_h2h_bets(
             }
         )
     inserted = insert_bets(LOG_TYPE, candidates)
-    return {"inserted": inserted, "total": len(load_h2h_bet_log())}
+    refreshed = _refresh_open_corner_odds()
+    return {
+        "inserted": inserted,
+        "corners_odds_updated": refreshed,
+        "total": len(load_h2h_bet_log()),
+    }
+
+
+def set_h2h_odds(bet_id: str, odds: float) -> dict[str, Any]:
+    """Manually set book odds on an open H2H bet (intended for SOT)."""
+    try:
+        odds_f = float(odds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Odds must be a number.") from exc
+    if odds_f <= 1.0:
+        raise ValueError("Odds must be greater than 1.0.")
+
+    entries = load_h2h_bet_log()
+    entry = next((e for e in entries if e.get("id") == bet_id), None)
+    if not entry:
+        raise ValueError("Bet not found.")
+    if str(entry.get("status") or "").lower() != "open":
+        raise ValueError("Only open bets can have odds edited.")
+    bt = str(entry.get("bet_type") or "")
+    if not bt.startswith("h2h_sot_"):
+        raise ValueError("Manual odds are only allowed for SOT (shots) bets.")
+
+    updated = update_bet_odds(LOG_TYPE, bet_id, round(odds_f, 3))
+    if not updated:
+        raise ValueError("Bet not found.")
+    return updated
 
 
 def resolve_h2h_bet(bet_id: str, result: str) -> dict[str, Any]:
@@ -255,5 +329,8 @@ def enrich_h2h_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             row["category_label"] = "Goals"
         else:
             row["category_label"] = "Other"
+        row["can_edit_odds"] = (
+            str(row.get("status") or "").lower() == "open" and bt.startswith("h2h_sot_")
+        )
         out.append(row)
     return out
