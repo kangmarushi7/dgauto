@@ -392,6 +392,23 @@
   gap: 0.15rem;
 }
 
+.bets-when {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  white-space: nowrap;
+}
+
+.bets-when__date {
+  color: var(--ink, var(--dg-ink));
+  font-weight: 550;
+}
+
+.bets-when__time {
+  color: var(--muted, var(--dg-muted));
+  font-size: 0.82rem;
+}
+
 .bets-fixture__name {
   color: var(--ink, var(--dg-ink));
   font-weight: 550;

@@ -5,13 +5,14 @@ import uuid
 from typing import Any
 
 from app.bet_log import compute_bet_stats
-from app.db import insert_bets, list_bets, resolve_bet_entry
+from app.db import insert_bets, list_bets, resolve_bet_entry, update_bet_stake_and_pnl
 from app.dg_feeds import lookup_extra_for_fixture
 from app.ev_bet_filters import is_actionable_plus_ev_market, resolve_kind_for_market
 from app.fixture_dashboard import build_fixture_dashboard
 from app.fixture_detail import find_raw_fixture
 
 LOG_TYPE = "ev"
+STAKE_UNITS = 1.0
 
 
 def _now_iso() -> str:
@@ -54,7 +55,7 @@ def _pick_from_dashboard(detail: dict[str, Any], *, perc: dict[str, Any] | None 
                 "verdict": m.get("verdict"),
                 "certainty_label": m.get("certainty_label"),
                 "odds": m.get("book_odds"),
-                "units": m.get("units") or 1.0,
+                "units": STAKE_UNITS,
             }
         )
     return picks
@@ -106,10 +107,43 @@ def load_plus_ev_bet_log() -> list[dict[str, Any]]:
     return list_bets(LOG_TYPE)
 
 
+def _pnl_for_result(result: str, odds: float, units: float = STAKE_UNITS) -> float:
+    if result == "won":
+        return round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
+    if result == "lost":
+        return round(-1.0 * units, 3)
+    return 0.0
+
+
+def normalize_plus_ev_stakes() -> dict[str, Any]:
+    """Force every +EV log row to a flat 1u stake; recompute settled PnL."""
+    updated = 0
+    for entry in load_plus_ev_bet_log():
+        units = float(entry.get("units") or 0)
+        status = str(entry.get("status") or "").lower()
+        odds = float(entry.get("odds") or 0)
+        new_pnl = None
+        if status in {"won", "lost", "push"}:
+            new_pnl = _pnl_for_result(status, odds, STAKE_UNITS)
+        elif abs(units - STAKE_UNITS) < 1e-9:
+            continue
+        if abs(units - STAKE_UNITS) < 1e-9 and (
+            new_pnl is None or abs(float(entry.get("pnl_units") or 0) - new_pnl) < 1e-9
+        ):
+            continue
+        update_bet_stake_and_pnl(
+            LOG_TYPE,
+            str(entry["id"]),
+            units=STAKE_UNITS,
+            pnl_units=new_pnl if status in {"won", "lost", "push"} else None,
+        )
+        updated += 1
+    return {"updated": updated, "units": STAKE_UNITS}
+
+
 def sync_plus_ev_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
     for p in picks:
-        market = p.get("market") or ""
         candidates.append(
             {
                 "id": str(uuid.uuid4()),
@@ -121,13 +155,18 @@ def sync_plus_ev_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
                 "team_name": p.get("team_name") or "",
                 "qualifier_pct": p.get("ev"),
                 "odds": p.get("odds"),
-                "units": float(p.get("units") or 1.0),
+                "units": STAKE_UNITS,
                 "status": "open",
                 "pnl_units": None,
             }
         )
     inserted = insert_bets(LOG_TYPE, candidates)
-    return {"inserted": inserted, "total": len(load_plus_ev_bet_log())}
+    normalized = normalize_plus_ev_stakes()
+    return {
+        "inserted": inserted,
+        "normalized": normalized.get("updated", 0),
+        "total": len(load_plus_ev_bet_log()),
+    }
 
 
 def resolve_plus_ev_bet(bet_id: str, result: str) -> dict[str, Any]:
@@ -140,16 +179,15 @@ def resolve_plus_ev_bet(bet_id: str, result: str) -> dict[str, Any]:
     if not entry:
         raise ValueError("Bet not found.")
     odds = float(entry.get("odds") or 0)
-    units = float(entry.get("units") or 1)
-    if result == "won":
-        pnl = round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
-    elif result == "lost":
-        pnl = round(-1.0 * units, 3)
-    else:
-        pnl = 0.0
+    pnl = _pnl_for_result(result, odds, STAKE_UNITS)
     updated = resolve_bet_entry(LOG_TYPE, bet_id, result, pnl, _now_iso())
     if not updated:
         raise ValueError("Bet not found.")
+    # Keep stake flat even if an older row still carried a Kelly size.
+    if abs(float(updated.get("units") or 0) - STAKE_UNITS) > 1e-9:
+        updated = update_bet_stake_and_pnl(
+            LOG_TYPE, bet_id, units=STAKE_UNITS, pnl_units=pnl
+        ) or updated
     return updated
 
 

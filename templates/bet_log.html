@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=14" />
-    <link rel="stylesheet" href="/static/bets.css?v=3" />
+    <link rel="stylesheet" href="/static/bets.css?v=4" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
@@ -15,7 +15,7 @@
 
       <header class="app-hero">
         <h1 class="app-brand">Bet <span>Log</span></h1>
-        <p class="subtitle">Settled bets across LM, NO, H2H, +EV, CS, Prop, and Recommended.</p>
+        <p class="subtitle">Open and settled bets across LM, NO, H2H, +EV, CS, Prop, and Recommended.</p>
       </header>
 
       <div id="rangePill" class="bets-summary-pill" aria-live="polite"></div>
@@ -31,6 +31,8 @@
           Result
           <select id="resultFilter" aria-label="Filter by result">
             <option value="">All results</option>
+            <option value="open">Open</option>
+            <option value="pending">Pending</option>
             <option value="won">Win</option>
             <option value="lost">Loss</option>
             <option value="push">Push</option>
@@ -81,6 +83,6 @@
     <script>
       window.INITIAL_BET_LOG = {{ payload | tojson }};
     </script>
-    <script src="/static/unified_bet_log.js?v=5" defer></script>
+    <script src="/static/unified_bet_log.js?v=6" defer></script>
   </body>
 </html>

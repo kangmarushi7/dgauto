@@ -301,19 +301,26 @@ def bet_log_entries(
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    """Settled bets only, chronological, with optional filters + pagination.
+    """All bets (open + settled), sorted by fixture kickoff, with filters + pagination.
 
     Date filter precedence:
       1. ``date_from`` / ``date_to`` (ISO YYYY-MM-DD) when either is set
       2. ``days`` rolling window ending today (``days=None`` or ``<=0`` → all time)
     A single-day view is ``date_from == date_to``.
+
+    ``result`` may be won/lost/push or status open/pending/settled.
     """
-    settled = [b for b in collect_unified_bets() if b.get("result") in {"won", "lost", "push"}]
+    rows = collect_unified_bets()
 
     if strategy and strategy in STRATEGY_META:
-        settled = [b for b in settled if b["strategy"] == strategy]
-    if result and result.lower() in {"won", "lost", "push"}:
-        settled = [b for b in settled if b.get("result") == result.lower()]
+        rows = [b for b in rows if b["strategy"] == strategy]
+
+    if result:
+        key = result.lower().strip()
+        if key in {"won", "lost", "push"}:
+            rows = [b for b in rows if b.get("result") == key]
+        elif key in {"open", "pending", "settled"}:
+            rows = [b for b in rows if b.get("status") == key]
 
     today = _today_ist()
     from_d = _parse_iso_date(date_from)
@@ -339,18 +346,25 @@ def bet_log_entries(
 
     if range_start is not None and range_end is not None:
         filtered: list[dict[str, Any]] = []
-        for b in settled:
+        for b in rows:
             d = fixture_date_ist({"fixture_date": b.get("time") or b.get("fixture_date")})
             if d is None:
                 d = fixture_date_ist({"fixture_date": b.get("created_at")})
             if d is None or d < range_start or d > range_end:
                 continue
             filtered.append(b)
-        settled = filtered
+        rows = filtered
 
-    settled.sort(key=lambda b: (b.get("time") or "9999", b.get("fixture") or "", b.get("market") or ""))
+    # Earliest kickoff first.
+    rows.sort(key=lambda b: (b.get("time") or "9999", b.get("fixture") or "", b.get("market") or ""))
 
-    net_pnl = round(sum(float(b.get("pnl_inr") or 0) for b in settled), 2)
+    net_pnl = round(
+        sum(float(b.get("pnl_inr") or 0) for b in rows if b.get("status") == "settled"),
+        2,
+    )
+    open_n = sum(1 for b in rows if b.get("status") == "open")
+    pending_n = sum(1 for b in rows if b.get("status") == "pending")
+    settled_n = sum(1 for b in rows if b.get("status") == "settled")
     range_label = _format_range_label(
         range_start=range_start,
         range_end=range_end,
@@ -360,17 +374,22 @@ def bet_log_entries(
 
     page = max(1, int(page or 1))
     page_size = max(1, min(200, int(page_size or 50)))
-    total = len(settled)
+    total = len(rows)
+    pages = max(1, (total + page_size - 1) // page_size) if total else 1
+    page = min(page, pages)
     start = (page - 1) * page_size
-    page_rows = settled[start : start + page_size]
+    page_rows = rows[start : start + page_size]
 
     return {
         "entries": page_rows,
         "total": total,
         "page": page,
         "page_size": page_size,
-        "pages": max(1, (total + page_size - 1) // page_size),
+        "pages": pages,
         "net_pnl_inr": net_pnl,
+        "open": open_n,
+        "pending": pending_n,
+        "settled": settled_n,
         "range_label": range_label,
         "range_days": days if not explicit else None,
         "date_from": range_start.isoformat() if range_start else None,

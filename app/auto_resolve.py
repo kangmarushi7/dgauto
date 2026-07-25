@@ -416,7 +416,11 @@ def _find_best_event(
 
 def _compute_pnl(entry: dict[str, Any], result: str) -> float:
     odds = float(entry.get("odds") or 0)
-    units = float(entry.get("units") or 1)
+    # +EV is flat 1u (ignore any legacy Kelly stake sizes).
+    if str(entry.get("log_type") or "").lower() == "ev":
+        units = 1.0
+    else:
+        units = float(entry.get("units") or 1)
     if result == "won":
         return round((odds - 1) * units, 3) if odds > 0 else round(1.0 * units, 3)
     if result == "lost":

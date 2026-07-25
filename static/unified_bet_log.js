@@ -83,10 +83,15 @@
     return Number(v).toFixed(2);
   }
 
-  function resultPill(result) {
-    const r = String(result || "").toLowerCase();
-    const label = r === "won" ? "Win" : r === "lost" ? "Loss" : "Push";
-    return `<span class="bets-pill bets-pill--${r}">${label}</span>`;
+  function resultPill(bet) {
+    const result = String(bet.result || "").toLowerCase();
+    if (result === "won" || result === "lost" || result === "push") {
+      const label = result === "won" ? "Win" : result === "lost" ? "Loss" : "Push";
+      return `<span class="bets-pill bets-pill--${result}">${label}</span>`;
+    }
+    const status = String(bet.status || "pending").toLowerCase();
+    const label = status === "open" ? "Open" : status === "settled" ? "Settled" : "Pending";
+    return `<span class="bets-pill bets-pill--${status}">${label}</span>`;
   }
 
   function pnlCell(v) {
@@ -163,7 +168,7 @@
     const total = state.total || 0;
     const page = state.page || 1;
     const pages = state.pages || 1;
-    if (total <= (state.page_size || 50)) {
+    if (!total || total <= (state.page_size || 50)) {
       pager.hidden = true;
       return;
     }
@@ -181,7 +186,7 @@
     if (!rows.length) {
       root.innerHTML = `
         <div class="bets-empty bets-table-wrap">
-          <h2>No settled bets in this range</h2>
+          <h2>No bets in this range</h2>
           <p>Try widening the date range or clearing filters.</p>
         </div>`;
       return;
@@ -191,7 +196,12 @@
       .map(
         (b) => `
       <tr>
-        <td class="mono">${escapeHtml(b.date_label || "—")}</td>
+        <td>
+          <div class="bets-when">
+            <span class="mono bets-when__date">${escapeHtml(b.date_label || "—")}</span>
+            <span class="mono bets-when__time">${escapeHtml(b.time_label || "—")}</span>
+          </div>
+        </td>
         <td>
           <div class="bets-fixture">
             <span class="bets-fixture__name">${escapeHtml(b.fixture || "—")}</span>
@@ -202,7 +212,7 @@
         <td>${escapeHtml(b.market || "—")}</td>
         <td class="mono">${fmtInr(b.stake_inr).replace("+", "")}</td>
         <td class="mono">${fmtOdds(b.odds)}</td>
-        <td>${resultPill(b.result)}</td>
+        <td>${resultPill(b)}</td>
         <td>${pnlCell(b.pnl_inr)}</td>
       </tr>`
       )
@@ -213,7 +223,7 @@
         <table class="bets-table" data-column-filters="1">
           <thead>
             <tr>
-              <th scope="col">Date</th>
+              <th scope="col">Date / Time</th>
               <th scope="col">Fixture</th>
               <th scope="col">Strategy</th>
               <th scope="col">Market</th>

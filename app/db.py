@@ -162,6 +162,35 @@ def update_bet_odds(log_type: str, bet_id: str, odds: float) -> dict[str, Any] |
         return updated
 
 
+def update_bet_stake_and_pnl(
+    log_type: str,
+    bet_id: str,
+    *,
+    units: float,
+    pnl_units: float | None = None,
+) -> dict[str, Any] | None:
+    with engine.begin() as conn:
+        row = conn.execute(
+            select(bet_entries).where(
+                bet_entries.c.log_type == log_type,
+                bet_entries.c.id == bet_id,
+            )
+        ).mappings().first()
+        if not row:
+            return None
+        values: dict[str, Any] = {"units": units}
+        if pnl_units is not None:
+            values["pnl_units"] = pnl_units
+        conn.execute(
+            bet_entries.update()
+            .where(bet_entries.c.id == bet_id, bet_entries.c.log_type == log_type)
+            .values(**values)
+        )
+        updated = dict(row)
+        updated.update(values)
+        return updated
+
+
 def resolve_bet_entry(log_type: str, bet_id: str, result: str, pnl_units: float, resolved_at: str) -> dict[str, Any] | None:
     with engine.begin() as conn:
         row = conn.execute(

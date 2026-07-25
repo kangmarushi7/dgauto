@@ -53,6 +53,7 @@ from app.plus_ev_strat import (
     build_plus_ev_picks,
     enrich_plus_ev_entries,
     load_plus_ev_bet_log,
+    normalize_plus_ev_stakes,
     plus_ev_dashboard,
     resolve_plus_ev_bet,
     sync_plus_ev_bets,
@@ -489,6 +490,7 @@ async def plus_ev_strat_page(request: Request):
 @app.get("/plus-ev-bet-log")
 async def plus_ev_bet_log_page(request: Request, season: int | None = Query(default=None)):
     season_id = _resolve_season(season)
+    await run_in_threadpool(normalize_plus_ev_stakes)
     payload = _strat_log_payload(
         load_plus_ev_bet_log(),
         plus_ev_dashboard,
