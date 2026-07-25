@@ -17,7 +17,12 @@ from app.api_football import (
     search_teams,
 )
 from app.bet_scenarios import resolve_kind_for_entry
-from app.db import list_bets, resolve_bet_entry
+from app.db import (
+    list_arahus_decision_log,
+    list_bets,
+    resolve_bet_entry,
+    update_arahus_decision_log_result,
+)
 from app.flashscore_client import find_match as flashscore_find_match
 from app.flashscore_client import refresh_cache_for_fixture_dates as flashscore_refresh_for_dates
 
@@ -760,7 +765,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
                 if source:
                     resolved_via[source] = resolved_via.get(source, 0) + 1
 
-    return {
+    result = {
         "open_checked": len(open_rows),
         "resolved": resolved,
         "skipped_not_found": skipped_not_found,
@@ -780,4 +785,175 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
                 "Set API_FOOTBALL_KEY to settle those via API-Football fallback."
             )
         ),
+    }
+    if log_type == "arahus":
+        try:
+            result["decision_log"] = auto_resolve_arahus_decision_log()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Arahus decision-log auto-resolve failed")
+            result["decision_log"] = {"error": str(exc)}
+    return result
+
+
+def _decision_result_letter(result: str) -> str:
+    mapping = {"won": "W", "lost": "L", "push": "push"}
+    return mapping.get(result, result)
+
+
+def _hypothetical_pnl(result: str, odds: float | None, units: float) -> float:
+    """What PnL would have been at logged odds × units (or REFERENCE_UNIT)."""
+    o = float(odds or 0)
+    u = float(units)
+    if result == "won":
+        return round((o - 1) * u, 3) if o > 0 else round(1.0 * u, 3)
+    if result == "lost":
+        return round(-1.0 * u, 3)
+    return 0.0
+
+
+def auto_resolve_arahus_decision_log() -> dict[str, Any]:
+    """Settle unresolved arahus_decision_log rows (picked AND skipped).
+
+    Does not require a matching bet_entries row. Reuses the same settlement
+    event lookup + hit logic as bet_entries. Groups by fixture so results
+    fetches scale with unique fixtures, not markets (~5–10× more rows than
+    bets, but similar fixture-lookup cost if the slate was already synced).
+    """
+    from app.arahus_engine import REFERENCE_UNIT
+
+    open_rows = list_arahus_decision_log(unresolved_only=True)
+    # Only attempt fixtures that can plausibly be finished (same 95m gate).
+    sources = _settle_sources()
+    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    if use_flashscore:
+        try:
+            fixture_dates = [_parse_entry_date(r.get("match_date")) for r in open_rows]
+            flashscore_refresh_for_dates(fixture_dates, force=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Flashscore refresh for decision-log failed: %s", exc)
+
+    resolved = 0
+    skipped_not_found = 0
+    skipped_not_final = 0
+    skipped_unresolved = 0
+    skipped_already = 0
+    started = time.monotonic()
+
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for entry in open_rows:
+        key = (
+            str(entry.get("match_date") or ""),
+            str(entry.get("fixture") or f"{entry.get('home_team')} vs {entry.get('away_team')}"),
+            str(entry.get("league") or ""),
+        )
+        grouped.setdefault(key, []).append(entry)
+
+    date_cache: dict[str, list[dict[str, Any]]] = {}
+    team_id_cache: dict[str, int | None] = {}
+    h2h_cache: dict[str, list[dict[str, Any]]] = {}
+    team_recent_cache: dict[str, list[dict[str, Any]]] = {}
+
+    groups = sorted(
+        grouped.values(),
+        key=lambda entries: str((entries[0] if entries else {}).get("match_date") or ""),
+    )
+    for idx, group_entries in enumerate(groups):
+        if time.monotonic() - started > MAX_RUNTIME_SEC:
+            break
+
+        seed_row = group_entries[0]
+        seed = {
+            "fixture_date": seed_row.get("match_date"),
+            "fixture": seed_row.get("fixture")
+            or f"{seed_row.get('home_team')} vs {seed_row.get('away_team')}",
+            "league_name": seed_row.get("league"),
+            "bet_type": seed_row.get("bet_type"),
+            "team_name": seed_row.get("team_name"),
+            "log_type": "arahus",
+        }
+        kickoff = _parse_entry_date(seed.get("fixture_date"))
+        if kickoff is not None:
+            kick_naive = kickoff.replace(tzinfo=None) if kickoff.tzinfo else kickoff
+            age_sec = (datetime.utcnow() - kick_naive).total_seconds()
+            if age_sec < 95 * 60:
+                skipped_not_final += len(group_entries)
+                continue
+
+        event, source = _find_settlement_event(
+            seed,
+            date_cache,
+            team_id_cache,
+            h2h_cache,
+            team_recent_cache,
+        )
+        if not event:
+            skipped_not_found += len(group_entries)
+            continue
+
+        if source == "flashscore":
+            is_final = str(event.get("strStatus") or "").upper() == "FT"
+        else:
+            is_final = fixture_is_final(event, kickoff=kickoff)
+        if not is_final:
+            skipped_not_final += len(group_entries)
+            continue
+
+        for row in group_entries:
+            if row.get("resolved_at"):
+                skipped_already += 1
+                continue
+            if not row.get("bet_type"):
+                skipped_unresolved += 1
+                continue
+            entry = {
+                "bet_type": row.get("bet_type"),
+                "team_name": row.get("team_name") or "",
+                "fixture": row.get("fixture"),
+                "fixture_date": row.get("match_date"),
+                "league_name": row.get("league"),
+                "log_type": "arahus",
+                "odds": row.get("odds"),
+                "units": row.get("units"),
+            }
+            enriched = _enrich_event_with_stats(
+                entry,
+                event,
+                date_cache,
+                team_id_cache,
+                h2h_cache,
+                team_recent_cache,
+            )
+            hit = _resolve_result(entry, enriched)
+            if hit not in {"won", "lost", "push"}:
+                skipped_unresolved += 1
+                continue
+
+            status = str(row.get("status") or "")
+            odds = row.get("odds")
+            if status == "picked":
+                units_for_hyp = float(row.get("units") or REFERENCE_UNIT)
+                pnl = _compute_pnl(entry, hit)
+            else:
+                units_for_hyp = float(REFERENCE_UNIT)
+                pnl = None  # real-money PnL only for picked rows
+
+            hyp = _hypothetical_pnl(hit, odds if odds is not None else 0, units_for_hyp)
+            updated = update_arahus_decision_log_result(
+                int(row["id"]),
+                result=_decision_result_letter(hit),
+                pnl=pnl,
+                hypothetical_pnl=hyp,
+                resolved_at=_now_iso(),
+            )
+            if updated and updated.get("resolved_at"):
+                resolved += 1
+
+    return {
+        "open_checked": len(open_rows),
+        "resolved": resolved,
+        "skipped_not_found": skipped_not_found,
+        "skipped_not_final": skipped_not_final,
+        "skipped_unresolved": skipped_unresolved,
+        "skipped_already": skipped_already,
+        "reference_unit": REFERENCE_UNIT,
     }

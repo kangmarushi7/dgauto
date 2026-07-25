@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prop Bet Log — DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=14" />
+    <link rel="stylesheet" href="/static/style.css?v=15" />
     <link rel="stylesheet" href="/static/prop_model.css?v=3" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
@@ -179,14 +179,19 @@
           tr.appendChild(statusTd);
           const actions = document.createElement("td");
           if (!e.result || e.result === "open") {
-            for (const r of ["won", "lost", "push"]) {
-              const btn = document.createElement("button");
-              btn.textContent = r;
-              btn.type = "button";
-              btn.className = `pm-resolve-btn ${r}`;
-              btn.addEventListener("click", () => resolveBet(e.id, r));
-              actions.appendChild(btn);
-            }
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.addEventListener("change", () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            });
+            actions.appendChild(sel);
           } else {
             actions.textContent = "—";
           }

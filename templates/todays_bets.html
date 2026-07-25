@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Today's Bets · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=14" />
-    <link rel="stylesheet" href="/static/bets.css?v=1" />
+    <link rel="stylesheet" href="/static/bets.css?v=2" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
@@ -40,6 +40,10 @@
             <option value="">All strategies</option>
           </select>
         </label>
+        <button type="button" id="resyncToday" class="btn-secondary" title="Rebuild today's open bets from the latest slate, keeping settled history">
+          Resync today
+        </button>
+        <span id="resyncStatus" class="bets-resync-status" role="status" aria-live="polite"></span>
       </div>
 
       <div id="betsRoot"></div>
@@ -47,6 +51,6 @@
     <script>
       window.INITIAL_TODAYS_BETS = {{ payload | tojson }};
     </script>
-    <script src="/static/todays_bets.js?v=2" defer></script>
+    <script src="/static/todays_bets.js?v=3" defer></script>
   </body>
 </html>

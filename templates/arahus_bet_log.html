@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arahus Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=14" />
+    <link rel="stylesheet" href="/static/style.css?v=15" />
     <link rel="stylesheet" href="/static/arahus.css?v=1" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
@@ -22,7 +22,9 @@
 
       <div class="actions">
         <button id="syncBtn">Sync Arahus Picks</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="arahus">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        <a class="btn-secondary" href="/api/arahus/decision-log?format=csv">Download Decision Log</a>
         <a class="btn-secondary" href="/arahus">Arahus Engine</a>
         <span id="status"></span>
       </div>
@@ -152,16 +154,20 @@
             )
           );
           const actions = document.createElement("td");
-          for (const [label, result] of [
-            ["Won", "won"],
-            ["Lost", "lost"],
-            ["Push", "push"],
-          ]) {
-            const btn = document.createElement("button");
-            btn.className = "small-btn";
-            btn.textContent = label;
-            btn.onclick = () => resolveBet(e.id, result);
-            actions.appendChild(btn);
+          if (String(e.status || "open").toLowerCase() === "open") {
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.onchange = () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            };
+            actions.appendChild(sel);
           }
           tr.appendChild(actions);
           rowsEl.appendChild(tr);
@@ -216,5 +222,6 @@
       renderRows({{ entries | tojson }});
       if (window.TableTools) window.TableTools.enhanceAll();
     </script>
+    <script src="/static/resync_today.js?v=1"></script>
   </body>
 </html>

@@ -136,7 +136,7 @@ class PickTests(unittest.TestCase):
     def test_high_event_fixture_can_produce_overs(self):
         profile = _profile()
         proj = project_match(profile)
-        picks = pick_markets(profile, proj)
+        picks, _decisions = pick_markets(profile, proj)
         self.assertTrue(picks)
         types = {p["bet_type"] for p in picks}
         # Should not stack O2.5 and U2.5
@@ -161,7 +161,7 @@ class PickTests(unittest.TestCase):
         profile["odds"]["dc_x2"] = 1.05
         profile["odds"]["under_2_5"] = 1.05
         proj = project_match(profile)
-        picks = pick_markets(profile, proj)
+        picks, _decisions = pick_markets(profile, proj)
         # Corners may still qualify (no odds). Goal markets with bad odds should not.
         for p in picks:
             if p["odds"] is not None:

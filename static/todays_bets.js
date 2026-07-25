@@ -6,6 +6,8 @@
   const kpiOpen = document.getElementById("kpiOpen");
   const kpiPending = document.getElementById("kpiPending");
   const kpiStake = document.getElementById("kpiStake");
+  const resyncBtn = document.getElementById("resyncToday");
+  const resyncStatus = document.getElementById("resyncStatus");
 
   let state = window.INITIAL_TODAYS_BETS || { entries: [], strategies: [] };
 
@@ -120,6 +122,43 @@
     render();
   }
 
+  function summarizeResync(resync) {
+    if (!resync || typeof resync !== "object") return "";
+    const deleted = Number(resync.deleted_total || 0);
+    const inserted = Number(resync.inserted_total || 0);
+    const failed = Object.keys(resync)
+      .filter((k) => resync[k] && typeof resync[k] === "object" && resync[k].ok === false)
+      .map((k) => k.toUpperCase());
+    let msg = `Replaced ${deleted}, added ${inserted}.`;
+    if (failed.length) msg += ` Issues: ${failed.join(", ")}.`;
+    return msg;
+  }
+
+  async function resyncToday() {
+    if (!resyncBtn) return;
+    const original = resyncBtn.textContent;
+    resyncBtn.disabled = true;
+    resyncBtn.textContent = "Resyncing…";
+    if (resyncStatus) resyncStatus.textContent = "";
+    try {
+      const strategy = strategyFilter.value;
+      const qs = strategy ? `?strategy=${encodeURIComponent(strategy)}` : "";
+      const res = await fetch(`/api/bets/resync-today${qs}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || "Resync failed");
+      }
+      state = data;
+      render();
+      if (resyncStatus) resyncStatus.textContent = summarizeResync(data.resync);
+    } catch (err) {
+      if (resyncStatus) resyncStatus.textContent = `Failed: ${err.message || err}`;
+    } finally {
+      resyncBtn.disabled = false;
+      resyncBtn.textContent = original;
+    }
+  }
+
   fillStrategies();
   render();
   strategyFilter.addEventListener("change", () => {
@@ -127,4 +166,9 @@
       root.innerHTML = `<div class="bets-empty"><p>Failed to load bets.</p></div>`;
     });
   });
+  if (resyncBtn) {
+    resyncBtn.addEventListener("click", () => {
+      resyncToday();
+    });
+  }
 })();

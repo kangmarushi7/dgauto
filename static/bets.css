@@ -24,6 +24,32 @@
   font: inherit;
 }
 
+#resyncToday {
+  align-self: flex-end;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--forest, #163c2c);
+  border-radius: 10px;
+  background: var(--forest, #163c2c);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#resyncToday:hover:not(:disabled) {
+  background: #12341f;
+}
+
+#resyncToday:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.bets-resync-status {
+  align-self: flex-end;
+  font-size: 0.8rem;
+  color: var(--muted, var(--dg-muted));
+}
+
 .bets-toolbar select,
 .bets-range__trigger {
   min-width: 10rem;

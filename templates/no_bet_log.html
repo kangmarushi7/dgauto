@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NO Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=14" />
+    <link rel="stylesheet" href="/static/style.css?v=15" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
@@ -18,6 +18,7 @@
 
       <div class="actions">
         <button id="syncBtn">Sync NO Strat Bets</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="no">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
         <span id="status"></span>
       </div>
@@ -139,21 +140,21 @@
           tr.appendChild(td(e.pnl_units ?? ""));
 
           const actions = document.createElement("td");
-          const won = document.createElement("button");
-          won.className = "small-btn";
-          won.textContent = "Won";
-          won.onclick = () => resolveBet(e.id, "won");
-          const lost = document.createElement("button");
-          lost.className = "small-btn";
-          lost.textContent = "Lost";
-          lost.onclick = () => resolveBet(e.id, "lost");
-          const push = document.createElement("button");
-          push.className = "small-btn";
-          push.textContent = "Push";
-          push.onclick = () => resolveBet(e.id, "push");
-          actions.appendChild(won);
-          actions.appendChild(lost);
-          actions.appendChild(push);
+          if (String(e.status || "open").toLowerCase() === "open") {
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.onchange = () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            };
+            actions.appendChild(sel);
+          }
           tr.appendChild(actions);
           rowsEl.appendChild(tr);
         }
@@ -211,5 +212,6 @@
       renderRows({{ entries | tojson }});
       ensureTableTools();
     </script>
+    <script src="/static/resync_today.js?v=1"></script>
   </body>
 </html>

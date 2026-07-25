@@ -163,8 +163,10 @@ X-Cron-Secret: some-long-random-string
 - `POST /api/correct-score-bet-log/sync` - log qualified correct-score baskets
 - `POST /api/correct-score-bet-log/auto-resolve` - settle open correct-score legs
 - `GET /arahus` / `GET /api/arahus` - Arahus Engine projections + picks
-- `POST /api/arahus-bet-log/sync` - sync Arahus picks (`log_type = "arahus"`)
-- `POST /api/arahus-bet-log/auto-resolve` - settle open Arahus bets
+- `POST /api/arahus-bet-log/sync` - sync Arahus picks (`log_type = "arahus"`) + write pick snapshots
+- `GET /api/arahus/export` - export Arahus pick snapshots (`format=json|csv`, `date_from`, `date_to`, `decision`)
+- `GET /api/arahus/decision-log` - export full decision log including skips (`format`, `date_from`, `date_to`, `league`, `status`)
+- `POST /api/arahus-bet-log/auto-resolve` - settle open Arahus bets (+ decision-log rows)
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
@@ -201,6 +203,32 @@ python scripts/review_calibration.py
 python scripts/review_calibration.py --relevant-only
 ```
 
+**Decision log (why layer):** each sync appends immutable rows to
+`arahus_decision_log` for every evaluated market — including
+`skipped_low_confidence` / `skipped_low_edge` / `skipped_other` — with xG, pace,
+signals, calibration, and engine thresholds. Auto-resolve fills `result` for
+picked **and** skipped rows; real `pnl` only on picked; `hypothetical_pnl` on all
+(using `ARAHUS_REFERENCE_UNIT` for skips, default 1.0).
+
+```powershell
+python scripts/export_decision_log.py --format csv -o data/arahus_decisions.csv
+python scripts/export_decision_log.py --status skipped_low_edge --from 2026-07-01
+```
+
+Also: `GET /api/arahus/decision-log?format=csv`
+
+TODO(retention): decision-log volume is ~5–10× bet_entries (all markets × syncs).
+Archive/old-row policy not implemented yet.
+
+**Performance snapshots:** each Arahus sync writes immutable rows to
+`arahus_pick_snapshots` (picked markets + skipped fixtures), including confidence,
+edge/EV, signals, projections, engine thresholds, and calibration. Settlements
+backfill `status` / `pnl_units`. Export:
+
+- `GET /api/arahus/export` → JSON
+- `GET /api/arahus/export?format=csv&date_from=2026-07-01&date_to=2026-07-31`
+- optional `decision=picked|skipped`
+
 Tuning (optional):
 
 | Variable | Default | Purpose |
@@ -209,6 +237,7 @@ Tuning (optional):
 | `ARAHUS_MIN_EDGE` | `2.0` | Min model-vs-book edge (%) when odds exist |
 | `ARAHUS_MAX_PICKS` | `3` | Cap picks per fixture |
 | `ARAHUS_ALLOW_NO_ODDS` | `true` | Allow high-confidence picks without book odds |
+| `ARAHUS_REFERENCE_UNIT` | `1.0` | Hypothetical stake for skipped decision-log rows |
 
 ## Correct Score Strat (Polymarket)
 

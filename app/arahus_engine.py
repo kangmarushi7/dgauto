@@ -17,7 +17,17 @@ import uuid
 from typing import Any
 
 from app.bet_log import compute_bet_stats
-from app.db import insert_bets, list_bets, load_state, resolve_bet_entry, save_state
+from app.db import (
+    insert_arahus_decision_log,
+    insert_arahus_snapshots,
+    insert_bets,
+    list_arahus_decision_log,
+    list_arahus_snapshots,
+    list_bets,
+    load_state,
+    resolve_bet_entry,
+    save_state,
+)
 from app.dg_calibration import (
     calibrate_fixture,
     filter_calibration_for_bet,
@@ -31,6 +41,14 @@ from app.fixture_math import expected_value_pct, implied_prob, num
 LOG_TYPE = "arahus"
 CALIBRATION_STATE_KEY = "arahus_calibration_debug"
 CALIBRATION_LOG_MAX = 5000
+ENGINE_VERSION = "arahus-1"
+# Hypothetical unit size for skipped decision-log rows (config, not magic).
+REFERENCE_UNIT = float(os.getenv("ARAHUS_REFERENCE_UNIT", "1.0"))
+
+DECISION_PICKED = "picked"
+DECISION_SKIP_CONF = "skipped_low_confidence"
+DECISION_SKIP_EDGE = "skipped_low_edge"
+DECISION_SKIP_OTHER = "skipped_other"
 
 # Tunables (env overrides)
 MIN_CONFIDENCE = float(os.getenv("ARAHUS_MIN_CONFIDENCE", "62"))
@@ -366,6 +384,11 @@ def _score_market(
     signals: list[dict[str, Any]],
     line_token: str = "",
 ) -> dict[str, Any] | None:
+    """Score a market and return a decision including skip reason (never silent-drop).
+
+    status: picked | skipped_low_confidence | skipped_low_edge | skipped_other
+    Only returns None when model_pct is missing (market not evaluable).
+    """
     if model_pct is None:
         return None
     confidence = round(sum(s["weight"] for s in signals), 1)
@@ -374,21 +397,26 @@ def _score_market(
     ev_val = expected_value_pct(model_pct, odds)
     imp = implied_prob(odds)
 
-    if confidence < MIN_CONFIDENCE:
-        return None
-    if odds is not None and odds > 1:
-        if edge_val is None or edge_val < MIN_EDGE_WHEN_ODDS:
-            return None
-        if ev_val is not None and ev_val <= 0:
-            return None
-    elif not ALLOW_NO_ODDS:
-        return None
-
-    units = 1.0
+    status = DECISION_PICKED
+    units: float | None = 1.0
     if confidence >= 78 and (edge_val or 0) >= 5:
         units = 1.5
     elif confidence < 68:
         units = 0.75
+
+    if confidence < MIN_CONFIDENCE:
+        status = DECISION_SKIP_CONF
+        units = None
+    elif odds is not None and odds > 1:
+        if edge_val is None or edge_val < MIN_EDGE_WHEN_ODDS:
+            status = DECISION_SKIP_EDGE
+            units = None
+        elif ev_val is not None and ev_val <= 0:
+            status = DECISION_SKIP_EDGE
+            units = None
+    elif not ALLOW_NO_ODDS:
+        status = DECISION_SKIP_OTHER
+        units = None
 
     return {
         "bet_type": bet_type,
@@ -401,19 +429,20 @@ def _score_market(
         "ev": ev_val,
         "confidence": confidence,
         "units": units,
+        "status": status,
         "signals": signals,
         "signal_summary": " · ".join(s["detail"] for s in signals[:4]),
     }
 
 
-def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str, Any]]:
-    """Score candidate markets; keep the strongest stacked-signal picks."""
+def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Score candidate markets; return (selected picks, all decisions including skips)."""
     home = profile["home_team"]
     away = profile["away_team"]
     odds = profile["odds"]
     idx = profile["indexes"]
     highlights = {str(h).lower() for h in (profile.get("highlights") or [])}
-    picks: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
 
     def pace_sig(for_overs: bool) -> dict[str, Any] | None:
         pace = proj.get("pace")
@@ -461,133 +490,113 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
             return _signal("regression", 10, "Results inflated vs xG — unders lean")
         return None
 
-    # --- Over 2.5 ---
-    sigs = [
-        s
-        for s in (
-            sim_sig(proj.get("over_2_5_pct"), 58, "O2.5"),
-            xg_sig(
-                (proj.get("total_xg") or 0) >= 2.7,
-                f"Projected total xG {proj.get('total_xg')}",
-            ),
-            pace_sig(True),
-            nec_sig(),
-            luck_ok_for_overs(),
-            highlight_sig("over", "btts", "pace", "score", "goal"),
-        )
-        if s
-    ]
-    pick = _score_market(
+    def consider(**kwargs: Any) -> None:
+        d = _score_market(**kwargs)
+        if d:
+            decisions.append(d)
+
+    consider(
         bet_type="arahus_o25",
         label="Over 2.5",
         team_name="",
         model_pct=proj.get("over_2_5_pct"),
         odds=odds.get("over_2_5"),
-        signals=sigs,
+        signals=[
+            s
+            for s in (
+                sim_sig(proj.get("over_2_5_pct"), 58, "O2.5"),
+                xg_sig(
+                    (proj.get("total_xg") or 0) >= 2.7,
+                    f"Projected total xG {proj.get('total_xg')}",
+                ),
+                pace_sig(True),
+                nec_sig(),
+                luck_ok_for_overs(),
+                highlight_sig("over", "btts", "pace", "score", "goal"),
+            )
+            if s
+        ],
     )
-    if pick:
-        picks.append(pick)
-
-    # --- Over 1.5 ---
-    sigs = [
-        s
-        for s in (
-            sim_sig(proj.get("over_1_5_pct"), 70, "O1.5"),
-            xg_sig((proj.get("total_xg") or 0) >= 2.3, f"Total xG {proj.get('total_xg')}", 12),
-            pace_sig(True),
-            luck_ok_for_overs(),
-        )
-        if s
-    ]
-    pick = _score_market(
+    consider(
         bet_type="arahus_o15",
         label="Over 1.5",
         team_name="",
         model_pct=proj.get("over_1_5_pct"),
         odds=odds.get("over_1_5"),
-        signals=sigs,
+        signals=[
+            s
+            for s in (
+                sim_sig(proj.get("over_1_5_pct"), 70, "O1.5"),
+                xg_sig((proj.get("total_xg") or 0) >= 2.3, f"Total xG {proj.get('total_xg')}", 12),
+                pace_sig(True),
+                luck_ok_for_overs(),
+            )
+            if s
+        ],
     )
-    if pick:
-        picks.append(pick)
-
-    # --- Over 3.5 ---
-    sigs = [
-        s
-        for s in (
-            sim_sig(proj.get("over_3_5_pct"), 48, "O3.5"),
-            xg_sig((proj.get("total_xg") or 0) >= 3.4, f"Total xG {proj.get('total_xg')}", 16),
-            pace_sig(True),
-            nec_sig(),
-            luck_ok_for_overs(),
-            highlight_sig("pace", "score", "goal"),
-        )
-        if s
-    ]
-    pick = _score_market(
+    consider(
         bet_type="arahus_o35",
         label="Over 3.5",
         team_name="",
         model_pct=proj.get("over_3_5_pct"),
         odds=odds.get("over_3_5"),
-        signals=sigs,
+        signals=[
+            s
+            for s in (
+                sim_sig(proj.get("over_3_5_pct"), 48, "O3.5"),
+                xg_sig((proj.get("total_xg") or 0) >= 3.4, f"Total xG {proj.get('total_xg')}", 16),
+                pace_sig(True),
+                nec_sig(),
+                luck_ok_for_overs(),
+                highlight_sig("pace", "score", "goal"),
+            )
+            if s
+        ],
     )
-    if pick:
-        picks.append(pick)
-
-    # --- Under 2.5 ---
-    sigs = [
-        s
-        for s in (
-            sim_sig(proj.get("under_2_5_pct"), 55, "U2.5"),
-            xg_sig(
-                proj.get("total_xg") is not None and (proj.get("total_xg") or 99) <= 2.35,
-                f"Low total xG {proj.get('total_xg')}",
-                16,
-            ),
-            pace_sig(False),
-            luck_ok_for_unders(),
-        )
-        if s
-    ]
-    pick = _score_market(
+    consider(
         bet_type="arahus_u25",
         label="Under 2.5",
         team_name="",
         model_pct=proj.get("under_2_5_pct"),
         odds=odds.get("under_2_5"),
-        signals=sigs,
+        signals=[
+            s
+            for s in (
+                sim_sig(proj.get("under_2_5_pct"), 55, "U2.5"),
+                xg_sig(
+                    proj.get("total_xg") is not None and (proj.get("total_xg") or 99) <= 2.35,
+                    f"Low total xG {proj.get('total_xg')}",
+                    16,
+                ),
+                pace_sig(False),
+                luck_ok_for_unders(),
+            )
+            if s
+        ],
     )
-    if pick:
-        picks.append(pick)
-
-    # --- BTTS ---
-    sigs = [
-        s
-        for s in (
-            sim_sig(proj.get("btts_pct"), 55, "BTTS"),
-            xg_sig(
-                (proj.get("home_xg") or 0) >= 0.95 and (proj.get("away_xg") or 0) >= 0.95,
-                f"Both sides xG {proj.get('home_xg')}/{proj.get('away_xg')}",
-                14,
-            ),
-            pace_sig(True),
-            highlight_sig("btts"),
-            luck_ok_for_overs(),
-        )
-        if s
-    ]
-    pick = _score_market(
+    consider(
         bet_type="arahus_btts",
         label="BTTS Yes",
         team_name="",
         model_pct=proj.get("btts_pct"),
         odds=odds.get("btts_yes"),
-        signals=sigs,
+        signals=[
+            s
+            for s in (
+                sim_sig(proj.get("btts_pct"), 55, "BTTS"),
+                xg_sig(
+                    (proj.get("home_xg") or 0) >= 0.95 and (proj.get("away_xg") or 0) >= 0.95,
+                    f"Both sides xG {proj.get('home_xg')}/{proj.get('away_xg')}",
+                    14,
+                ),
+                pace_sig(True),
+                highlight_sig("btts"),
+                luck_ok_for_overs(),
+            )
+            if s
+        ],
     )
-    if pick:
-        picks.append(pick)
 
-    # --- Team totals / ML ---
     for side, xg_key, win_key, o15_odds_key, o05_odds_key, ml_key in (
         ("home", "home_xg", "home_win_pct", "home_o1_5", "home_o0_5", "home_ml"),
         ("away", "away_xg", "away_win_pct", "away_o1_5", "away_o0_5", "away_ml"),
@@ -598,83 +607,70 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
         gap = proj.get("dgrtg_gap") or 0
         gap_ok = (gap >= 4 and side == "home") or (gap <= -4 and side == "away")
 
-        # Team O1.5
         team_o15_pct = None
         if txg is not None:
             team_o15_pct = round(_poisson_cdf_ge(2, txg) * 100, 1)
-        sigs = [
-            s
-            for s in (
-                xg_sig(txg is not None and txg >= 1.75, f"{team} xG {txg}", 18),
-                sim_sig(team_o15_pct, 55, f"{team} O1.5"),
-                _signal("rating", 10, f"DGRtg gap {gap:+.1f}") if gap_ok else None,
-                nec_sig(),
-            )
-            if s
-        ]
-        pick = _score_market(
+        consider(
             bet_type="arahus_team_o15",
             label=f"{team} O1.5",
             team_name=team,
             model_pct=team_o15_pct,
             odds=odds.get(o15_odds_key),
-            signals=sigs,
+            signals=[
+                s
+                for s in (
+                    xg_sig(txg is not None and txg >= 1.75, f"{team} xG {txg}", 18),
+                    sim_sig(team_o15_pct, 55, f"{team} O1.5"),
+                    _signal("rating", 10, f"DGRtg gap {gap:+.1f}") if gap_ok else None,
+                    nec_sig(),
+                )
+                if s
+            ],
         )
-        if pick:
-            picks.append(pick)
 
-        # Team O0.5
         team_o05_pct = round((1 - math.exp(-(txg or 0))) * 100, 1) if txg else None
-        sigs = [
-            s
-            for s in (
-                xg_sig(txg is not None and txg >= 1.05, f"{team} xG {txg}", 16),
-                sim_sig(team_o05_pct, 68, f"{team} O0.5"),
-            )
-            if s
-        ]
-        pick = _score_market(
+        consider(
             bet_type="arahus_team_o05",
             label=f"{team} O0.5",
             team_name=team,
             model_pct=team_o05_pct,
             odds=odds.get(o05_odds_key),
-            signals=sigs,
+            signals=[
+                s
+                for s in (
+                    xg_sig(txg is not None and txg >= 1.05, f"{team} xG {txg}", 16),
+                    sim_sig(team_o05_pct, 68, f"{team} O0.5"),
+                )
+                if s
+            ],
         )
-        if pick:
-            picks.append(pick)
 
-        # Moneyline
-        sigs = [
-            s
-            for s in (
-                sim_sig(win_pct, 55, f"{team} win"),
-                _signal("rating", 14, f"DGRtg gap {gap:+.1f}") if gap_ok else None,
-                xg_sig(
-                    txg is not None
-                    and (
-                        (side == "home" and txg >= (proj.get("away_xg") or 0) + 0.35)
-                        or (side == "away" and txg >= (proj.get("home_xg") or 0) + 0.35)
-                    ),
-                    f"Attacking edge xG {txg}",
-                    12,
-                ),
-                highlight_sig("win"),
-            )
-            if s
-        ]
-        pick = _score_market(
+        consider(
             bet_type="arahus_ml",
             label=f"{team} Win",
             team_name=team,
             model_pct=win_pct,
             odds=odds.get(ml_key),
-            signals=sigs,
+            signals=[
+                s
+                for s in (
+                    sim_sig(win_pct, 55, f"{team} win"),
+                    _signal("rating", 14, f"DGRtg gap {gap:+.1f}") if gap_ok else None,
+                    xg_sig(
+                        txg is not None
+                        and (
+                            (side == "home" and txg >= (proj.get("away_xg") or 0) + 0.35)
+                            or (side == "away" and txg >= (proj.get("home_xg") or 0) + 0.35)
+                        ),
+                        f"Attacking edge xG {txg}",
+                        12,
+                    ),
+                    highlight_sig("win"),
+                )
+                if s
+            ],
         )
-        if pick:
-            picks.append(pick)
 
-    # Double chance for milder favorites
     for side, win_key, dc_key, bt, label in (
         ("home", "home_win_pct", "dc_1x", "arahus_dc_1x", "Double Chance 1X"),
         ("away", "away_win_pct", "dc_x2", "arahus_dc_x2", "Double Chance X2"),
@@ -685,27 +681,23 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
         dc_pct = round((win_pct or 0) + draw, 1) if win_pct is not None else None
         gap = proj.get("dgrtg_gap") or 0
         mild = (2 <= gap <= 9 and side == "home") or (-9 <= gap <= -2 and side == "away")
-        sigs = [
-            s
-            for s in (
-                sim_sig(dc_pct, 65, "DC"),
-                _signal("rating", 12, f"Mild DGRtg edge {gap:+.1f}") if mild else None,
-                xg_sig(win_pct is not None and win_pct >= 45, f"Win base {win_pct}%", 10),
-            )
-            if s
-        ]
-        pick = _score_market(
+        consider(
             bet_type=bt,
             label=f"{label} ({team})",
             team_name=team,
             model_pct=dc_pct,
             odds=odds.get(dc_key),
-            signals=sigs,
+            signals=[
+                s
+                for s in (
+                    sim_sig(dc_pct, 65, "DC"),
+                    _signal("rating", 12, f"Mild DGRtg edge {gap:+.1f}") if mild else None,
+                    xg_sig(win_pct is not None and win_pct >= 45, f"Win base {win_pct}%", 10),
+                )
+                if s
+            ],
         )
-        if pick:
-            picks.append(pick)
 
-    # --- Corners ---
     corners = proj.get("corners")
     if corners is not None:
         for line, bt, label in (
@@ -713,33 +705,30 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
             (9.5, "arahus_corners_o95", "Corners O9.5"),
             (10.5, "arahus_corners_o105", "Corners O10.5"),
         ):
-            # Soft logistic around the line
             model = round(_clamp(50 + (corners - line) * 18, 5, 92), 1)
-            sigs = [
-                s
-                for s in (
-                    xg_sig(corners >= line + 0.3, f"Projected corners {corners}", 18),
-                    pace_sig(True),
-                    highlight_sig("corner"),
-                    _signal("agix", 8, f"AGIX {proj.get('agix'):.0f}")
-                    if (proj.get("agix") or 0) >= 58
-                    else None,
-                )
-                if s
-            ]
-            pick = _score_market(
+            consider(
                 bet_type=bt,
                 label=label,
                 team_name=str(line),
                 model_pct=model,
-                odds=None,  # book corners rarely on match row; allow no-odds if enabled
-                signals=sigs,
+                odds=None,
+                signals=[
+                    s
+                    for s in (
+                        xg_sig(corners >= line + 0.3, f"Projected corners {corners}", 18),
+                        pace_sig(True),
+                        highlight_sig("corner"),
+                        _signal("agix", 8, f"AGIX {proj.get('agix'):.0f}")
+                        if (proj.get("agix") or 0) >= 58
+                        else None,
+                    )
+                    if s
+                ],
                 line_token=str(line),
             )
-            if pick:
-                picks.append(pick)
 
-    picks.sort(
+    candidates = [d for d in decisions if d.get("status") == DECISION_PICKED]
+    candidates.sort(
         key=lambda p: (
             p.get("confidence") or 0,
             p.get("edge") or -99,
@@ -747,11 +736,14 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
         ),
         reverse=True,
     )
-    # Deduplicate conflicting totals (don't take O2.5 and U2.5 together)
     selected: list[dict[str, Any]] = []
     seen_families: set[str] = set()
-    for p in picks:
-        family = "totals" if p["bet_type"] in {"arahus_o15", "arahus_o25", "arahus_o35", "arahus_u25"} else p["bet_type"]
+    for p in candidates:
+        family = (
+            "totals"
+            if p["bet_type"] in {"arahus_o15", "arahus_o25", "arahus_o35", "arahus_u25"}
+            else p["bet_type"]
+        )
         if p["bet_type"] in {"arahus_o15", "arahus_o25", "arahus_o35"}:
             family = "overs"
         if p["bet_type"] == "arahus_u25":
@@ -761,9 +753,7 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
         if family == "unders" and "overs" in seen_families:
             continue
         if family in seen_families and family in {"overs", "unders"}:
-            # keep only best over/under
             continue
-        # one ML max
         if p["bet_type"] == "arahus_ml" and "ml" in seen_families:
             continue
         if p["bet_type"] == "arahus_ml":
@@ -773,7 +763,16 @@ def pick_markets(profile: dict[str, Any], proj: dict[str, Any]) -> list[dict[str
         selected.append(p)
         if len(selected) >= MAX_PICKS_PER_FIXTURE:
             break
-    return selected
+
+    selected_keys = {(p["bet_type"], p.get("team_name") or "") for p in selected}
+    for d in decisions:
+        if d.get("status") == DECISION_PICKED and (
+            d["bet_type"], d.get("team_name") or ""
+        ) not in selected_keys:
+            d["status"] = DECISION_SKIP_OTHER
+            d["units"] = None
+
+    return selected, decisions
 
 
 def evaluate_fixture(
@@ -785,17 +784,37 @@ def evaluate_fixture(
 ) -> dict[str, Any]:
     profile = build_fixture_profile(raw, match, extra)
     projections = project_match(profile)
-    picks = pick_markets(profile, projections)
+    picks, decisions = pick_markets(profile, projections)
 
     # Log-only calibration — does NOT alter confidence / units / EV.
     if scenario_validation is None:
         scenario_validation = get_scenario_validation()
     sim_out = sim_outputs_from_profile(profile)
     fixture_cal = calibrate_fixture(sim_out, scenario_validation)
-    for pick in picks:
-        tagged = filter_calibration_for_bet(fixture_cal, str(pick.get("bet_type") or ""))
-        pick["_calibrationDebug"] = tagged
-        pick["_calibrationRelevant"] = [r for r in tagged if r.get("relevantToPick")]
+    for row in list(picks) + list(decisions):
+        tagged = filter_calibration_for_bet(fixture_cal, str(row.get("bet_type") or ""))
+        row["_calibrationDebug"] = tagged
+        row["_calibrationRelevant"] = [r for r in tagged if r.get("relevantToPick")]
+
+    if not decisions:
+        decisions = [
+            {
+                "bet_type": "",
+                "market_label": "",
+                "team_name": "",
+                "model_pct": None,
+                "odds": None,
+                "edge": None,
+                "ev": None,
+                "confidence": None,
+                "units": None,
+                "status": DECISION_SKIP_OTHER,
+                "signals": [],
+                "signal_summary": "No evaluable market percentages",
+                "_calibrationDebug": fixture_cal,
+                "_calibrationRelevant": [],
+            }
+        ]
 
     return {
         "fixture_id": profile["fixture_id"],
@@ -815,6 +834,7 @@ def evaluate_fixture(
             "volume": profile["volume"],
         },
         "calibration": fixture_cal,
+        "decisions": decisions,
         "picks": picks,
         "pick_count": len(picks),
         "has_picks": bool(picks),
@@ -860,6 +880,185 @@ def build_arahus_slate(state: dict[str, Any]) -> list[dict[str, Any]]:
         )
     )
     return cards
+
+
+def engine_config_snapshot() -> dict[str, Any]:
+    return {
+        "engine_version": ENGINE_VERSION,
+        "min_confidence": MIN_CONFIDENCE,
+        "min_edge": MIN_EDGE_WHEN_ODDS,
+        "max_picks": MAX_PICKS_PER_FIXTURE,
+        "allow_no_odds": ALLOW_NO_ODDS,
+        "reference_unit": REFERENCE_UNIT,
+    }
+
+
+def build_decision_log_rows_from_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten card decisions into arahus_decision_log insert rows (new each sync)."""
+    cfg = engine_config_snapshot()
+    now = _now_iso()
+    rows: list[dict[str, Any]] = []
+    for card in cards:
+        proj = card.get("projections") if isinstance(card.get("projections"), dict) else {}
+        decisions = card.get("decisions") or []
+        for d in decisions:
+            signals = d.get("signals") or []
+            signal_strs = [
+                str(s.get("detail") or s.get("name") or "")
+                for s in signals
+                if isinstance(s, dict)
+            ]
+            rows.append(
+                {
+                    "fixture_id": str(card.get("fixture_id") or "") or None,
+                    "synced_at": now,
+                    "match_date": card.get("fixture_date"),
+                    "league": card.get("league_name") or "",
+                    "home_team": card.get("home_team") or "",
+                    "away_team": card.get("away_team") or "",
+                    "fixture": card.get("fixture") or "",
+                    "bet_type": d.get("bet_type") or "",
+                    "team_name": d.get("team_name") or "",
+                    "status": d.get("status") or DECISION_SKIP_OTHER,
+                    "model_pct": d.get("model_pct"),
+                    "confidence": d.get("confidence"),
+                    "odds": d.get("odds"),
+                    "edge": d.get("edge"),
+                    "ev": d.get("ev"),
+                    "units": d.get("units") if d.get("status") == DECISION_PICKED else None,
+                    "signals": signal_strs,
+                    "xg_home": proj.get("home_xg"),
+                    "xg_away": proj.get("away_xg"),
+                    "xg_total": proj.get("total_xg"),
+                    "pace_score": proj.get("pace"),
+                    "nec_index": proj.get("nec"),
+                    "agix_index": proj.get("agix"),
+                    "dgrtg_gap": proj.get("dgrtg_gap"),
+                    "archetype": proj.get("archetype"),
+                    "luck_regression_value": proj.get("luck"),
+                    "calibration_debug": d.get("_calibrationDebug")
+                    or d.get("_calibrationRelevant")
+                    or card.get("calibration")
+                    or [],
+                    "engine_config_snapshot": cfg,
+                    "engine_version": ENGINE_VERSION,
+                    "result": None,
+                    "pnl": None,
+                    "hypothetical_pnl": None,
+                    "resolved_at": None,
+                }
+            )
+    return rows
+
+
+def _slim_context_from_card(card: dict[str, Any], pick: dict[str, Any] | None = None) -> dict[str, Any]:
+    proj = card.get("projections") if isinstance(card.get("projections"), dict) else {}
+    profile = card.get("profile") if isinstance(card.get("profile"), dict) else {}
+    ctx: dict[str, Any] = {
+        "projections": {
+            "total_xg": proj.get("total_xg"),
+            "home_xg": proj.get("home_xg"),
+            "away_xg": proj.get("away_xg"),
+            "over_2_5_pct": proj.get("over_2_5_pct"),
+            "under_2_5_pct": proj.get("under_2_5_pct"),
+            "btts_pct": proj.get("btts_pct"),
+            "home_win_pct": proj.get("home_win_pct"),
+            "away_win_pct": proj.get("away_win_pct"),
+            "draw_pct": proj.get("draw_pct"),
+            "pace": proj.get("pace"),
+            "nec": proj.get("nec"),
+            "agix": proj.get("agix"),
+            "corners": proj.get("corners"),
+            "luck": proj.get("luck"),
+            "dgrtg_gap": proj.get("dgrtg_gap"),
+            "archetype": proj.get("archetype"),
+        },
+        "sim": profile.get("sim"),
+        "xg": profile.get("xg"),
+        "indexes": profile.get("indexes"),
+        "ratings": {
+            "dgrtg_gap": (profile.get("ratings") or {}).get("dgrtg_gap"),
+            "ortg_gap": (profile.get("ratings") or {}).get("ortg_gap"),
+            "drtg_gap": (profile.get("ratings") or {}).get("drtg_gap"),
+        },
+        "regression": profile.get("regression"),
+        "highlights": profile.get("highlights"),
+        "calibration": card.get("calibration") or [],
+    }
+    if pick:
+        ctx["signals"] = pick.get("signals") or []
+        ctx["signal_summary"] = pick.get("signal_summary")
+        ctx["_calibrationDebug"] = pick.get("_calibrationDebug") or []
+        ctx["_calibrationRelevant"] = pick.get("_calibrationRelevant") or []
+    return ctx
+
+
+def build_snapshot_rows_from_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build immutable snapshot rows for picked + skipped fixtures."""
+    cfg = engine_config_snapshot()
+    now = _now_iso()
+    rows: list[dict[str, Any]] = []
+    for card in cards:
+        base = {
+            "created_at": now,
+            "fixture_id": str(card.get("fixture_id") or "") or None,
+            "fixture_date": card.get("fixture_date"),
+            "fixture": card.get("fixture") or "",
+            "league_name": card.get("league_name") or "",
+            "home_team": card.get("home_team") or "",
+            "away_team": card.get("away_team") or "",
+            "archetype": (card.get("projections") or {}).get("archetype"),
+            "engine_config": cfg,
+        }
+        picks = card.get("picks") or []
+        if not picks:
+            rows.append(
+                {
+                    **base,
+                    "id": str(uuid.uuid4()),
+                    "bet_id": None,
+                    "decision": "skipped",
+                    "bet_type": "",
+                    "team_name": "",
+                    "market_label": "",
+                    "confidence": None,
+                    "model_pct": None,
+                    "odds": None,
+                    "implied_pct": None,
+                    "edge": None,
+                    "ev": None,
+                    "units": None,
+                    "context": _slim_context_from_card(card),
+                    "status": "skipped",
+                    "pnl_units": None,
+                    "resolved_at": None,
+                }
+            )
+            continue
+        for pick in picks:
+            rows.append(
+                {
+                    **base,
+                    "id": str(uuid.uuid4()),
+                    "bet_id": None,  # filled after bet insert
+                    "decision": "picked",
+                    "bet_type": pick.get("bet_type") or "",
+                    "team_name": pick.get("team_name") or "",
+                    "market_label": pick.get("market_label") or "",
+                    "confidence": pick.get("confidence"),
+                    "model_pct": pick.get("model_pct"),
+                    "odds": pick.get("odds"),
+                    "implied_pct": pick.get("implied_pct"),
+                    "edge": pick.get("edge"),
+                    "ev": pick.get("ev"),
+                    "units": pick.get("units"),
+                    "context": _slim_context_from_card(card, pick),
+                    "status": "open",
+                    "pnl_units": None,
+                    "resolved_at": None,
+                }
+            )
+    return rows
 
 
 def flatten_picks(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -911,13 +1110,27 @@ def load_arahus_calibration_log() -> list[dict[str, Any]]:
     return list(state.get("entries") or [])
 
 
-def sync_arahus_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
+def sync_arahus_bets(
+    picks: list[dict[str, Any]],
+    *,
+    cards: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
     cal_records: list[dict[str, Any]] = []
+    pick_ids: dict[tuple[Any, ...], str] = {}
+
     for p in picks:
+        bet_id = str(uuid.uuid4())
+        key = (
+            p.get("fixture_date"),
+            p.get("fixture", ""),
+            p.get("bet_type") or "unknown",
+            p.get("team_name") or "",
+        )
+        pick_ids[key] = bet_id
         candidates.append(
             {
-                "id": str(uuid.uuid4()),
+                "id": bet_id,
                 "created_at": _now_iso(),
                 "fixture_date": p.get("fixture_date"),
                 "fixture": p.get("fixture", ""),
@@ -950,10 +1163,93 @@ def sync_arahus_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
             }
         )
     inserted = insert_bets(LOG_TYPE, candidates)
-    # Always append calibration for this sync batch (even if bet deduped),
-    # so review coverage is not lost when fixtures were already logged.
     _append_calibration_log(cal_records)
-    return {"inserted": inserted, "total": len(load_arahus_bet_log())}
+
+    # Link bet_ids for newly inserted bets; for deduped bets, map from existing log.
+    existing_by_key = {
+        (
+            e.get("fixture_date"),
+            e.get("fixture", ""),
+            e.get("bet_type", ""),
+            e.get("team_name", ""),
+        ): str(e.get("id"))
+        for e in load_arahus_bet_log()
+    }
+
+    snap_rows = build_snapshot_rows_from_cards(cards or [])
+    if not snap_rows and picks:
+        # Fallback if caller only passed flat picks (no card context).
+        snap_rows = []
+        cfg = engine_config_snapshot()
+        now = _now_iso()
+        for p in picks:
+            snap_rows.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "bet_id": None,
+                    "created_at": now,
+                    "fixture_id": str(p.get("fixture_id") or "") or None,
+                    "fixture_date": p.get("fixture_date"),
+                    "fixture": p.get("fixture") or "",
+                    "league_name": p.get("league_name") or "",
+                    "home_team": p.get("home_team") or "",
+                    "away_team": p.get("away_team") or "",
+                    "decision": "picked",
+                    "bet_type": p.get("bet_type") or "",
+                    "team_name": p.get("team_name") or "",
+                    "market_label": p.get("market_label") or "",
+                    "confidence": p.get("confidence"),
+                    "model_pct": p.get("model_pct"),
+                    "odds": p.get("odds"),
+                    "implied_pct": p.get("implied_pct"),
+                    "edge": p.get("edge"),
+                    "ev": p.get("ev"),
+                    "units": p.get("units"),
+                    "archetype": p.get("archetype"),
+                    "engine_config": cfg,
+                    "context": {
+                        "signals": p.get("signals") or [],
+                        "signal_summary": p.get("signal_summary"),
+                        "_calibrationDebug": p.get("_calibrationDebug") or [],
+                        "_calibrationRelevant": p.get("_calibrationRelevant") or [],
+                    },
+                    "status": "open",
+                    "pnl_units": None,
+                    "resolved_at": None,
+                }
+            )
+
+    for row in snap_rows:
+        if row.get("decision") != "picked":
+            continue
+        key = (
+            row.get("fixture_date"),
+            row.get("fixture") or "",
+            row.get("bet_type") or "",
+            row.get("team_name") or "",
+        )
+        row["bet_id"] = existing_by_key.get(key) or pick_ids.get(key)
+
+    snap_inserted = insert_arahus_snapshots(snap_rows)
+    decision_rows = build_decision_log_rows_from_cards(cards or [])
+    decision_inserted = insert_arahus_decision_log(decision_rows)
+    return {
+        "inserted": inserted,
+        "snapshots_inserted": snap_inserted,
+        "decision_log_inserted": decision_inserted,
+        "total": len(load_arahus_bet_log()),
+        "snapshots_total": len(list_arahus_snapshots()),
+        "decision_log_total": len(list_arahus_decision_log()),
+    }
+
+
+def export_arahus_snapshots(
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    decision: str | None = None,
+) -> list[dict[str, Any]]:
+    return list_arahus_snapshots(date_from=date_from, date_to=date_to, decision=decision)
 
 
 def resolve_arahus_bet(bet_id: str, result: str) -> dict[str, Any]:

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>H2H Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=14" />
+    <link rel="stylesheet" href="/static/style.css?v=15" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
@@ -18,6 +18,7 @@
 
       <div class="actions">
         <button id="syncBtn">Sync H2H Strat Bets</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="h2h">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
         <a href="/h2h-strat">Go to H2H Strat</a>
         <span id="status"></span>
@@ -210,18 +211,19 @@
           tr.appendChild(td(e.pnl_units != null ? e.pnl_units : ""));
           const actions = document.createElement("td");
           if (String(e.status).toLowerCase() === "open") {
-            for (const [label, result, cls] of [
-              ["Won", "won", "btn-won"],
-              ["Lost", "lost", "btn-lost"],
-              ["Push", "push", "btn-push"],
-            ]) {
-              const btn = document.createElement("button");
-              btn.type = "button";
-              btn.textContent = label;
-              btn.className = cls;
-              btn.addEventListener("click", () => resolveBet(e.id, result));
-              actions.appendChild(btn);
-            }
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.addEventListener("change", () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            });
+            actions.appendChild(sel);
           }
           tr.appendChild(actions);
           rowsEl.appendChild(tr);
@@ -268,5 +270,6 @@
         dashboard: {{ dashboard | tojson }},
       });
     </script>
+    <script src="/static/resync_today.js?v=1"></script>
   </body>
 </html>

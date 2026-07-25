@@ -23,6 +23,7 @@
 
       <div class="betlog-actions">
         <button type="button" id="syncBtn" class="btn-primary">Sync recommended</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="main">Resync today</button>
         <button type="button" id="autoResolveBtn" class="btn-secondary">Auto resolve open</button>
         <span id="status" class="betlog-status"></span>
       </div>
@@ -146,5 +147,6 @@
         }
       })();
     </script>
+    <script src="/static/resync_today.js?v=1"></script>
   </body>
 </html>

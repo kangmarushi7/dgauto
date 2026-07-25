@@ -3,10 +3,15 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
+
+import csv
+import io
+import json
+from typing import Any
 
 from app.models import MatchSignal, RefreshResponse
 from app.bet_log import (
@@ -25,7 +30,7 @@ from app.scheduler import (
     start_auto_resolve_scheduler,
     stop_auto_resolve_scheduler,
 )
-from app.db import check_db_health, init_db, load_state, save_state
+from app.db import check_db_health, init_db, list_arahus_decision_log, load_state, save_state
 from app.lm_strat import (
     build_lm_strat_picks,
     lm_dashboard,
@@ -72,6 +77,7 @@ from app.arahus_engine import (
     arahus_dashboard,
     build_arahus_slate,
     enrich_arahus_entries,
+    export_arahus_snapshots,
     flatten_picks,
     load_arahus_bet_log,
     resolve_arahus_bet,
@@ -273,6 +279,22 @@ async def todays_bets_page(request: Request, strategy: str | None = Query(defaul
 @app.get("/api/bets/today")
 async def api_bets_today(strategy: str | None = Query(default=None)):
     return JSONResponse(await run_in_threadpool(todays_bets_payload, strategy=strategy))
+
+
+@app.post("/api/bets/resync-today")
+async def api_bets_resync_today(strategy: str | None = Query(default=None)):
+    """Replace today's open bets across all logs or one selected strategy."""
+    from app.bet_sync import resync_todays_bets
+
+    try:
+        summary = await run_in_threadpool(resync_todays_bets, strategy=strategy)
+    except ValueError as exc:
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        detail = str(exc).strip() or repr(exc)
+        return JSONResponse({"success": False, "error": detail}, status_code=500)
+    payload = await run_in_threadpool(todays_bets_payload, strategy=strategy)
+    return JSONResponse({"success": True, "resync": summary, **payload})
 
 
 @app.get("/api/bets/log")
@@ -977,8 +999,184 @@ async def arahus_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
     cards = await run_in_threadpool(build_arahus_slate, latest)
     picks = flatten_picks(cards)
-    result = await run_in_threadpool(sync_arahus_bets, picks)
+    result = await run_in_threadpool(lambda: sync_arahus_bets(picks, cards=cards))
     return JSONResponse({"result": result, **_arahus_log_payload(season=season)})
+
+
+@app.get("/api/arahus/export")
+async def arahus_export(
+    date_from: str | None = Query(default=None, description="YYYY-MM-DD inclusive"),
+    date_to: str | None = Query(default=None, description="YYYY-MM-DD inclusive"),
+    decision: str | None = Query(default=None, description="picked | skipped"),
+    format: str = Query(default="json", description="json | csv"),
+):
+    """Export immutable Arahus pick snapshots for performance analysis / fine-tuning."""
+    if decision and decision not in {"picked", "skipped"}:
+        raise HTTPException(status_code=400, detail="decision must be picked or skipped")
+    fmt = (format or "json").strip().lower()
+    if fmt not in {"json", "csv"}:
+        raise HTTPException(status_code=400, detail="format must be json or csv")
+
+    rows = await run_in_threadpool(
+        lambda: export_arahus_snapshots(
+            date_from=date_from, date_to=date_to, decision=decision
+        )
+    )
+
+    if fmt == "json":
+        return JSONResponse(
+            {
+                "count": len(rows),
+                "date_from": date_from,
+                "date_to": date_to,
+                "decision": decision,
+                "rows": rows,
+            }
+        )
+
+    # Flatten nested JSON for spreadsheet analysis.
+    flat_rows: list[dict[str, Any]] = []
+    for r in rows:
+        cfg = r.get("engine_config") if isinstance(r.get("engine_config"), dict) else {}
+        ctx = r.get("context") if isinstance(r.get("context"), dict) else {}
+        proj = ctx.get("projections") if isinstance(ctx.get("projections"), dict) else {}
+        cal = ctx.get("_calibrationRelevant") or ctx.get("calibration") or []
+        flat_rows.append(
+            {
+                "id": r.get("id"),
+                "bet_id": r.get("bet_id"),
+                "created_at": r.get("created_at"),
+                "fixture_id": r.get("fixture_id"),
+                "fixture_date": r.get("fixture_date"),
+                "fixture": r.get("fixture"),
+                "league_name": r.get("league_name"),
+                "home_team": r.get("home_team"),
+                "away_team": r.get("away_team"),
+                "decision": r.get("decision"),
+                "bet_type": r.get("bet_type"),
+                "team_name": r.get("team_name"),
+                "market_label": r.get("market_label"),
+                "confidence": r.get("confidence"),
+                "model_pct": r.get("model_pct"),
+                "odds": r.get("odds"),
+                "implied_pct": r.get("implied_pct"),
+                "edge": r.get("edge"),
+                "ev": r.get("ev"),
+                "units": r.get("units"),
+                "archetype": r.get("archetype"),
+                "status": r.get("status"),
+                "pnl_units": r.get("pnl_units"),
+                "resolved_at": r.get("resolved_at"),
+                "engine_version": cfg.get("engine_version"),
+                "min_confidence": cfg.get("min_confidence"),
+                "min_edge": cfg.get("min_edge"),
+                "total_xg": proj.get("total_xg"),
+                "home_xg": proj.get("home_xg"),
+                "away_xg": proj.get("away_xg"),
+                "pace": proj.get("pace"),
+                "nec": proj.get("nec"),
+                "agix": proj.get("agix"),
+                "dgrtg_gap": proj.get("dgrtg_gap"),
+                "signal_summary": ctx.get("signal_summary"),
+                "calibration_json": json.dumps(cal, ensure_ascii=False),
+                "context_json": json.dumps(ctx, ensure_ascii=False),
+            }
+        )
+
+    buf = io.StringIO()
+    fieldnames = list(flat_rows[0].keys()) if flat_rows else [
+        "id",
+        "bet_id",
+        "fixture_date",
+        "fixture",
+        "decision",
+        "bet_type",
+        "confidence",
+        "status",
+        "pnl_units",
+    ]
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for row in flat_rows:
+        writer.writerow(row)
+
+    filename = "arahus_snapshots.csv"
+    if date_from or date_to:
+        filename = f"arahus_snapshots_{date_from or 'start'}_{date_to or 'end'}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/arahus/decision-log")
+async def arahus_decision_log_export(
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    league: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    format: str = Query(default="json", description="json | csv"),
+):
+    """Export arahus_decision_log (full why-layer including skips)."""
+    fmt = (format or "json").strip().lower()
+    if fmt not in {"json", "csv"}:
+        raise HTTPException(status_code=400, detail="format must be json or csv")
+    rows = await run_in_threadpool(
+        lambda: list_arahus_decision_log(
+            date_from=date_from, date_to=date_to, league=league, status=status
+        )
+    )
+    if fmt == "json":
+        return JSONResponse({"count": len(rows), "rows": rows})
+
+    flat_rows: list[dict[str, Any]] = []
+    for r in rows:
+        flat_rows.append(
+            {
+                "id": r.get("id"),
+                "fixture_id": r.get("fixture_id"),
+                "synced_at": r.get("synced_at"),
+                "match_date": r.get("match_date"),
+                "league": r.get("league"),
+                "home_team": r.get("home_team"),
+                "away_team": r.get("away_team"),
+                "bet_type": r.get("bet_type"),
+                "team_name": r.get("team_name"),
+                "status": r.get("status"),
+                "model_pct": r.get("model_pct"),
+                "confidence": r.get("confidence"),
+                "odds": r.get("odds"),
+                "edge": r.get("edge"),
+                "ev": r.get("ev"),
+                "units": r.get("units"),
+                "xg_total": r.get("xg_total"),
+                "pace_score": r.get("pace_score"),
+                "archetype": r.get("archetype"),
+                "result": r.get("result"),
+                "pnl": r.get("pnl"),
+                "hypothetical_pnl": r.get("hypothetical_pnl"),
+                "resolved_at": r.get("resolved_at"),
+                "signals": json.dumps(r.get("signals") or [], ensure_ascii=False),
+                "calibration_debug": json.dumps(
+                    r.get("calibration_debug") or [], ensure_ascii=False
+                ),
+                "engine_config_snapshot": json.dumps(
+                    r.get("engine_config_snapshot") or {}, ensure_ascii=False
+                ),
+            }
+        )
+    buf = io.StringIO()
+    fieldnames = list(flat_rows[0].keys()) if flat_rows else ["id", "status"]
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for row in flat_rows:
+        writer.writerow(row)
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="arahus_decision_log.csv"'},
+    )
 
 
 @app.post("/api/arahus-bet-log/{bet_id}/resolve")
