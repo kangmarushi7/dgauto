@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Today's Bets · DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=12" />
+    <link rel="stylesheet" href="/static/style.css?v=14" />
     <link rel="stylesheet" href="/static/bets.css?v=1" />
+    <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
     <main class="container">
@@ -46,6 +47,6 @@
     <script>
       window.INITIAL_TODAYS_BETS = {{ payload | tojson }};
     </script>
-    <script src="/static/todays_bets.js?v=1" defer></script>
+    <script src="/static/todays_bets.js?v=2" defer></script>
   </body>
 </html>

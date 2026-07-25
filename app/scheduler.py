@@ -88,11 +88,12 @@ def fixture_refresh_hours(anchor_hour: int, interval_hours: int) -> list[int]:
 def run_fixture_refresh() -> dict[str, Any]:
     """Scheduled pull of DataGaffer fixtures (same as POST /api/refresh)."""
     try:
-        result = refresh_fixtures_sync()
+        result = refresh_fixtures_sync(sync_bets=True)
         logger.info(
-            "Fixture refresh completed: %s matches at %s",
+            "Fixture refresh completed: %s matches at %s (bet_sync inserted=%s)",
             result.get("match_count"),
             result.get("scraped_at"),
+            (result.get("bet_sync") or {}).get("inserted_total"),
         )
         return result
     except Exception as exc:

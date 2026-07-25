@@ -87,11 +87,10 @@ def build_no_strat_picks(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     picks.sort(
         key=lambda x: (
-            x.get("not_win_pct", 0),
-            1.0 - float(x.get("projected_goals") or 0),
-            -float(x.get("win_pct") or 0),
-        ),
-        reverse=True,
+            str(x.get("fixture_date") or "9999"),
+            str(x.get("fixture") or ""),
+            str(x.get("team") or x.get("team_name") or ""),
+        )
     )
     return picks
 

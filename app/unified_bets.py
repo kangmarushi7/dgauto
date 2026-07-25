@@ -294,7 +294,7 @@ def bet_log_entries(
             filtered.append(b)
         settled = filtered
 
-    settled.sort(key=lambda b: (b.get("time") or "", b.get("fixture") or ""), reverse=True)
+    settled.sort(key=lambda b: (b.get("time") or "9999", b.get("fixture") or "", b.get("market") or ""))
 
     net_pnl = round(sum(float(b.get("pnl_inr") or 0) for b in settled), 2)
     if range_start:

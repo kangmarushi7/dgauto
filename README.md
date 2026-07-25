@@ -67,7 +67,7 @@ Open `http://127.0.0.1:8000`.
 
 7. **First-time initialize data**
    - Visit homepage and click **Refresh from DataGaffer**.
-   - Open strategy pages and sync bet logs.
+   - That pull also auto-syncs all strategy bet logs (Main, LM, NO, H2H, +EV, CS, Arahus).
 
 ## Auto-resolve (API-Football)
 
@@ -113,16 +113,18 @@ Manual run (both logs): `POST /api/auto-resolve/all`
 
 ### Scheduled fixture refresh
 
-Fixtures are pulled from DataGaffer automatically every **6 hours**, always including **09:00 IST** (also 03:00, 15:00, 21:00 IST). Configure in `.env`:
+Fixtures are pulled from DataGaffer automatically every **6 hours**, always including **09:00 IST** (also 03:00, 15:00, 21:00 IST). After each successful pull, qualified bets are synced into every strategy log (Main, LM, NO, H2H, +EV, CS, Arahus) — duplicates are skipped. Configure in `.env`:
 
 ```env
 FIXTURE_REFRESH_SCHEDULE_ENABLED=true
 FIXTURE_REFRESH_INTERVAL_HOURS=6
 FIXTURE_REFRESH_ANCHOR_HOUR=9
 FIXTURE_REFRESH_TIMEZONE=Asia/Kolkata
+AUTO_SYNC_BETS_ON_REFRESH=true
+AUTO_SYNC_CS_ON_REFRESH=true
 ```
 
-Manual pull: `POST /api/refresh` (or use the Home page button).
+Manual pull: `POST /api/refresh` (or use the Home page button). Same auto-sync runs there.
 
 External cron (e.g. Railway Cron) if the web process is not always on:
 

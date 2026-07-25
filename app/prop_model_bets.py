@@ -30,7 +30,7 @@ def list_prop_bets() -> list[dict[str, Any]]:
                    b.stat_type, b.line, b.side, b.stake, b.odds, b.result, b.clv_pct, b.created_at
             FROM pm_bets b
             LEFT JOIN pm_players p ON p.id = b.player_id
-            ORDER BY b.created_at DESC, b.id DESC
+            ORDER BY b.created_at ASC, b.id ASC
             """
         )
     except Exception:

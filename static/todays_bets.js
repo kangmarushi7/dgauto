@@ -83,7 +83,7 @@
 
     root.innerHTML = `
       <div class="bets-table-wrap">
-        <table class="bets-table">
+        <table class="bets-table" data-column-filters="1">
           <thead>
             <tr>
               <th scope="col">Time</th>
@@ -99,6 +99,9 @@
           <tbody>${body}</tbody>
         </table>
       </div>`;
+    if (window.TableTools) {
+      window.TableTools.enhanceTable(root.querySelector("table"));
+    }
   }
 
   function escapeHtml(s) {

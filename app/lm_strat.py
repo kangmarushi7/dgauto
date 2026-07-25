@@ -87,11 +87,9 @@ def build_lm_strat_picks(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     picks.sort(
         key=lambda x: (
-            x.get("h2h_over15_pct", 0),
-            x.get("home_form_o15_pct", 0) + x.get("away_form_o15_pct", 0),
-            x.get("home_gf", 0) + x.get("away_gf", 0),
-        ),
-        reverse=True,
+            str(x.get("fixture_date") or "9999"),
+            str(x.get("fixture") or ""),
+        )
     )
     return picks
 

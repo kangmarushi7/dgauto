@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NO Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=12" />
-    <script src="/static/table_tools.js" defer></script>
+    <link rel="stylesheet" href="/static/style.css?v=14" />
+    <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
     <main class="container">
@@ -29,7 +29,7 @@
         </div>
       </section>
 
-      <table>
+      <table data-column-filters="1">
         <thead>
           <tr>
             <th>Fixture Date</th>
@@ -42,7 +42,7 @@
             <th>Units</th>
             <th>Status</th>
             <th>Unit PnL</th>
-            <th>Resolve</th>
+            <th data-no-filter="1">Resolve</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>

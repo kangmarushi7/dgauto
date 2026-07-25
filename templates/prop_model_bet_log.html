@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prop Bet Log — DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=12" />
+    <link rel="stylesheet" href="/static/style.css?v=14" />
     <link rel="stylesheet" href="/static/prop_model.css?v=3" />
+    <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body class="pm-body">
     <div class="pm-shell">
@@ -87,7 +88,7 @@
           <p>Resolve when the game is final</p>
         </div>
         <div class="pm-table-wrap">
-          <table class="pm-table">
+          <table class="pm-table" data-column-filters="1">
             <thead>
               <tr>
                 <th>Created</th>
@@ -99,7 +100,7 @@
                 <th>Odds</th>
                 <th>Stake</th>
                 <th>Status</th>
-                <th>Resolve</th>
+                <th data-no-filter="1">Resolve</th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
@@ -191,6 +192,10 @@
           }
           tr.appendChild(actions);
           rowsEl.appendChild(tr);
+        }
+        if (window.TableTools) {
+          window.TableTools.enhanceTable(rowsEl.closest("table"));
+          window.TableTools.reapply(rowsEl.closest("table"));
         }
       }
 

@@ -7,12 +7,25 @@
     const value = (raw || "").trim();
     if (!value) return { type: "text", value: "" };
 
-    const pct = value.endsWith("%") ? value.slice(0, -1) : value;
-    const num = Number(pct);
-    if (!Number.isNaN(num)) return { type: "number", value: num };
+    const pct = value.endsWith("%") ? value.slice(0, -1).replace(/^\+/, "") : value;
+    const cleaned = pct.replace(/[₹,]/g, "").replace(/^\+/, "");
+    const num = Number(cleaned);
+    if (!Number.isNaN(num) && cleaned !== "") return { type: "number", value: num };
 
+    // ISO / native parse
     const ts = Date.parse(value);
-    if (!Number.isNaN(ts) && value.includes("-")) return { type: "date", value: ts };
+    if (!Number.isNaN(ts) && /[-T:]/.test(value)) return { type: "date", value: ts };
+
+    // IST display format: DD/MM/YYYY HH:MM
+    const m = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (m) {
+      const day = Number(m[1]);
+      const month = Number(m[2]);
+      const year = Number(m[3]);
+      const hour = Number(m[4] || 0);
+      const minute = Number(m[5] || 0);
+      return { type: "date", value: Date.UTC(year, month - 1, day, hour, minute) };
+    }
 
     return { type: "text", value: value.toLowerCase() };
   }
@@ -236,10 +249,6 @@
     const popover = document.createElement("div");
     popover.className = "excel-filter-popover";
     popover.setAttribute("role", "dialog");
-    popover.style.background = "#1e2732";
-    popover.style.border = "1px solid rgba(255,255,255,0.14)";
-    popover.style.borderRadius = "8px";
-    popover.style.boxShadow = "0 12px 40px rgba(0,0,0,0.65)";
     popover.addEventListener("click", (e) => e.stopPropagation());
 
     const title = document.createElement("div");
@@ -286,13 +295,6 @@
 
     const list = document.createElement("div");
     list.className = "excel-filter-list";
-    list.style.display = "flex";
-    list.style.flexDirection = "column";
-    list.style.alignItems = "stretch";
-    list.style.maxHeight = "220px";
-    list.style.overflowY = "auto";
-    list.style.overflowX = "hidden";
-    list.style.background = "#1e2732";
 
     const selectAllLabel = document.createElement("label");
     selectAllLabel.className = "excel-filter-row excel-filter-row--select-all";
@@ -420,6 +422,10 @@
   function buildColumnHeaders(table) {
     const headers = Array.from(table.tHead.rows[0].cells);
     headers.forEach((th, idx) => {
+      if (th.dataset.noFilter === "1") {
+        th.classList.add("th-nofilter");
+        return;
+      }
       if (th.querySelector(".th-inner")) return;
       const label = (th.dataset.filterLabel || th.textContent || "").trim();
       th.dataset.filterLabel = label;

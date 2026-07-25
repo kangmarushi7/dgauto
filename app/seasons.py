@@ -75,6 +75,21 @@ def filter_entries_by_season(entries: list[dict[str, Any]], season_id: int) -> l
     return [e for e in entries if season_for_entry(e) == season_id]
 
 
+def sort_by_fixture_date(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Earliest kickoff first (stable secondary keys for ties)."""
+    return sorted(
+        entries,
+        key=lambda e: (
+            str(e.get("fixture_date") or "9999-12-31"),
+            str(e.get("created_at") or ""),
+            str(e.get("fixture") or ""),
+            str(e.get("bet_type") or ""),
+            str(e.get("team_name") or ""),
+            str(e.get("label") or e.get("market") or e.get("market_label") or ""),
+        ),
+    )
+
+
 def season_context(season_id: int | None = None) -> dict[str, Any]:
     sid = parse_season(season_id)
     meta = SEASONS[sid]

@@ -13,7 +13,7 @@
 
   let state = window.INITIAL_BET_LOG || { entries: [], strategies: [], page: 1, pages: 1 };
   let sortKey = "time";
-  let sortDir = "desc";
+  let sortDir = "asc";
 
   function fmtInr(n) {
     const v = Number(n || 0);
@@ -132,39 +132,33 @@
 
     root.innerHTML = `
       <div class="bets-table-wrap">
-        <table class="bets-table">
+        <table class="bets-table" data-column-filters="1">
           <thead>
             <tr>
-              <th scope="col" data-sort="time" tabindex="0" aria-sort="${sortKey === "time" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}">Date</th>
+              <th scope="col">Date</th>
               <th scope="col">Fixture</th>
               <th scope="col">Strategy</th>
               <th scope="col">Market</th>
               <th scope="col">Stake</th>
               <th scope="col">Odds</th>
               <th scope="col">Result</th>
-              <th scope="col" data-sort="pnl_inr" tabindex="0" aria-sort="${sortKey === "pnl_inr" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}">P&amp;L</th>
+              <th scope="col">P&amp;L</th>
             </tr>
           </thead>
           <tbody>${body}</tbody>
         </table>
       </div>`;
 
-    root.querySelectorAll("th[data-sort]").forEach((th) => {
-      th.addEventListener("click", () => toggleSort(th.dataset.sort));
-      th.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggleSort(th.dataset.sort);
-        }
-      });
-    });
+    if (window.TableTools) {
+      window.TableTools.enhanceTable(root.querySelector("table"));
+    }
   }
 
   function toggleSort(key) {
     if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
     else {
       sortKey = key;
-      sortDir = key === "time" ? "desc" : "desc";
+      sortDir = key === "time" ? "asc" : "desc";
     }
     render();
   }

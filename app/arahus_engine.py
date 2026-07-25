@@ -829,11 +829,9 @@ def build_arahus_slate(state: dict[str, Any]) -> list[dict[str, Any]]:
 
     cards.sort(
         key=lambda c: (
-            c.get("has_picks"),
-            c.get("top_confidence") or 0,
-            (c.get("projections") or {}).get("total_xg") or 0,
-        ),
-        reverse=True,
+            str(c.get("fixture_date") or "9999"),
+            str(c.get("fixture") or ""),
+        )
     )
     return cards
 
@@ -854,7 +852,13 @@ def flatten_picks(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     **pick,
                 }
             )
-    out.sort(key=lambda p: (p.get("confidence") or 0, p.get("edge") or -99), reverse=True)
+    out.sort(
+        key=lambda p: (
+            str(p.get("fixture_date") or "9999"),
+            str(p.get("fixture") or ""),
+            str(p.get("label") or p.get("bet_type") or ""),
+        )
+    )
     return out
 
 

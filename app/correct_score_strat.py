@@ -398,11 +398,9 @@ def build_correct_score_picks(
         picks = [p for p in picks if p.get("qualified")]
     picks.sort(
         key=lambda p: (
-            bool(p.get("qualified")),
-            _num(p.get("ev_units")) or -99,
-            _num(p.get("guaranteed_roi_pct")) or -99,
-        ),
-        reverse=True,
+            str(p.get("fixture_date") or "9999"),
+            str(p.get("fixture") or ""),
+        )
     )
     return picks
 
@@ -516,7 +514,7 @@ def group_into_baskets(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "pnl_units": pnl,
             }
         )
-    baskets.sort(key=lambda b: str(b.get("fixture_date") or ""), reverse=True)
+    baskets.sort(key=lambda b: str(b.get("fixture_date") or "9999"))
     return baskets
 
 

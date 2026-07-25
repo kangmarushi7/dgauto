@@ -86,8 +86,11 @@ def build_plus_ev_picks(state: dict[str, Any]) -> list[dict[str, Any]]:
         all_picks.extend(picks)
 
     all_picks.sort(
-        key=lambda x: (num_or_zero(x.get("ev")), num_or_zero(x.get("edge"))),
-        reverse=True,
+        key=lambda x: (
+            str(x.get("fixture_date") or "9999"),
+            str(x.get("fixture") or ""),
+            str(x.get("market") or ""),
+        )
     )
     return all_picks
 

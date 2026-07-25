@@ -760,3 +760,244 @@ tbody tr:hover td {
     grid-template-columns: 1fr;
   }
 }
+
+/* Excel-style column filters (all bet logs) */
+table.column-filterable th.th-filterable {
+  padding: 8px 6px;
+  vertical-align: bottom;
+}
+
+table.column-filterable .th-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+table.column-filterable .th-label {
+  cursor: pointer;
+  user-select: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+table.column-filterable .th-label.sort-asc::after {
+  content: " \25B2";
+  font-size: 0.55rem;
+  opacity: 0.85;
+}
+
+table.column-filterable .th-label.sort-desc::after {
+  content: " \25BC";
+  font-size: 0.55rem;
+  opacity: 0.85;
+}
+
+table.column-filterable .col-filter-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted, var(--dg-muted));
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.8;
+}
+
+table.column-filterable .col-filter-btn:hover {
+  opacity: 1;
+  color: var(--ink, var(--dg-ink));
+  background: color-mix(in srgb, var(--forest, var(--dg-accent)) 8%, white);
+}
+
+table.column-filterable .col-filter-btn--active {
+  opacity: 1;
+  color: var(--forest, var(--dg-accent));
+  background: var(--dg-accent-soft, #d8efe6);
+}
+
+table.column-filterable .col-filter-icon {
+  display: block;
+}
+
+/* Excel-style column filters — light panel matching DG brand */
+.excel-filter-popover {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(272px, calc(100vw - 16px));
+  max-height: min(380px, 72vh);
+  padding: 0.7rem;
+  background: #ffffff !important;
+  border: 1px solid var(--line, #e2e9de);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(19, 33, 25, 0.14);
+  color: var(--ink, #132119) !important;
+  font-family: var(--dg-font, inherit);
+  font-size: 0.85rem;
+  z-index: 10000;
+}
+
+.excel-filter-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted, #8b978c) !important;
+}
+
+.excel-filter-sort {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.excel-filter-popover button.excel-filter-link {
+  appearance: none !important;
+  display: inline-flex;
+  align-items: center;
+  width: auto !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--forest, #163c2c) !important;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0 !important;
+  margin: 0 !important;
+  cursor: pointer;
+  transform: none !important;
+}
+
+.excel-filter-popover button.excel-filter-link:hover {
+  background: transparent !important;
+  color: var(--forest-deep, #0e271c) !important;
+  text-decoration: underline;
+  transform: none !important;
+}
+
+.excel-filter-search-wrap {
+  display: block;
+}
+
+.excel-filter-popover .excel-filter-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line, #e2e9de);
+  border-radius: 8px;
+  font: inherit;
+  background: #f7fbf8 !important;
+  color: var(--ink, #132119) !important;
+}
+
+.excel-filter-popover .excel-filter-search::placeholder {
+  color: var(--muted, #8b978c);
+}
+
+.excel-filter-popover .excel-filter-list {
+  overflow: auto;
+  flex: 1 1 auto;
+  max-height: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.15rem 0;
+  background: #ffffff !important;
+}
+
+.excel-filter-popover label.excel-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink, #132119) !important;
+  background: transparent;
+}
+
+.excel-filter-popover label.excel-filter-row:hover {
+  background: #eef5f1;
+}
+
+.excel-filter-popover .excel-filter-row--select-all {
+  border-bottom: 1px solid var(--line, #e2e9de);
+  margin-bottom: 0.2rem;
+  padding-bottom: 0.45rem;
+  font-weight: 600;
+}
+
+.excel-filter-popover label.excel-filter-row input[type="checkbox"] {
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--forest, #163c2c);
+  cursor: pointer;
+}
+
+.excel-filter-popover label.excel-filter-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink, #132119) !important;
+  line-height: 1.35;
+}
+
+.excel-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line, #e2e9de);
+}
+
+.excel-filter-popover button.excel-filter-btn {
+  appearance: none !important;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--line, #e2e9de) !important;
+  background: #ffffff !important;
+  color: var(--ink-soft, #4b5c50) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  width: auto !important;
+  transform: none !important;
+}
+
+.excel-filter-popover button.excel-filter-btn:hover {
+  border-color: var(--forest, #163c2c) !important;
+  background: #f7fbf8 !important;
+  color: var(--ink, #132119) !important;
+  transform: none !important;
+}
+
+.excel-filter-popover button.excel-filter-btn--primary {
+  background: var(--forest, #163c2c) !important;
+  border-color: var(--forest, #163c2c) !important;
+  color: #ffffff !important;
+}
+
+.excel-filter-popover button.excel-filter-btn--primary:hover {
+  background: var(--forest-deep, #0e271c) !important;
+  border-color: var(--forest-deep, #0e271c) !important;
+  color: #ffffff !important;
+}

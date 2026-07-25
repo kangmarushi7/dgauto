@@ -3,19 +3,28 @@
 :root {
   --bg: transparent;
   --bg-elevated: #ffffff;
-  --glass: rgba(255, 255, 255, 0.86);
-  --glass-border: #c9d8cf;
-  --text: #152821;
-  --muted: #6b7f75;
-  --accent: #0b6e56;
+  --glass: rgba(255, 255, 255, 0.92);
+  --glass-border: #e2e9de;
+  --text: #132119;
+  --muted: #4b5c50;
+  --accent: #163c2c;
+  --accent-bright: #1f7a50;
   --accent-dim: #d8efe6;
-  --danger: #b42318;
-  --warn: #9a6700;
+  --danger: #b5482f;
+  --warn: #c97a2e;
   --home: #1a5f8a;
   --away: #c2410c;
-  --glow: 0 10px 28px rgba(11, 110, 86, 0.12);
-  --font: "Outfit", "Segoe UI", sans-serif;
-  --mono: "Outfit", "Segoe UI", sans-serif;
+  --glow: 0 10px 28px rgba(22, 60, 44, 0.12);
+  --font: "Inter", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Dark hero terminal */
+  --hero-bg: linear-gradient(145deg, #16302a 0%, #0e1f1a 55%, #0a1612 100%);
+  --hero-text: #f2f5f0;
+  --hero-muted: #c5d0c9;
+  --hero-line: rgba(242, 245, 240, 0.18);
+  --hero-card: rgba(255, 255, 255, 0.08);
+  --hero-card-border: rgba(242, 245, 240, 0.18);
 }
 
 * {
@@ -103,8 +112,110 @@
 .hero-panel {
   padding: 24px;
   margin-bottom: 16px;
-  background: linear-gradient(145deg, rgba(18, 28, 40, 0.95), rgba(10, 14, 20, 0.9));
-  box-shadow: var(--glow);
+  background: var(--hero-bg);
+  border: 1px solid var(--hero-line);
+  box-shadow: 0 18px 40px rgba(8, 20, 16, 0.35);
+  color: var(--hero-text);
+}
+
+.hero-panel .muted,
+.hero-panel .hero-league,
+.hero-panel .hero-vs,
+.hero-panel .hero-meta,
+.hero-panel .signal-label,
+.hero-panel .kpi-label,
+.hero-panel .grade-pill {
+  color: var(--hero-muted);
+}
+
+.hero-panel h1,
+.hero-panel strong,
+.hero-panel .kpi-value,
+.hero-panel .hero-score-big,
+.hero-panel .hero-metric strong {
+  color: var(--hero-text);
+}
+
+.hero-panel .glass-border,
+.hero-panel .signal-chip,
+.hero-panel .kpi-card,
+.hero-panel .hero-metric,
+.hero-panel .signal-orb,
+.hero-panel .confidence-ring-wrap {
+  border-color: var(--hero-card-border);
+}
+
+.hero-panel .signal-chip,
+.hero-panel .kpi-card,
+.hero-panel .hero-metric,
+.hero-panel .signal-orb,
+.hero-panel .confidence-ring-wrap {
+  background: var(--hero-card);
+}
+
+.hero-panel .hero-footer {
+  border-top-color: var(--hero-line);
+}
+
+.hero-panel .hero-eyebrow {
+  color: #2fae72;
+}
+
+.hero-panel .archetype-chip {
+  background: rgba(47, 174, 114, 0.18);
+  color: #9aefc4;
+  border: 1px solid rgba(47, 174, 114, 0.35);
+}
+
+.hero-panel .archetype-tags span {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--hero-muted);
+  border: 1px solid var(--hero-card-border);
+}
+
+.hero-panel .hero-top-bet {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--hero-card-border);
+  color: var(--hero-text);
+}
+
+.hero-panel .hero-top-bet strong {
+  color: #2fae72;
+}
+
+.hero-panel .no-play-inline {
+  background: rgba(181, 72, 47, 0.16);
+  border: 1px solid rgba(181, 72, 47, 0.45);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.hero-panel .no-play-inline p,
+.hero-panel .no-play-banner p {
+  color: #ffe8e0;
+  margin: 0.35rem 0 0;
+  line-height: 1.45;
+}
+
+.hero-panel .no-play-tag {
+  color: #ff8f78;
+}
+
+.hero-panel .grade-D,
+.hero-panel .grade-chip.grade-D strong {
+  color: #ff8f78;
+}
+
+.hero-panel .risk-medium strong,
+.hero-panel .certainty-medium {
+  color: #e0a35a;
+}
+
+.hero-panel .risk-low strong,
+.hero-panel .certainty-high,
+.hero-panel .signal-chip--high strong {
+  color: #2fae72;
 }
 
 .hero-match {
@@ -138,6 +249,7 @@
   margin: 0 0 6px;
   font-size: clamp(1.25rem, 4vw, 1.75rem);
   font-weight: 700;
+  color: inherit;
 }
 
 .hero-vs {
@@ -319,7 +431,7 @@
   margin: 0;
   font-size: 1rem;
   line-height: 1.65;
-  color: #c5d0de;
+  color: var(--text);
 }
 
 .quant-grid {
@@ -342,18 +454,19 @@
 .bet-card {
   padding: 16px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
+  background: #f7fbf8;
   border: 1px solid var(--glass-border);
   transition: transform 0.2s, border-color 0.2s;
+  color: var(--text);
 }
 
 .bet-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: #b7cfc2;
 }
 
 .bet-card--glow {
-  border-color: rgba(0, 214, 143, 0.4);
+  border-color: rgba(31, 122, 80, 0.45);
   box-shadow: var(--glow);
 }
 
@@ -381,25 +494,27 @@
 
 .verdict-strong-value .verdict-badge,
 .verdict-tag.verdict-strong-value {
-  background: rgba(0, 214, 143, 0.2);
-  color: var(--accent);
+  background: #d8efe6;
+  color: #0f5132;
 }
 
 .verdict-value .verdict-badge,
 .verdict-tag.verdict-value {
-  background: rgba(11, 110, 86, 0.08);
-  color: #5eecc4;
+  background: #e4ece7;
+  color: #163c2c;
 }
 
 .verdict-lean .verdict-badge {
-  background: rgba(240, 180, 41, 0.15);
-  color: var(--warn);
+  background: #fcebd8;
+  color: #8a4b12;
 }
 
 .verdict-avoid .verdict-badge,
-.verdict-tag.verdict-avoid {
-  background: rgba(255, 92, 108, 0.15);
-  color: var(--danger);
+.verdict-tag.verdict-avoid,
+.verdict-no-edge .verdict-badge,
+.verdict-tag.verdict-no-edge {
+  background: #fde8e4;
+  color: #8b2414;
 }
 
 .bet-card__grid {
@@ -1167,8 +1282,17 @@
 
 .no-play-inline,
 .no-play-banner {
-  border-color: rgba(255, 92, 108, 0.35);
-  background: rgba(255, 92, 108, 0.08);
+  border: 1px solid rgba(181, 72, 47, 0.35);
+  background: rgba(181, 72, 47, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.no-play-banner p,
+.no-play-inline p {
+  color: var(--text);
+  margin: 0.35rem 0 0;
+  line-height: 1.45;
 }
 
 .no-play-tag,
@@ -1176,10 +1300,7 @@
   color: var(--danger);
   font-family: var(--mono);
   letter-spacing: 0.1em;
-}
-
-.no-play-title {
-  margin: 0 0 8px;
+  font-weight: 700;
 }
 
 .opp-grid {
@@ -1193,7 +1314,8 @@
   padding: 16px;
   border-radius: 12px;
   border: 1px solid var(--glass-border);
-  background: rgba(0, 0, 0, 0.15);
+  background: #f7fbf8;
+  color: var(--text);
 }
 
 .opp-card--lead {
@@ -1250,24 +1372,24 @@
 }
 
 .verdict-strong-value {
-  background: rgba(0, 214, 143, 0.2);
-  color: var(--accent);
+  background: #d8efe6;
+  color: #0f5132;
 }
 
 .verdict-value {
-  background: rgba(59, 158, 255, 0.2);
-  color: #6eb8ff;
+  background: #e4ece7;
+  color: #163c2c;
 }
 
 .verdict-lean {
-  background: rgba(240, 180, 41, 0.15);
-  color: var(--warn);
+  background: #fcebd8;
+  color: #8a4b12;
 }
 
 .verdict-no-edge,
 .verdict-avoid {
-  background: #f0f6f2;
-  color: var(--muted);
+  background: #fde8e4;
+  color: #8b2414;
 }
 
 .ev-highlight {

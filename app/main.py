@@ -87,7 +87,7 @@ from app.prop_model_bets import (
     prop_bet_log_payload,
     resolve_prop_bet,
 )
-from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context
+from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context, sort_by_fixture_date
 
 app = FastAPI(title="DG Bet Automation")
 templates = Jinja2Templates(directory="templates")
@@ -128,7 +128,7 @@ def _bet_log_payload(*, legacy: bool = False, season: int | None = None) -> dict
     entries = load_bet_log()
     scope = "legacy" if legacy else "scenarios"
     scoped = filter_bet_entries(entries, legacy=legacy)
-    season_entries = filter_entries_by_season(scoped, season_id)
+    season_entries = sort_by_fixture_date(filter_entries_by_season(scoped, season_id))
     legacy_season = filter_entries_by_season(filter_bet_entries(entries, legacy=True), season_id)
     return {
         **season_context(season_id),
@@ -146,7 +146,7 @@ def _strat_log_payload(
     enrich_fn=None,
 ) -> dict:
     season_id = _resolve_season(season)
-    filtered = filter_entries_by_season(entries, season_id)
+    filtered = sort_by_fixture_date(filter_entries_by_season(entries, season_id))
     return {
         **season_context(season_id),
         "entries": enrich_fn(filtered) if enrich_fn else filtered,
@@ -156,7 +156,7 @@ def _strat_log_payload(
 
 def _correct_score_log_payload(*, season: int | None = None) -> dict:
     season_id = _resolve_season(season)
-    entries = filter_entries_by_season(load_correct_score_bet_log(), season_id)
+    entries = sort_by_fixture_date(filter_entries_by_season(load_correct_score_bet_log(), season_id))
     return {
         **season_context(season_id),
         "entries": enrich_correct_score_entries(entries),
@@ -167,7 +167,7 @@ def _correct_score_log_payload(*, season: int | None = None) -> dict:
 
 def _arahus_log_payload(*, season: int | None = None) -> dict:
     season_id = _resolve_season(season)
-    entries = filter_entries_by_season(load_arahus_bet_log(), season_id)
+    entries = sort_by_fixture_date(filter_entries_by_season(load_arahus_bet_log(), season_id))
     return {
         **season_context(season_id),
         "entries": enrich_arahus_entries(entries),

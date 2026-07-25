@@ -156,7 +156,8 @@
           fixtures_today: slateData.match_count ?? (slateData.slate || []).length,
           flagged_ev: slateData.flagged_ev ?? 0,
         });
-        status.textContent = "Done";
+        const synced = (data.bet_sync && data.bet_sync.inserted_total) || 0;
+        status.textContent = synced > 0 ? `Done · synced ${synced} new bets` : "Done";
       } catch {
         status.textContent = "Failed: network error";
       } finally {

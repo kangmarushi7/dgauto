@@ -145,8 +145,7 @@ def build_h2h_strat_picks(
 
     picks.sort(
         key=lambda p: (
-            -float(p.get("hit_pct") or 0),
-            -int(p.get("h2h_meetings") or 0),
+            str(p.get("fixture_date") or "9999"),
             str(p.get("fixture") or ""),
             str(p.get("label") or ""),
         )
