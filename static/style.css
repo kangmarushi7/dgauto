@@ -141,6 +141,8 @@ body.quant-body::before {
 .home-nav,
 .betlog-nav,
 .quant-nav {
+  position: relative;
+  z-index: 100;
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem 0.95rem;
@@ -222,17 +224,19 @@ body.quant-body::before {
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--dg-shadow);
-  z-index: 40;
+  z-index: 200;
   display: grid;
   gap: 0.1rem;
   opacity: 0;
   transform: translateY(-4px);
+  pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .app-nav__dropdown.is-open .app-nav__panel {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 .app-nav__panel a {
@@ -355,6 +359,8 @@ body.quant-body::before {
 .pm-hero,
 .home-header,
 .betlog-brand {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 0.75rem;
   margin-bottom: 1.5rem;

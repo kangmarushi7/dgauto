@@ -1,6 +1,6 @@
 {# Shared app nav. Set nav_current before include, e.g. {% set nav_current = "home" %} #}
-{% set strategies_active = nav_current in ['lm-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'prop-model'] %}
-{% set logs_active = nav_current in ['lm-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'prop-bet-log'] %}
+{% set strategies_active = nav_current in ['lm-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'arahus', 'prop-model'] %}
+{% set logs_active = nav_current in ['lm-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'arahus-bet-log', 'prop-bet-log'] %}
 {% set legacy_active = nav_current in ['legacy', 'legacy-scenarios', 'legacy-recommended', 'legacy-bet-log'] %}
 
 <nav class="app-nav" aria-label="Main" data-app-nav>
@@ -31,6 +31,7 @@
         <a href="/h2h-strat" role="menuitem" class="{% if nav_current == 'h2h-strat' %}is-current{% endif %}">Head to Head (H2H)</a>
         <a href="/plus-ev-strat" role="menuitem" class="{% if nav_current == 'plus-ev-strat' %}is-current{% endif %}">+EV Finder</a>
         <a href="/correct-score-strat" role="menuitem" class="{% if nav_current == 'cs-strat' %}is-current{% endif %}">Closing Steam (CS)</a>
+        <a href="/arahus" role="menuitem" class="{% if nav_current == 'arahus' %}is-current{% endif %}">Arahus Engine</a>
         <a href="/prop-model" role="menuitem" class="{% if nav_current == 'prop-model' %}is-current{% endif %}">Prop Model</a>
       </div>
     </div>
@@ -53,6 +54,7 @@
         <a href="/h2h-bet-log" role="menuitem" class="{% if nav_current == 'h2h-bet-log' %}is-current{% endif %}">H2H Log</a>
         <a href="/plus-ev-bet-log" role="menuitem" class="{% if nav_current == 'plus-ev-bet-log' %}is-current{% endif %}">+EV Log</a>
         <a href="/correct-score-bet-log" role="menuitem" class="{% if nav_current == 'cs-bet-log' %}is-current{% endif %}">CS Log</a>
+        <a href="/arahus-bet-log" role="menuitem" class="{% if nav_current == 'arahus-bet-log' %}is-current{% endif %}">Arahus Log</a>
         <a href="/prop-model/bet-log" role="menuitem" class="{% if nav_current == 'prop-bet-log' %}is-current{% endif %}">Prop Log</a>
       </div>
     </div>

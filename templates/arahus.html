@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arahus Engine - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=12" />
+    <link rel="stylesheet" href="/static/arahus.css?v=1" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "arahus" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Arahus Engine</h1>
+      <p class="subtitle">
+        Stacked DataGaffer research engine: sims + ratings + pace/indexes + xG regression +
+        highlights → fixture projections → bets only when multiple signal families agree.
+        Isolated from the other strategy logs.
+      </p>
+
+      <div class="actions">
+        <button id="syncBtn" type="button">Sync Picks to Arahus Log</button>
+        <a class="btn-secondary" href="/arahus-bet-log">Open Arahus Log</a>
+        <span id="syncStatus"></span>
+      </div>
+      <p class="meta">
+        Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong>
+        · Fixtures: <strong>{{ fixture_count }}</strong>
+        · With picks: <strong>{{ qualified_fixtures }}</strong>
+        · Total picks: <strong>{{ pick_count }}</strong>
+      </p>
+
+      <section class="recommendation-card">
+        <h2>How Arahus picks</h2>
+        <p class="hit-note">
+          Confidence blends sim probability, projected xG, Pace/NEC/AGIX, DGRtg gap, regression
+          (luck), and slate highlights. When book odds exist, edge ≥ 2% and EV &gt; 0 are
+          required. Max 3 picks per fixture; conflicting overs/unders are de-duplicated.
+        </p>
+      </section>
+
+      {% if picks|length %}
+      <section class="recommendation-card">
+        <h2>All picks (ranked)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Fixture</th>
+              <th>Market</th>
+              <th>Conf</th>
+              <th>Model</th>
+              <th>Odds</th>
+              <th>Edge</th>
+              <th>EV</th>
+              <th>Signals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in picks %}
+            <tr>
+              <td>
+                {% if p.fixture_id %}
+                <a href="/fixture/{{ p.fixture_id }}">{{ p.fixture }}</a>
+                {% else %}
+                {{ p.fixture }}
+                {% endif %}
+                <div class="arahus-muted">{{ p.archetype or "" }}</div>
+              </td>
+              <td>{{ p.market_label }}</td>
+              <td><strong>{{ "%.0f"|format(p.confidence) }}</strong></td>
+              <td>{{ "%.1f"|format(p.model_pct) }}%</td>
+              <td>{{ p.odds if p.odds is not none else "—" }}</td>
+              <td class="{% if p.edge and p.edge > 0 %}arahus-pos{% endif %}">
+                {% if p.edge is not none %}{{ "%+.1f"|format(p.edge) }}{% else %}—{% endif %}
+              </td>
+              <td class="{% if p.ev and p.ev > 0 %}arahus-pos{% endif %}">
+                {% if p.ev is not none %}{{ "%+.1f"|format(p.ev) }}%{% else %}—{% endif %}
+              </td>
+              <td class="arahus-signals">{{ p.signal_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <h2 class="arahus-section-title">Fixture cards</h2>
+      {% if cards|length == 0 %}
+      <section class="recommendation-card">
+        <p class="hit-note">No fixtures in the current slate. Refresh from DataGaffer first.</p>
+      </section>
+      {% endif %}
+
+      {% for c in cards %}
+      <section class="recommendation-card arahus-card{% if c.has_picks %} is-live{% endif %}">
+        <div class="arahus-head">
+          <div>
+            <h2>
+              {% if c.fixture_id %}
+              <a href="/fixture/{{ c.fixture_id }}">{{ c.fixture }}</a>
+              {% else %}
+              {{ c.fixture }}
+              {% endif %}
+            </h2>
+            <p class="hit-note">
+              <span class="fixture-date">{{ c.fixture_date or "" }}</span>
+              · {{ c.league_name or "—" }}
+              · {{ c.projections.archetype or "—" }}
+            </p>
+          </div>
+          <div class="arahus-chips">
+            {% if c.has_picks %}
+            <span class="app-chip">{{ c.pick_count }} pick{{ "s" if c.pick_count != 1 else "" }}</span>
+            {% else %}
+            <span class="app-chip neutral">No bet</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="arahus-proj">
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">xG</span>
+            <strong>
+              {{ "%.2f"|format(c.projections.home_xg) if c.projections.home_xg is not none else "—" }}
+              –
+              {{ "%.2f"|format(c.projections.away_xg) if c.projections.away_xg is not none else "—" }}
+              <span class="arahus-muted">({{ "%.2f"|format(c.projections.total_xg) if c.projections.total_xg is not none else "—" }})</span>
+            </strong>
+          </div>
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">1X2</span>
+            <strong>
+              {{ "%.0f"|format(c.projections.home_win_pct) if c.projections.home_win_pct is not none else "—" }}
+              /
+              {{ "%.0f"|format(c.projections.draw_pct) if c.projections.draw_pct is not none else "—" }}
+              /
+              {{ "%.0f"|format(c.projections.away_win_pct) if c.projections.away_win_pct is not none else "—" }}
+            </strong>
+          </div>
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">O2.5 / BTTS</span>
+            <strong>
+              {{ "%.0f"|format(c.projections.over_2_5_pct) if c.projections.over_2_5_pct is not none else "—" }}%
+              /
+              {{ "%.0f"|format(c.projections.btts_pct) if c.projections.btts_pct is not none else "—" }}%
+            </strong>
+          </div>
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">Pace / NEC / AGIX</span>
+            <strong>
+              {{ "%.0f"|format(c.projections.pace) if c.projections.pace is not none else "—" }}
+              /
+              {{ "%.0f"|format(c.projections.nec) if c.projections.nec is not none else "—" }}
+              /
+              {{ "%.0f"|format(c.projections.agix) if c.projections.agix is not none else "—" }}
+            </strong>
+          </div>
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">DGRtg gap</span>
+            <strong>
+              {% if c.projections.dgrtg_gap is not none %}{{ "%+.1f"|format(c.projections.dgrtg_gap) }}{% else %}—{% endif %}
+            </strong>
+          </div>
+          <div class="arahus-stat">
+            <span class="arahus-stat-label">Corners / Shots</span>
+            <strong>
+              {{ "%.1f"|format(c.projections.corners) if c.projections.corners is not none else "—" }}
+              /
+              {{ "%.1f"|format(c.projections.shots) if c.projections.shots is not none else "—" }}
+            </strong>
+          </div>
+        </div>
+
+        {% if c.profile.highlights %}
+        <p class="hit-note">Highlights: {{ c.profile.highlights | join(", ") }}</p>
+        {% endif %}
+
+        {% if c.picks %}
+        <table class="arahus-picks">
+          <thead>
+            <tr>
+              <th>Market</th>
+              <th>Conf</th>
+              <th>Model</th>
+              <th>Odds</th>
+              <th>Edge</th>
+              <th>Units</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in c.picks %}
+            <tr>
+              <td>{{ p.market_label }}</td>
+              <td><strong>{{ "%.0f"|format(p.confidence) }}</strong></td>
+              <td>{{ "%.1f"|format(p.model_pct) }}%</td>
+              <td>{{ p.odds if p.odds is not none else "—" }}</td>
+              <td class="{% if p.edge and p.edge > 0 %}arahus-pos{% endif %}">
+                {% if p.edge is not none %}{{ "%+.1f"|format(p.edge) }}{% else %}—{% endif %}
+              </td>
+              <td>{{ p.units }}</td>
+              <td class="arahus-signals">{{ p.signal_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="hit-note">No stacked-signal market cleared the confidence / value bar.</p>
+        {% endif %}
+      </section>
+      {% endfor %}
+    </main>
+
+    <script>
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      function fmtIst(value) {
+        if (!value || value === "Never") return value || "";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? value : IST.format(d).replace(",", "");
+      }
+      scrapedAtEl.textContent = fmtIst(scrapedAtEl.textContent.trim());
+      document.querySelectorAll(".fixture-date").forEach((el) => {
+        const v = (el.textContent || "").trim();
+        if (v) el.textContent = fmtIst(v);
+      });
+
+      document.getElementById("syncBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("syncBtn");
+        const status = document.getElementById("syncStatus");
+        status.textContent = "Syncing…";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/arahus-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+          status.textContent = `Synced ${data.result.inserted} new bets (log total ${data.result.total})`;
+        } catch (err) {
+          status.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      if (window.TableTools) window.TableTools.enhanceAll();
+    </script>
+  </body>
+</html>

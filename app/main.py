@@ -65,6 +65,15 @@ from app.correct_score_strat import (
     resolve_correct_score_bet,
     sync_correct_score_bets,
 )
+from app.arahus_engine import (
+    arahus_dashboard,
+    build_arahus_slate,
+    enrich_arahus_entries,
+    flatten_picks,
+    load_arahus_bet_log,
+    resolve_arahus_bet,
+    sync_arahus_bets,
+)
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
@@ -153,6 +162,16 @@ def _correct_score_log_payload(*, season: int | None = None) -> dict:
         "entries": enrich_correct_score_entries(entries),
         "baskets": group_into_baskets(entries),
         "dashboard": correct_score_dashboard(entries),
+    }
+
+
+def _arahus_log_payload(*, season: int | None = None) -> dict:
+    season_id = _resolve_season(season)
+    entries = filter_entries_by_season(load_arahus_bet_log(), season_id)
+    return {
+        **season_context(season_id),
+        "entries": enrich_arahus_entries(entries),
+        "dashboard": arahus_dashboard(entries),
     }
 
 
@@ -467,6 +486,32 @@ async def correct_score_strat_page(request: Request):
 async def correct_score_bet_log_page(request: Request, season: int | None = Query(default=None)):
     payload = _correct_score_log_payload(season=season)
     return templates.TemplateResponse(request, "cs_bet_log.html", payload)
+
+
+@app.get("/arahus")
+async def arahus_engine_page(request: Request):
+    """Arahus Engine — stacked DG intel projections + fixture picks (isolated)."""
+    data = read_latest()
+    cards = await run_in_threadpool(build_arahus_slate, data)
+    picks = flatten_picks(cards)
+    return templates.TemplateResponse(
+        request,
+        "arahus.html",
+        {
+            "data": data,
+            "cards": cards,
+            "picks": picks,
+            "pick_count": len(picks),
+            "fixture_count": len(cards),
+            "qualified_fixtures": sum(1 for c in cards if c.get("has_picks")),
+        },
+    )
+
+
+@app.get("/arahus-bet-log")
+async def arahus_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    payload = _arahus_log_payload(season=season)
+    return templates.TemplateResponse(request, "arahus_bet_log.html", payload)
 
 
 @app.get("/lm-bet-log")
@@ -847,6 +892,62 @@ async def correct_score_bet_log_resolve(
 async def correct_score_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "cs")
     return JSONResponse({"result": result, **_correct_score_log_payload(season=season)})
+
+
+@app.get("/api/arahus")
+async def arahus_engine_data(picks_only: bool = Query(default=False)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_slate, latest)
+    picks = flatten_picks(cards)
+    if picks_only:
+        return JSONResponse(
+            {
+                "scraped_at": latest.get("scraped_at"),
+                "pick_count": len(picks),
+                "picks": picks,
+            }
+        )
+    return JSONResponse(
+        {
+            "scraped_at": latest.get("scraped_at"),
+            "fixture_count": len(cards),
+            "qualified_fixtures": sum(1 for c in cards if c.get("has_picks")),
+            "pick_count": len(picks),
+            "cards": cards,
+            "picks": picks,
+        }
+    )
+
+
+@app.get("/api/arahus-bet-log")
+async def arahus_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_arahus_log_payload(season=season))
+
+
+@app.post("/api/arahus-bet-log/sync")
+async def arahus_bet_log_sync(season: int | None = Query(default=None)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_slate, latest)
+    picks = flatten_picks(cards)
+    result = await run_in_threadpool(sync_arahus_bets, picks)
+    return JSONResponse({"result": result, **_arahus_log_payload(season=season)})
+
+
+@app.post("/api/arahus-bet-log/{bet_id}/resolve")
+async def arahus_bet_log_resolve(
+    bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    try:
+        updated = resolve_arahus_bet(bet_id, str(payload.get("result", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"updated": updated, **_arahus_log_payload(season=season)})
+
+
+@app.post("/api/arahus-bet-log/auto-resolve")
+async def arahus_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "arahus")
+    return JSONResponse({"result": result, **_arahus_log_payload(season=season)})
 
 
 @app.get("/api/lm-bet-log")

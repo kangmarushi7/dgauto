@@ -1,0 +1,90 @@
+/* Arahus Engine */
+
+.arahus-section-title {
+  margin: 1.5rem 0 0.75rem;
+  font-family: var(--dg-font-display);
+  font-size: 1.25rem;
+}
+
+.arahus-card {
+  margin-bottom: 1rem;
+}
+
+.arahus-card.is-live {
+  border-left: 4px solid var(--dg-accent);
+}
+
+.arahus-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.arahus-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.arahus-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.arahus-proj {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+  margin: 0.85rem 0;
+}
+
+.arahus-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--dg-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.arahus-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dg-muted);
+}
+
+.arahus-stat strong {
+  font-size: 0.98rem;
+  font-family: var(--dg-font-display);
+}
+
+.arahus-muted {
+  color: var(--dg-muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.arahus-pos {
+  color: var(--dg-ok);
+  font-weight: 600;
+}
+
+.arahus-neg {
+  color: var(--dg-danger);
+  font-weight: 600;
+}
+
+.arahus-signals {
+  font-size: 0.82rem;
+  color: var(--dg-ink-soft);
+  max-width: 28rem;
+}
+
+table.arahus-picks {
+  width: 100%;
+  margin-top: 0.5rem;
+}

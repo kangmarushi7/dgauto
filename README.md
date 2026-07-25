@@ -160,6 +160,9 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/correct-score-strat` - priced correct-score baskets for the slate
 - `POST /api/correct-score-bet-log/sync` - log qualified correct-score baskets
 - `POST /api/correct-score-bet-log/auto-resolve` - settle open correct-score legs
+- `GET /arahus` / `GET /api/arahus` - Arahus Engine projections + picks
+- `POST /api/arahus-bet-log/sync` - sync Arahus picks (`log_type = "arahus"`)
+- `POST /api/arahus-bet-log/auto-resolve` - settle open Arahus bets
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
@@ -175,6 +178,25 @@ Min **6** historical meetings and **≥75%** hit rate on Goals (O2.5 / O3.5 / BT
 (O8.5 / O9.5 / O10.5), SOT (O7.5 / O8.5 / O9.5), and Win/Draw (home / draw / away). Each
 qualified market is logged at **1 unit** to `/h2h-bet-log` (`log_type = "h2h"`). Goals and
 1X2 settle from final scores; corners/SOT use API-Football statistics when configured.
+
+## Arahus Engine
+
+`/arahus` is a separate projection engine that blends DataGaffer sims, ratings
+(DGRtg/ORtg/DRtg), pace/NEC/AGIX, xG regression/luck, highlights, and book odds into
+fixture-level projections, then picks markets only when multiple signal families agree.
+
+Picks sync to `/arahus-bet-log` (`log_type = "arahus"`). It does **not** write into Main,
+LM, NO, +EV, H2H, or Correct Score logs. Auto-resolve uses the shared pipeline via
+`ARAHUS_BET_TYPE_MAP` (totals, BTTS, ML, team goals, double chance, corners).
+
+Tuning (optional):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ARAHUS_MIN_CONFIDENCE` | `62` | Minimum stacked confidence to pick |
+| `ARAHUS_MIN_EDGE` | `2.0` | Min model-vs-book edge (%) when odds exist |
+| `ARAHUS_MAX_PICKS` | `3` | Cap picks per fixture |
+| `ARAHUS_ALLOW_NO_ODDS` | `true` | Allow high-confidence picks without book odds |
 
 ## Correct Score Strat (Polymarket)
 

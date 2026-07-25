@@ -158,6 +158,23 @@ LEGACY_BET_TYPE_MAP: dict[str, dict[str, str]] = {
     "h2h_away": {"category": "H2H Strat", "label": "H2H Away Win", "resolve": "h2h_away_win"},
 }
 
+# Arahus Engine bet types (isolated log_type="arahus"; resolve kinds reuse auto-resolve).
+ARAHUS_BET_TYPE_MAP: dict[str, dict[str, str]] = {
+    "arahus_o15": {"category": "Arahus", "label": "Over 1.5", "resolve": "over1.5"},
+    "arahus_o25": {"category": "Arahus", "label": "Over 2.5", "resolve": "over2.5"},
+    "arahus_o35": {"category": "Arahus", "label": "Over 3.5", "resolve": "over3.5"},
+    "arahus_u25": {"category": "Arahus", "label": "Under 2.5", "resolve": "under2.5"},
+    "arahus_btts": {"category": "Arahus", "label": "BTTS Yes", "resolve": "btts"},
+    "arahus_ml": {"category": "Arahus", "label": "Moneyline", "resolve": "moneyline"},
+    "arahus_team_o05": {"category": "Arahus", "label": "Team O0.5", "resolve": "team_o0.5"},
+    "arahus_team_o15": {"category": "Arahus", "label": "Team O1.5", "resolve": "team_o1.5"},
+    "arahus_dc_1x": {"category": "Arahus", "label": "Double Chance 1X", "resolve": "dc_1x"},
+    "arahus_dc_x2": {"category": "Arahus", "label": "Double Chance X2", "resolve": "dc_x2"},
+    "arahus_corners_o85": {"category": "Arahus", "label": "Corners O8.5", "resolve": "h2h_corners"},
+    "arahus_corners_o95": {"category": "Arahus", "label": "Corners O9.5", "resolve": "h2h_corners"},
+    "arahus_corners_o105": {"category": "Arahus", "label": "Corners O10.5", "resolve": "h2h_corners"},
+}
+
 WIN_MIN_60 = 60.0
 WIN_MIN_70 = 70.0
 TOTAL_OVER_35_MIN = 3.5
@@ -195,6 +212,15 @@ def scenario_meta_for_entry(entry: dict[str, Any]) -> dict[str, Any]:
             "label": s["label"],
             "hist_hit_pct": s["hist_hit_pct"],
             "resolve": s["resolve"],
+        }
+    if bt in ARAHUS_BET_TYPE_MAP:
+        meta = ARAHUS_BET_TYPE_MAP[bt]
+        return {
+            "bet_type": bt,
+            "category": meta["category"],
+            "label": meta["label"],
+            "hist_hit_pct": 0.0,
+            "resolve": meta["resolve"],
         }
     legacy = LEGACY_BET_TYPE_MAP.get(bt, {})
     return {
