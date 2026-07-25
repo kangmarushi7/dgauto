@@ -191,6 +191,16 @@ Picks sync to `/arahus-bet-log` (`log_type = "arahus"`). It does **not** write i
 LM, NO, +EV, H2H, or Correct Score logs. Auto-resolve uses the shared pipeline via
 `ARAHUS_BET_TYPE_MAP` (totals, BTTS, ML, team goals, double chance, corners).
 
+**Scenario calibration (log-only):** each pick attaches `_calibrationDebug` from the
+global `daily_accuracy.json` → `scenario_validation` buckets (hit % / sim %,
+`MIN_SAMPLE=50`). This does **not** change confidence, stake, or EV. Sync also
+appends rows to app_state `arahus_calibration_debug`. Review with:
+
+```powershell
+python scripts/review_calibration.py
+python scripts/review_calibration.py --relevant-only
+```
+
 Tuning (optional):
 
 | Variable | Default | Purpose |

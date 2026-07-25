@@ -17,13 +17,20 @@ import uuid
 from typing import Any
 
 from app.bet_log import compute_bet_stats
-from app.db import insert_bets, list_bets, resolve_bet_entry
-from app.dg_feeds import lookup_extra_for_fixture
+from app.db import insert_bets, list_bets, load_state, resolve_bet_entry, save_state
+from app.dg_calibration import (
+    calibrate_fixture,
+    filter_calibration_for_bet,
+    sim_outputs_from_profile,
+)
+from app.dg_feeds import get_scenario_validation, lookup_extra_for_fixture
 from app.fixture_detail import find_raw_fixture
 from app.fixture_math import edge as calc_edge
 from app.fixture_math import expected_value_pct, implied_prob, num
 
 LOG_TYPE = "arahus"
+CALIBRATION_STATE_KEY = "arahus_calibration_debug"
+CALIBRATION_LOG_MAX = 5000
 
 # Tunables (env overrides)
 MIN_CONFIDENCE = float(os.getenv("ARAHUS_MIN_CONFIDENCE", "62"))
@@ -773,10 +780,23 @@ def evaluate_fixture(
     raw: dict[str, Any],
     match: dict[str, Any] | None,
     extra: dict[str, Any],
+    *,
+    scenario_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profile = build_fixture_profile(raw, match, extra)
     projections = project_match(profile)
     picks = pick_markets(profile, projections)
+
+    # Log-only calibration — does NOT alter confidence / units / EV.
+    if scenario_validation is None:
+        scenario_validation = get_scenario_validation()
+    sim_out = sim_outputs_from_profile(profile)
+    fixture_cal = calibrate_fixture(sim_out, scenario_validation)
+    for pick in picks:
+        tagged = filter_calibration_for_bet(fixture_cal, str(pick.get("bet_type") or ""))
+        pick["_calibrationDebug"] = tagged
+        pick["_calibrationRelevant"] = [r for r in tagged if r.get("relevantToPick")]
+
     return {
         "fixture_id": profile["fixture_id"],
         "fixture": profile["fixture"],
@@ -794,6 +814,7 @@ def evaluate_fixture(
             "xg": profile["xg"],
             "volume": profile["volume"],
         },
+        "calibration": fixture_cal,
         "picks": picks,
         "pick_count": len(picks),
         "has_picks": bool(picks),
@@ -808,6 +829,9 @@ def build_arahus_slate(state: dict[str, Any]) -> list[dict[str, Any]]:
     matches_by_id = {
         str(m.get("fixture_id")): m for m in (state.get("matches") or []) if m.get("fixture_id")
     }
+    scenario_validation = indexes.get("scenario_validation") if isinstance(indexes, dict) else None
+    if not isinstance(scenario_validation, dict) or not scenario_validation:
+        scenario_validation = get_scenario_validation()
 
     cards: list[dict[str, Any]] = []
     # Prefer iterating matches (scored slate); fall back to raw fixtures.
@@ -822,7 +846,9 @@ def build_arahus_slate(state: dict[str, Any]) -> list[dict[str, Any]]:
         match = matches_by_id.get(str(fid))
         extra = lookup_extra_for_fixture(raw, indexes, include_player_sims=False) if indexes else {}
         try:
-            card = evaluate_fixture(raw, match, extra)
+            card = evaluate_fixture(
+                raw, match, extra, scenario_validation=scenario_validation
+            )
         except Exception:
             continue
         cards.append(card)
@@ -868,8 +894,26 @@ def load_arahus_bet_log() -> list[dict[str, Any]]:
     return list_bets(LOG_TYPE)
 
 
+def _append_calibration_log(records: list[dict[str, Any]]) -> None:
+    """Persist calibration snapshots for the 2-week review script (app_state)."""
+    if not records:
+        return
+    state = load_state(CALIBRATION_STATE_KEY, {"entries": []})
+    entries = list(state.get("entries") or [])
+    entries.extend(records)
+    if len(entries) > CALIBRATION_LOG_MAX:
+        entries = entries[-CALIBRATION_LOG_MAX:]
+    save_state(CALIBRATION_STATE_KEY, {"entries": entries, "updated_at": _now_iso()})
+
+
+def load_arahus_calibration_log() -> list[dict[str, Any]]:
+    state = load_state(CALIBRATION_STATE_KEY, {"entries": []})
+    return list(state.get("entries") or [])
+
+
 def sync_arahus_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
+    cal_records: list[dict[str, Any]] = []
     for p in picks:
         candidates.append(
             {
@@ -887,7 +931,28 @@ def sync_arahus_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
                 "pnl_units": None,
             }
         )
+        cal_records.append(
+            {
+                "logged_at": _now_iso(),
+                "fixture_id": p.get("fixture_id"),
+                "fixture_date": p.get("fixture_date"),
+                "fixture": p.get("fixture"),
+                "league_name": p.get("league_name"),
+                "bet_type": p.get("bet_type"),
+                "team_name": p.get("team_name") or "",
+                "market_label": p.get("market_label"),
+                "confidence": p.get("confidence"),
+                "model_pct": p.get("model_pct"),
+                "odds": p.get("odds"),
+                "units": p.get("units"),
+                "_calibrationDebug": p.get("_calibrationDebug") or [],
+                "_calibrationRelevant": p.get("_calibrationRelevant") or [],
+            }
+        )
     inserted = insert_bets(LOG_TYPE, candidates)
+    # Always append calibration for this sync batch (even if bet deduped),
+    # so review coverage is not lost when fixtures were already logged.
+    _append_calibration_log(cal_records)
     return {"inserted": inserted, "total": len(load_arahus_bet_log())}
 
 
