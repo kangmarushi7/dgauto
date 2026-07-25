@@ -1,0 +1,1094 @@
+{
+  "home_status": 200,
+  "nav_links": [
+    {
+      "href": "/",
+      "text": "Login"
+    },
+    {
+      "href": "/login",
+      "text": "Subscribe"
+    },
+    {
+      "href": "/signup",
+      "text": "Sim Cards"
+    },
+    {
+      "href": "/signup",
+      "text": "Projections"
+    },
+    {
+      "href": "/signup",
+      "text": "Player Sims"
+    },
+    {
+      "href": "/signup",
+      "text": "Outlooks"
+    },
+    {
+      "href": "/signup",
+      "text": "DG Rating"
+    },
+    {
+      "href": "/football-team-ratings",
+      "text": "DG Index"
+    },
+    {
+      "href": "/indices",
+      "text": "What are DG Ratings & Indexes?"
+    },
+    {
+      "href": "/ratings_info",
+      "text": "Correct Score"
+    },
+    {
+      "href": "/signup",
+      "text": "Pace Score"
+    },
+    {
+      "href": "/signup",
+      "text": "xG Performance"
+    },
+    {
+      "href": "/signup",
+      "text": "Match Dynamics"
+    },
+    {
+      "href": "/signup",
+      "text": "Head2Head"
+    },
+    {
+      "href": "/signup",
+      "text": "Style Grades"
+    },
+    {
+      "href": "/signup",
+      "text": "Trends"
+    },
+    {
+      "href": "/signup",
+      "text": "xG Stats"
+    },
+    {
+      "href": "/signup",
+      "text": "Value Finder"
+    },
+    {
+      "href": "/signup",
+      "text": "Probability"
+    },
+    {
+      "href": "/signup",
+      "text": "Top Edges"
+    },
+    {
+      "href": "/signup",
+      "text": "Parlay Builder"
+    },
+    {
+      "href": "/signup",
+      "text": "Betting Data"
+    },
+    {
+      "href": "/signup",
+      "text": "Stat Plots"
+    },
+    {
+      "href": "/signup",
+      "text": "Team Data"
+    },
+    {
+      "href": "/signup",
+      "text": "Referee Data"
+    },
+    {
+      "href": "/signup",
+      "text": "About"
+    },
+    {
+      "href": "/about_home",
+      "text": "Accuracy"
+    },
+    {
+      "href": "/track_home",
+      "text": "Guide"
+    }
+  ],
+  "discovered_paths": [
+    "/",
+    "/about_home",
+    "/football-team-ratings",
+    "/guide_home",
+    "/indices",
+    "/login",
+    "/ratings_info",
+    "/signup",
+    "/track_home"
+  ],
+  "pages": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 38668,
+      "title": "DataGaffer | Football Match Simulations",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>DataGaffer | Football Match Simulations"
+    },
+    {
+      "path": "/about",
+      "status": 200,
+      "bytes": 12007,
+      "title": "About | DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "About DataGaffer.com",
+        "About DataGaffer",
+        "How Our Models Work",
+        "Privacy Policy",
+        "Subscription & Cancellation Policy",
+        "Affiliate Disclosure"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>About | DataGaffer</title> <!-- \u2705 Favic"
+    },
+    {
+      "path": "/about_home",
+      "status": 200,
+      "bytes": 7990,
+      "title": "About | DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "About",
+        "About DataGaffer",
+        "How Our Models Work",
+        "Privacy Policy",
+        "Subscription & Cancellation Policy",
+        "Affiliate Disclosure"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>About | DataGaffer</title> <!-- \u2705 Favic"
+    },
+    {
+      "path": "/accuracy",
+      "status": 200,
+      "bytes": 11763,
+      "title": "Accuracy Tracker",
+      "json_refs": [
+        "accuracy.json"
+      ],
+      "headings": [
+        "Personal Play History"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/> <title>Accuracy Tracker</title> <!-- \u2705 Favi"
+    },
+    {
+      "path": "/betting_data",
+      "status": 200,
+      "bytes": 20173,
+      "title": "Betting Data | DataGaffer",
+      "json_refs": [
+        "/fixtures.json",
+        "/league_seasons.json",
+        "/team_stats_2026/all_teams.json",
+        "/teams.json"
+      ],
+      "headings": [
+        "Betting Data"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html> <head> <meta charset=\"utf-8\"> <title>Betting Data | DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <meta name=\"the"
+    },
+    {
+      "path": "/corner_zone",
+      "status": 200,
+      "bytes": 41176,
+      "title": "Corner Zone",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [
+        "Corner Zone"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Corner Zone</title> <!-- \u2705 Favicons for"
+    },
+    {
+      "path": "/correct_score",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/dashboard",
+      "status": 200,
+      "bytes": 70001,
+      "title": "DataGaffer",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json",
+        "highlighted_matchups.json",
+        "personal_play.json"
+      ],
+      "headings": [],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>DataGaffer</title> <!-- \u2705 Favicons for "
+    },
+    {
+      "path": "/dg_index",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/dg_rating",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/dg_ratings",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/football-team-ratings",
+      "status": 200,
+      "bytes": 27881,
+      "title": "Football Team Ratings & Power Rankings | DataGaffer",
+      "json_refs": [
+        "dg_meta.json",
+        "dg_ratings.json",
+        "dg_ratings_2025.json"
+      ],
+      "headings": [
+        "Football Team Ratings & Power Rankings",
+        "About DataGaffer Ratings"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" /> <title>Football Team Ratings & Power Rankings"
+    },
+    {
+      "path": "/goal_zone",
+      "status": 200,
+      "bytes": 43218,
+      "title": "Goal Zone",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [
+        "Goal Zone"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Goal Zone</title> <!-- \u2705 Favicons for a"
+    },
+    {
+      "path": "/guide",
+      "status": 200,
+      "bytes": 17135,
+      "title": "How to Read DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "How to Read Guide",
+        "Match Simulations",
+        "Sim Cards",
+        "Projections",
+        "Player Sims",
+        "Outlooks",
+        "DataGaffer Ratings",
+        "DG Rating",
+        "Matchups",
+        "DG Index",
+        "Highlighted Matches",
+        "Highlight Cards"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <title>How to Read DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <!--"
+    },
+    {
+      "path": "/guide_home",
+      "status": 200,
+      "bytes": 17126,
+      "title": "How to Read DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "How to Read Guide",
+        "Match Simulations",
+        "Sim Cards",
+        "Projections",
+        "Player Sims",
+        "Outlooks",
+        "DataGaffer Ratings",
+        "DG Rating",
+        "Matchups",
+        "DG Index",
+        "Highlighted Matches",
+        "Highlight Cards"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <title>How to Read DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <!--"
+    },
+    {
+      "path": "/head2head",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/heat_maps",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/indices",
+      "status": 200,
+      "bytes": 27628,
+      "title": "Football PPDA, Pace & Advanced Team Ratings | DataGaffer Indexes \u2013 DataGaffer",
+      "json_refs": [
+        "dg_meta.json",
+        "dg_ratings.json",
+        "dg_ratings_2025.json"
+      ],
+      "headings": [
+        "DataGaffer Indexes",
+        "Free Football PPDA, Pace & Advanced Team Rankings",
+        "Frequently Asked Questions",
+        "What is PPDA in football?",
+        "What does Pace mean in soccer analytics?",
+        "What is AGIX in football analytics?",
+        "What is NEC in soccer analytics?",
+        "What is TCIX in soccer analytics?",
+        "Are DataGaffer indexes free?"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" /> <title>Football PPDA, Pace & Advanced Team Ra"
+    },
+    {
+      "path": "/login",
+      "status": 200,
+      "bytes": 4419,
+      "title": "Login - DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "Login"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Login - DataGaffer</title> <style> body"
+    },
+    {
+      "path": "/match_dynamics",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/outlooks",
+      "status": 200,
+      "bytes": 361313,
+      "title": "Outlooks",
+      "json_refs": [
+        "/rankings/rankings.json",
+        "all_odds.json",
+        "dg_ratings.json",
+        "dg_ratings_prev.json",
+        "fixtures.json",
+        "h2h_form_combined.json",
+        "head2head.json",
+        "matchup_insights.json",
+        "player_simulations/all_teams.json",
+        "rankings/rankings.json",
+        "team_actuals.json",
+        "team_betting_lookup_2025.json",
+        "team_betting_lookup_2026.json",
+        "team_name_overrides.json",
+        "team_stats_2025/all_teams.json",
+        "team_stats_2026/all_teams.json",
+        "todays_manager_vs_manager.json",
+        "top_picks.json",
+        "xg_regression_last6.json",
+        "xg_stats.json"
+      ],
+      "headings": [
+        "Outlooks",
+        "1: Daily Cheat Sheet",
+        "2: Projected Scores",
+        "3: Corner Outlook (Full Match + FH)",
+        "4: Shot Outlook (Full Match + FH)",
+        "5: SOT Outlook (Full Match + FH)",
+        "6: Win Outlook",
+        "7. First Half Outlook",
+        "8. Value Score",
+        "9. Probability Score",
+        "11. Goal Distribution",
+        "11. Team Projections"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Outlooks</title> <!-- \u2705 Favicons for al"
+    },
+    {
+      "path": "/pace_score",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/parlay_builder",
+      "status": 200,
+      "bytes": 46496,
+      "title": "Parlay Builder",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [
+        "Parlay Builder",
+        "${currentMode.toUpperCase()} ${currentLegs}-Leg Parlay #${i+1}"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/> <title>Parlay Builder</title> <!-- \u2705 Favico"
+    },
+    {
+      "path": "/player_simulations",
+      "status": 200,
+      "bytes": 52831,
+      "title": "Player Simulations",
+      "json_refs": [
+        "_day_after_tomorrow.json",
+        "_tomorrow.json",
+        "_yesterday.json",
+        "fixtures.json",
+        "teams.json"
+      ],
+      "headings": [
+        "Player Simulations"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Player Simulations</title> <!-- \u2705 Favic"
+    },
+    {
+      "path": "/plays",
+      "status": 200,
+      "bytes": 16587,
+      "title": "Top Plays",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json",
+        "top_picks.json"
+      ],
+      "headings": [
+        "Top Edges",
+        "${home}\n  vs\n  ${away}"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/> <title>Top Plays</title> <link rel=\"icon\" t"
+    },
+    {
+      "path": "/probability",
+      "status": 200,
+      "bytes": 46618,
+      "title": "Probability \u2022 DataGaffer",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json",
+        "player_simulations/all_teams.json",
+        "teams.json"
+      ],
+      "headings": [
+        "Probability"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <title>Probability \u2022 DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <!-- F"
+    },
+    {
+      "path": "/projections",
+      "status": 200,
+      "bytes": 78963,
+      "title": "Projections",
+      "json_refs": [
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [
+        "Projections"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <title>Projections</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <!-- \u2705 Favicons for"
+    },
+    {
+      "path": "/ratings",
+      "status": 200,
+      "bytes": 27883,
+      "title": "DataGaffer Ratings",
+      "json_refs": [
+        "dg_meta.json",
+        "dg_ratings.json",
+        "dg_ratings_2025.json"
+      ],
+      "headings": [
+        "DataGaffer Ratings"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" /> <title>DataGaffer Ratings</title> <!-- Favico"
+    },
+    {
+      "path": "/ratings_info",
+      "status": 200,
+      "bytes": 18425,
+      "title": "DataGaffer Ratings Guide",
+      "json_refs": [],
+      "headings": [
+        "Ratings Guide",
+        "Ratings Overview",
+        "Pace Index",
+        "NEC \u2014 Team Attacking Identity",
+        "AGIX \u2014 First Half Aggression",
+        "TCIX \u2014 Total Control Index",
+        "Offensive Efficiency",
+        "Defensive Efficiency",
+        "PPDA \u2014 Pressing Intensity",
+        "Consistency Rating",
+        "Luck Factor",
+        "Team Strength Ratings"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <title>DataGaffer Ratings Guide</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <!"
+    },
+    {
+      "path": "/referee_data",
+      "status": 200,
+      "bytes": 11250,
+      "title": "Referee Data | DataGaffer",
+      "json_refs": [
+        "referee_stats.json"
+      ],
+      "headings": [
+        "Referee Data"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html> <head> <meta charset=\"utf-8\"> <title>Referee Data | DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <meta name=\"the"
+    },
+    {
+      "path": "/signup",
+      "status": 200,
+      "bytes": 13061,
+      "title": "Sign Up - DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "Plans & Pricing",
+        "Sign Up",
+        "Some of What DataGaffer Provides",
+        "What is DataGaffer?",
+        "How DataGaffer Actually Sees Matches",
+        "\ud83d\udcca DataGaffer Ratings",
+        "DataGaffer Indexes",
+        "Leagues DataGaffer Simulates \u26bd\ud83d\udcca"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Sign Up - DataGaffer</title> <style> bo"
+    },
+    {
+      "path": "/sim_cards",
+      "status": 200,
+      "bytes": 39077,
+      "title": "Sim Cards",
+      "json_refs": [
+        "all_odds.json",
+        "fixtures.json",
+        "fixtures_day_after_tomorrow.json",
+        "fixtures_tomorrow.json",
+        "fixtures_yesterday.json"
+      ],
+      "headings": [
+        "Simulation Cards"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/> <title>Sim Cards</title> <!-- \u2705 Favicons fo"
+    },
+    {
+      "path": "/stat_plots",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/style_grades",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/subscribe",
+      "status": 200,
+      "bytes": 5937,
+      "title": "Subscribe - DataGaffer",
+      "json_refs": [],
+      "headings": [
+        "Choose Your Plan",
+        "DataGaffer Monthly",
+        "DataGaffer Yearly"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <title>Subscribe - DataGaffer</title> <style> "
+    },
+    {
+      "path": "/team_actuals",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/team_data",
+      "status": 200,
+      "bytes": 36630,
+      "title": "Team Data | DataGaffer",
+      "json_refs": [
+        "/league_seasons.json",
+        "/team_stats_2026/all_teams.json",
+        "/teams.json"
+      ],
+      "headings": [
+        "Team Data"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html> <head> <meta charset=\"utf-8\"> <title>Team Data | DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <meta name=\"theme-"
+    },
+    {
+      "path": "/top_edges",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/track_home",
+      "status": 200,
+      "bytes": 32507,
+      "title": "Match Accuracy | DataGaffer",
+      "json_refs": [
+        "daily_accuracy.json",
+        "daily_accuracy_2025.json",
+        "league_ids.json"
+      ],
+      "headings": [
+        "Accuracy"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=0.85, user-scalable=no\" /> <title>Match Accuracy |"
+    },
+    {
+      "path": "/trends",
+      "status": 200,
+      "bytes": 57856,
+      "title": "Trends",
+      "json_refs": [
+        "_day_after_tomorrow.json",
+        "_tomorrow.json",
+        "_yesterday.json",
+        "form_trends.json",
+        "player_form.json",
+        "trends_last6.json"
+      ],
+      "headings": [
+        "Trends & Form"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <title>Trends</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <!-- Favicons --> <link "
+    },
+    {
+      "path": "/value_finder",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/xg_performance",
+      "status": 404,
+      "bytes": 3437,
+      "title": "Page not found",
+      "json_refs": [],
+      "headings": [
+        "Page not found"
+      ],
+      "gated_hint": false,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"utf-8\" /> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" /> <title>Page not found</title> <style> :roo"
+    },
+    {
+      "path": "/xg_stats",
+      "status": 200,
+      "bytes": 55902,
+      "title": "Expected Goals | DataGaffer",
+      "json_refs": [
+        "fixtures.json",
+        "team_actuals.json",
+        "xg_stats.json"
+      ],
+      "headings": [
+        "xG Stats",
+        "Actual Goals vs xG",
+        "Actual GA vs xGA"
+      ],
+      "gated_hint": true,
+      "snippet": "<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <title>Expected Goals | DataGaffer</title> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"> <!-"
+    }
+  ],
+  "feeds": [
+    {
+      "path": "/fixtures.json",
+      "status": 200,
+      "bytes": 25242,
+      "type": "list",
+      "len": 4,
+      "keys": [
+        "away",
+        "away_id",
+        "away_logo",
+        "book_odds",
+        "date",
+        "fixture_id",
+        "home",
+        "home_id",
+        "home_logo",
+        "is_neutral",
+        "league",
+        "league_id",
+        "round",
+        "sim_stats",
+        "two_leg_ctx"
+      ]
+    },
+    {
+      "path": "/fixtures_tomorrow.json",
+      "status": 200,
+      "bytes": 189594,
+      "type": "list",
+      "len": 30,
+      "keys": [
+        "away",
+        "away_id",
+        "away_logo",
+        "book_odds",
+        "date",
+        "fixture_id",
+        "home",
+        "home_id",
+        "home_logo",
+        "is_neutral",
+        "league",
+        "league_id",
+        "round",
+        "sim_stats",
+        "two_leg_ctx"
+      ]
+    },
+    {
+      "path": "/fixtures_yesterday.json",
+      "status": 200,
+      "bytes": 37891,
+      "type": "list",
+      "len": 6,
+      "keys": [
+        "away",
+        "away_id",
+        "away_logo",
+        "book_odds",
+        "date",
+        "fixture_id",
+        "home",
+        "home_id",
+        "home_logo",
+        "is_neutral",
+        "league",
+        "league_id",
+        "round",
+        "sim_stats",
+        "two_leg_ctx"
+      ]
+    },
+    {
+      "path": "/teams.json",
+      "status": 200,
+      "bytes": 36337,
+      "type": "list",
+      "len": 358,
+      "keys": [
+        "id",
+        "logo",
+        "name"
+      ]
+    },
+    {
+      "path": "/player_simulations/all_teams.json",
+      "status": 200,
+      "bytes": 72007,
+      "type": "list",
+      "len": 70,
+      "keys": [
+        "+1_assist_pct",
+        "+1_goal_pct",
+        "+1_red_pct",
+        "+1_shot_pct",
+        "+1_sot_pct",
+        "+1_yellow_pct",
+        "+2_shot_pct",
+        "+2_sot_pct",
+        "+3_shot_pct",
+        "+3_sot_pct",
+        "+4_shot_pct",
+        "+5_shot_pct",
+        "appearances",
+        "assists",
+        "assists_per90_simulated",
+        "fouls_committed",
+        "fouls_committed_per90",
+        "fouls_drawn",
+        "fouls_drawn_per90",
+        "goals",
+        "goals_per90_simulated",
+        "minutes",
+        "name",
+        "passes",
+        "passes_per90",
+        "photo",
+        "player_id",
+        "position",
+        "red",
+        "red_per90",
+        "shots",
+        "shots_on_target",
+        "shots_per90",
+        "soa_pct",
+        "sot_per90",
+        "tackles",
+        "tackles_per90",
+        "team_id",
+        "yellow",
+        "yellow_per90"
+      ]
+    },
+    {
+      "path": "/projected_heat_stats.json",
+      "status": 200,
+      "bytes": 57106,
+      "type": "dict",
+      "keys": [
+        "averages",
+        "matches"
+      ]
+    },
+    {
+      "path": "/trends_last6.json",
+      "status": 200,
+      "bytes": 12397,
+      "type": "list",
+      "len": 8,
+      "keys": [
+        "last12",
+        "last6",
+        "logo",
+        "team_id",
+        "team_name"
+      ]
+    },
+    {
+      "path": "/h2h_form_combined.json",
+      "status": 200,
+      "bytes": 5627,
+      "type": "dict",
+      "keys": [
+        "last_updated",
+        "matches"
+      ]
+    },
+    {
+      "path": "/team_actuals.json",
+      "status": 200,
+      "bytes": 7861,
+      "type": "dict",
+      "keys": [
+        "1062",
+        "118",
+        "119",
+        "1198",
+        "120",
+        "121",
+        "124",
+        "126",
+        "127",
+        "128",
+        "130",
+        "131",
+        "132",
+        "133",
+        "134",
+        "135",
+        "136",
+        "147",
+        "1595",
+        "1596",
+        "1597",
+        "1598",
+        "1599",
+        "1600",
+        "1601",
+        "1602",
+        "1603",
+        "1604",
+        "1605",
+        "1606",
+        "1607",
+        "1608",
+        "1609",
+        "1610",
+        "1611",
+        "1612",
+        "1613",
+        "1614",
+        "1615",
+        "1616"
+      ]
+    },
+    {
+      "path": "/head2head.json",
+      "status": 200,
+      "bytes": 119870,
+      "type": "list",
+      "len": 4,
+      "keys": [
+        "away",
+        "away_logo",
+        "fixture_id",
+        "h2h",
+        "home",
+        "home_logo",
+        "manager_h2h",
+        "player_h2h",
+        "versus_grades"
+      ]
+    },
+    {
+      "path": "/top_picks.json",
+      "status": 200,
+      "bytes": 21392,
+      "type": "dict",
+      "keys": [
+        "dayafter",
+        "generated_at",
+        "today",
+        "tomorrow",
+        "yesterday"
+      ]
+    },
+    {
+      "path": "/player_form.json",
+      "status": 200,
+      "bytes": 369,
+      "type": "dict",
+      "keys": [
+        "last12",
+        "last6"
+      ]
+    }
+  ]
+}

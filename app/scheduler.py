@@ -104,9 +104,16 @@ def run_fixture_refresh() -> dict[str, Any]:
 
 
 def run_all_auto_resolves() -> dict[str, Any]:
-    """Resolve open bets across the main (incl. legacy), LM, NO, +EV, and CS logs."""
-    summary: dict[str, Any] = {"main": None, "lm": None, "no": None, "ev": None, "cs": None}
-    for log_type in ("main", "lm", "no", "ev", "cs"):
+    """Resolve open bets across main, LM, NO, +EV, CS, and H2H logs."""
+    summary: dict[str, Any] = {
+        "main": None,
+        "lm": None,
+        "no": None,
+        "ev": None,
+        "cs": None,
+        "h2h": None,
+    }
+    for log_type in ("main", "lm", "no", "ev", "cs", "h2h"):
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:

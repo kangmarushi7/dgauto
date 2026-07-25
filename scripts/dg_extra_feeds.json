@@ -1,0 +1,271 @@
+[
+  {
+    "path": "/sim_cards.json",
+    "status": 200,
+    "bytes": 15559,
+    "type": "list",
+    "len": 23,
+    "sample_keys": [
+      "away",
+      "away_logo",
+      "away_o1_5",
+      "away_win",
+      "btts",
+      "draw",
+      "home",
+      "home_logo",
+      "home_o1_5",
+      "over_2_5",
+      "projected_score",
+      "win"
+    ]
+  },
+  {
+    "path": "/matchup_insights.json",
+    "status": 200,
+    "bytes": 7385,
+    "type": "list",
+    "len": 3,
+    "sample_keys": [
+      "away_analysis",
+      "away_id",
+      "away_logo",
+      "away_matchup_grades",
+      "away_team",
+      "home_analysis",
+      "home_id",
+      "home_logo",
+      "home_matchup_grades",
+      "home_team",
+      "match",
+      "match_grades",
+      "style_tags",
+      "summary"
+    ]
+  },
+  {
+    "path": "/accuracy.json",
+    "status": 200,
+    "bytes": 381,
+    "type": "list",
+    "len": 1,
+    "sample_keys": [
+      "date",
+      "picks"
+    ]
+  },
+  {
+    "path": "/league_seasons.json",
+    "status": 200,
+    "bytes": 119,
+    "type": "dict",
+    "keys": [
+      "103",
+      "113",
+      "16",
+      "253",
+      "257",
+      "624",
+      "71",
+      "98"
+    ]
+  },
+  {
+    "path": "/fixtures_day_after_tomorrow.json",
+    "status": 200,
+    "bytes": 151388,
+    "type": "list",
+    "len": 24,
+    "sample_keys": [
+      "away",
+      "away_id",
+      "away_logo",
+      "book_odds",
+      "date",
+      "fixture_id",
+      "home",
+      "home_id",
+      "home_logo",
+      "is_neutral",
+      "league",
+      "league_id",
+      "round",
+      "sim_stats",
+      "two_leg_ctx"
+    ]
+  },
+  {
+    "path": "/corner_zone.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/projections.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/probability.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/outlooks.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/plays.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/top_edges.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/parlay_builder.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/value_finder.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/style_grades.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/pace_score.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/match_dynamics.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/xg_performance.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/heat_maps.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/referee_data.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/team_data.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/stat_plots.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/betting_data.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/ratings.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/indices.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/xg_stats.json",
+    "status": 200,
+    "bytes": 59203,
+    "type": "dict",
+    "keys": [
+      "2._bundesliga",
+      "australian_a_league",
+      "austrian_bundesliga",
+      "belgian_pro_league",
+      "brazil_serie_a",
+      "bundesliga",
+      "champions_league",
+      "championship",
+      "conference_league",
+      "danish_superliga",
+      "eerste_divisie",
+      "eredivisie",
+      "europa_league",
+      "la_liga",
+      "la_liga_2",
+      "liga_mx",
+      "ligue_1",
+      "major_league_soccer",
+      "norwegian_eliteserien",
+      "premier_league",
+      "primeira_liga",
+      "scottish_premiership",
+      "serie_a",
+      "super_lig",
+      "swedish_allsvenskan",
+      "swiss_super_league"
+    ]
+  },
+  {
+    "path": "/trends.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/correct_score.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/goal_zone.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/dashboard.json",
+    "status": 404,
+    "bytes": 0
+  },
+  {
+    "path": "/team_stats_2026/all_teams.json",
+    "status": 200,
+    "bytes": 621067,
+    "type": "list",
+    "len": 105,
+    "sample_keys": [
+      "away",
+      "betting",
+      "betting_away",
+      "betting_home",
+      "home",
+      "id",
+      "league",
+      "league_id",
+      "logo",
+      "managers",
+      "name"
+    ]
+  },
+  {
+    "path": "/player_simulations.json",
+    "status": 404,
+    "bytes": 0
+  }
+]

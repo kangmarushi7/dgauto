@@ -152,3 +152,48 @@ def fetch_team_recent(team_id: int | str, last: int = 15) -> list[dict[str, Any]
     if not isinstance(rows, list):
         return []
     return [normalize_fixture(row) for row in rows if isinstance(row, dict)]
+
+
+def fetch_fixture_statistics(fixture_id: int | str) -> dict[str, Any]:
+    """Return {corners_total, sot_total, shots_total} from API-Football fixture stats."""
+    payload = _get("fixtures/statistics", {"fixture": fixture_id})
+    throttle()
+    rows = payload.get("response")
+    if not isinstance(rows, list) or not rows:
+        return {}
+
+    corners = 0.0
+    sot = 0.0
+    shots = 0.0
+    found_c = found_sot = found_shots = False
+    for team_block in rows:
+        if not isinstance(team_block, dict):
+            continue
+        for stat in team_block.get("statistics") or []:
+            if not isinstance(stat, dict):
+                continue
+            typ = str(stat.get("type") or "").strip().lower()
+            val = stat.get("value")
+            if val is None:
+                continue
+            try:
+                num = float(str(val).replace("%", "").strip())
+            except (TypeError, ValueError):
+                continue
+            if typ == "corner kicks":
+                corners += num
+                found_c = True
+            elif typ in {"shots on goal", "shots on target"}:
+                sot += num
+                found_sot = True
+            elif typ in {"total shots", "shots total"}:
+                shots += num
+                found_shots = True
+    out: dict[str, Any] = {}
+    if found_c:
+        out["corners_total"] = corners
+    if found_sot:
+        out["sot_total"] = sot
+    if found_shots:
+        out["shots_total"] = shots
+    return out

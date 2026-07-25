@@ -154,7 +154,7 @@ class PriceFixtureTests(unittest.TestCase):
                 home_team="A", away_team="B", kickoff=None, top_scores=[]
             )
         self.assertEqual(result["legs"], [])
-        self.assertIn("not listed", result["error"])
+        self.assertIn("listed", result["error"])
 
 
 class SettlementTests(unittest.TestCase):

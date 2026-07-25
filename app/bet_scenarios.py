@@ -144,6 +144,18 @@ LEGACY_BET_TYPE_MAP: dict[str, dict[str, str]] = {
     "dc_1x": {"category": "+EV", "label": "Double Chance 1X", "resolve": "dc_1x"},
     "dc_x2": {"category": "+EV", "label": "Double Chance X2", "resolve": "dc_x2"},
     "not_win": {"category": "NO Strat", "label": "Team not to win", "resolve": "not_win"},
+    "h2h_o25": {"category": "H2H Strat", "label": "H2H Over 2.5", "resolve": "over2.5"},
+    "h2h_o35": {"category": "H2H Strat", "label": "H2H Over 3.5", "resolve": "over3.5"},
+    "h2h_btts": {"category": "H2H Strat", "label": "H2H BTTS", "resolve": "btts"},
+    "h2h_c_o85": {"category": "H2H Strat", "label": "H2H Corners O8.5", "resolve": "h2h_corners"},
+    "h2h_c_o95": {"category": "H2H Strat", "label": "H2H Corners O9.5", "resolve": "h2h_corners"},
+    "h2h_c_o105": {"category": "H2H Strat", "label": "H2H Corners O10.5", "resolve": "h2h_corners"},
+    "h2h_sot_o75": {"category": "H2H Strat", "label": "H2H SOT O7.5", "resolve": "h2h_sot"},
+    "h2h_sot_o85": {"category": "H2H Strat", "label": "H2H SOT O8.5", "resolve": "h2h_sot"},
+    "h2h_sot_o95": {"category": "H2H Strat", "label": "H2H SOT O9.5", "resolve": "h2h_sot"},
+    "h2h_home": {"category": "H2H Strat", "label": "H2H Home Win", "resolve": "h2h_home_win"},
+    "h2h_draw": {"category": "H2H Strat", "label": "H2H Draw", "resolve": "draw"},
+    "h2h_away": {"category": "H2H Strat", "label": "H2H Away Win", "resolve": "h2h_away_win"},
 }
 
 WIN_MIN_60 = 60.0

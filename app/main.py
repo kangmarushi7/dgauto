@@ -40,6 +40,14 @@ from app.no_strat import (
     resolve_no_bet,
     sync_no_bets,
 )
+from app.h2h_strat import (
+    build_h2h_strat_picks,
+    enrich_h2h_entries,
+    h2h_dashboard,
+    load_h2h_bet_log,
+    resolve_h2h_bet,
+    sync_h2h_bets,
+)
 from app.plus_ev_strat import (
     build_plus_ev_picks,
     enrich_plus_ev_entries,
@@ -339,6 +347,29 @@ async def no_bet_log_page(request: Request, season: int | None = Query(default=N
     return templates.TemplateResponse(request, "no_bet_log.html", payload)
 
 
+@app.get("/h2h-strat")
+async def h2h_strat_page(request: Request):
+    data = read_latest()
+    picks = await run_in_threadpool(build_h2h_strat_picks, data.get("matches", []))
+    return templates.TemplateResponse(
+        request,
+        "h2h_strat.html",
+        {"data": data, "picks": picks},
+    )
+
+
+@app.get("/h2h-bet-log")
+async def h2h_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(
+        load_h2h_bet_log(),
+        h2h_dashboard,
+        season=season_id,
+        enrich_fn=enrich_h2h_entries,
+    )
+    return templates.TemplateResponse(request, "h2h_bet_log.html", payload)
+
+
 @app.get("/plus-ev-strat")
 async def plus_ev_strat_page(request: Request):
     data = read_latest()
@@ -579,6 +610,63 @@ async def no_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Qu
 async def no_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "no")
     data = _strat_log_payload(load_no_bet_log(), no_dashboard, season=season)
+    return JSONResponse({"result": result, **data})
+
+
+@app.get("/api/h2h-strat")
+async def h2h_strat_data():
+    latest = read_latest()
+    picks = await run_in_threadpool(build_h2h_strat_picks, latest.get("matches", []))
+    return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
+
+
+@app.get("/api/h2h-bet-log")
+async def h2h_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(
+        _strat_log_payload(
+            load_h2h_bet_log(),
+            h2h_dashboard,
+            season=season,
+            enrich_fn=enrich_h2h_entries,
+        )
+    )
+
+
+@app.post("/api/h2h-bet-log/sync")
+async def h2h_bet_log_sync(season: int | None = Query(default=None)):
+    latest = read_latest()
+    picks = await run_in_threadpool(build_h2h_strat_picks, latest.get("matches", []))
+    result = sync_h2h_bets(picks)
+    payload = _strat_log_payload(
+        load_h2h_bet_log(),
+        h2h_dashboard,
+        season=season,
+        enrich_fn=enrich_h2h_entries,
+    )
+    return JSONResponse({"result": result, **payload})
+
+
+@app.post("/api/h2h-bet-log/{bet_id}/resolve")
+async def h2h_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Query(default=None)):
+    updated = resolve_h2h_bet(bet_id, str(payload.get("result", "")))
+    data = _strat_log_payload(
+        load_h2h_bet_log(),
+        h2h_dashboard,
+        season=season,
+        enrich_fn=enrich_h2h_entries,
+    )
+    return JSONResponse({"updated": updated, **data})
+
+
+@app.post("/api/h2h-bet-log/auto-resolve")
+async def h2h_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "h2h")
+    data = _strat_log_payload(
+        load_h2h_bet_log(),
+        h2h_dashboard,
+        season=season,
+        enrich_fn=enrich_h2h_entries,
+    )
     return JSONResponse({"result": result, **data})
 
 

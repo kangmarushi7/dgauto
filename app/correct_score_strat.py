@@ -198,7 +198,7 @@ def price_fixture_scorelines(
     """Resolve the Polymarket exact-score book for one fixture's top scorelines."""
     event = find_primary_event(home_team, away_team, kickoff)
     if not event:
-        return {"error": "fixture not listed on Polymarket", "legs": []}
+        return {"error": "not yet listed on Polymarket", "legs": []}
 
     sibling = fetch_exact_score_sibling(str(event["slug"]))
     if not sibling:

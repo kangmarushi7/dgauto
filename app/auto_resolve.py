@@ -9,6 +9,7 @@ from typing import Any
 
 from app.api_football import (
     api_football_configured,
+    fetch_fixture_statistics,
     fetch_fixtures_by_date,
     fetch_head_to_head,
     fetch_team_recent,
@@ -517,11 +518,86 @@ def _resolve_result(entry: dict[str, Any], event: dict[str, Any]) -> str | None:
     if kind == "dc_x2":
         return "won" if away_goals >= home_goals else "lost"
 
+    if kind == "h2h_home_win":
+        return "won" if home_goals > away_goals else "lost"
+
+    if kind == "h2h_away_win":
+        return "won" if away_goals > home_goals else "lost"
+
+    if kind == "h2h_corners":
+        total_c = event.get("corners_total")
+        line = _float_line(entry.get("team_name"))
+        if total_c is None or line is None:
+            return None
+        try:
+            return "won" if float(total_c) > line else "lost"
+        except (TypeError, ValueError):
+            return None
+
+    if kind == "h2h_sot":
+        total_s = event.get("sot_total")
+        line = _float_line(entry.get("team_name"))
+        if total_s is None or line is None:
+            return None
+        try:
+            return "won" if float(total_s) > line else "lost"
+        except (TypeError, ValueError):
+            return None
+
     return None
 
 
-def _settle_sources() -> list[str]:
-    return [s.strip() for s in SETTLE_SOURCE.split(",") if s.strip()]
+def _float_line(value: Any) -> float | None:
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _enrich_event_with_stats(
+    entry: dict[str, Any],
+    event: dict[str, Any],
+    date_cache: dict[str, list[dict[str, Any]]],
+    team_id_cache: dict[str, int | None],
+    h2h_cache: dict[str, list[dict[str, Any]]],
+    team_recent_cache: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Attach corners/SOT totals for H2H prop settlement when API-Football is available."""
+    kind = resolve_kind_for_entry(entry).lower()
+    if kind not in {"h2h_corners", "h2h_sot"}:
+        return event
+    if (kind == "h2h_corners" and event.get("corners_total") is not None) or (
+        kind == "h2h_sot" and event.get("sot_total") is not None
+    ):
+        return event
+    if not api_football_configured():
+        return event
+
+    fid = event.get("fixtureId")
+    # Flashscore mids are not API-Football fixture ids — rematch via API when needed.
+    if event.get("source") == "flashscore" or not isinstance(fid, int):
+        api_event = _find_best_event(
+            entry,
+            date_cache,
+            team_id_cache,
+            h2h_cache,
+            team_recent_cache,
+        )
+        if api_event:
+            fid = api_event.get("fixtureId")
+            if event.get("intHomeScore") is None and api_event.get("intHomeScore") is not None:
+                event = {**event, **api_event}
+
+    if fid is None:
+        return event
+    try:
+        stats = fetch_fixture_statistics(fid)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Fixture statistics fetch failed for %s: %s", fid, exc)
+        return event
+    if stats:
+        event = {**event, **stats}
+    return event
 
 
 def _event_from_flashscore(entry: dict[str, Any]) -> dict[str, Any] | None:
@@ -661,7 +737,15 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             continue
 
         for entry in group_entries:
-            result = _resolve_result(entry, event)
+            enriched = _enrich_event_with_stats(
+                entry,
+                event,
+                date_cache,
+                team_id_cache,
+                h2h_cache,
+                team_recent_cache,
+            )
+            result = _resolve_result(entry, enriched)
             if result not in {"won", "lost", "push"}:
                 skipped_unresolved += 1
                 continue
