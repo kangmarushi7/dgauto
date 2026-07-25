@@ -3,10 +3,20 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from typing import Any
 from urllib.request import urlopen
 
 DG_BASE = "https://www.datagaffer.com"
+
+# Global accuracy / scenario-validation feed (not per-league).
+DAILY_ACCURACY_URL = f"{DG_BASE}/daily_accuracy.json"
+SCENARIO_VALIDATION_TTL_SEC = 6 * 60 * 60  # ~6h — updates daily
+
+_scenario_validation_cache: dict[str, Any] = {
+    "fetched_at": 0.0,
+    "payload": None,
+}
 
 FEED_PATHS = {
     "sim_cards": f"{DG_BASE}/sim_cards.json",
@@ -24,6 +34,7 @@ FEED_PATHS = {
     "xg_stats": f"{DG_BASE}/xg_stats.json",
     "xg_regression": f"{DG_BASE}/xg_regression_last6.json",
     "pace_accuracy": f"{DG_BASE}/pace_accuracy_summary.json",
+    "daily_accuracy": DAILY_ACCURACY_URL,
     "rankings": f"{DG_BASE}/rankings/rankings.json",
     "team_stats": f"{DG_BASE}/team_stats_2026/all_teams.json",
     "team_betting_lookup": f"{DG_BASE}/team_betting_lookup_2026.json",
@@ -35,6 +46,40 @@ FEED_PATHS = {
 def _load_json(url: str) -> Any:
     with urlopen(url, timeout=45) as resp:
         return json.load(resp)
+
+
+def get_scenario_validation(*, force_refresh: bool = False) -> dict[str, Any]:
+    """Return the GLOBAL ``scenario_validation`` object from daily_accuracy.json.
+
+    Cached ~6 hours in-process. Empty dict on fetch failure (callers treat as
+    uncalibrated). Does not use ``leagues`` or ``daily`` keys.
+    """
+    now = time.time()
+    cached = _scenario_validation_cache.get("payload")
+    fetched_at = float(_scenario_validation_cache.get("fetched_at") or 0)
+    if (
+        not force_refresh
+        and isinstance(cached, dict)
+        and (now - fetched_at) < SCENARIO_VALIDATION_TTL_SEC
+    ):
+        return cached
+
+    try:
+        payload = _load_json(DAILY_ACCURACY_URL)
+        sv = payload.get("scenario_validation") if isinstance(payload, dict) else None
+        result = sv if isinstance(sv, dict) else {}
+    except Exception:
+        result = cached if isinstance(cached, dict) else {}
+
+    _scenario_validation_cache["payload"] = result
+    _scenario_validation_cache["fetched_at"] = now
+    return result
+
+
+def clear_scenario_validation_cache() -> None:
+    """Test helper — drop the in-process TTL cache."""
+    _scenario_validation_cache["fetched_at"] = 0.0
+    _scenario_validation_cache["payload"] = None
 
 
 def _norm_team(name: str) -> str:
@@ -370,6 +415,14 @@ def fetch_extra_feeds() -> dict[str, Any]:
 
     rankings = raw.get("rankings") if isinstance(raw.get("rankings"), dict) else {}
 
+    scenario_validation: dict[str, Any] = {}
+    daily_acc = raw.get("daily_accuracy")
+    if isinstance(daily_acc, dict) and isinstance(daily_acc.get("scenario_validation"), dict):
+        scenario_validation = daily_acc["scenario_validation"]
+        # Keep the dedicated TTL cache warm when scrape pulls the feed.
+        _scenario_validation_cache["payload"] = scenario_validation
+        _scenario_validation_cache["fetched_at"] = time.time()
+
     return {
         "raw": raw,
         "sim_cards_by_match": sim_cards_by_match,
@@ -391,6 +444,7 @@ def fetch_extra_feeds() -> dict[str, Any]:
         "highlighted_matchups": highlighted,
         "pace_profiles": pace_profiles,
         "rankings": rankings,
+        "scenario_validation": scenario_validation,
     }
 
 
