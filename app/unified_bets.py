@@ -264,15 +264,50 @@ def todays_bets(*, strategy: str | None = None, now: datetime | None = None) -> 
     return rows
 
 
+def _parse_iso_date(value: str | date | None) -> date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    text = str(value).strip()[:10]
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _format_range_label(
+    *,
+    range_start: date | None,
+    range_end: date | None,
+    net_pnl: float,
+    all_time: bool = False,
+) -> str:
+    pnl = f"{'+' if net_pnl >= 0 else ''}{net_pnl:.0f}₹"
+    if all_time or range_start is None:
+        return f"All time · {pnl}"
+    if range_end is None or range_start == range_end:
+        return f"{range_start.isoformat()} · {pnl}"
+    return f"{range_start.isoformat()} → {range_end.isoformat()} · {pnl}"
+
+
 def bet_log_entries(
     *,
     strategy: str | None = None,
     result: str | None = None,
     days: int | None = 30,
+    date_from: str | date | None = None,
+    date_to: str | date | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    """Settled bets only, newest first, with optional filters + pagination."""
+    """Settled bets only, chronological, with optional filters + pagination.
+
+    Date filter precedence:
+      1. ``date_from`` / ``date_to`` (ISO YYYY-MM-DD) when either is set
+      2. ``days`` rolling window ending today (``days=None`` or ``<=0`` → all time)
+    A single-day view is ``date_from == date_to``.
+    """
     settled = [b for b in collect_unified_bets() if b.get("result") in {"won", "lost", "push"}]
 
     if strategy and strategy in STRATEGY_META:
@@ -280,10 +315,29 @@ def bet_log_entries(
     if result and result.lower() in {"won", "lost", "push"}:
         settled = [b for b in settled if b.get("result") == result.lower()]
 
+    today = _today_ist()
+    from_d = _parse_iso_date(date_from)
+    to_d = _parse_iso_date(date_to)
+    explicit = from_d is not None or to_d is not None
+
     range_start: date | None = None
-    range_end = _today_ist()
-    if days is not None and days > 0:
+    range_end: date | None = today
+    all_time = False
+
+    if explicit:
+        range_start = from_d or to_d
+        range_end = to_d or from_d or today
+        if range_start and range_end and range_start > range_end:
+            range_start, range_end = range_end, range_start
+    elif days is not None and days > 0:
+        range_end = today
         range_start = range_end - timedelta(days=days - 1)
+    else:
+        all_time = True
+        range_start = None
+        range_end = None
+
+    if range_start is not None and range_end is not None:
         filtered: list[dict[str, Any]] = []
         for b in settled:
             d = fixture_date_ist({"fixture_date": b.get("time") or b.get("fixture_date")})
@@ -297,10 +351,12 @@ def bet_log_entries(
     settled.sort(key=lambda b: (b.get("time") or "9999", b.get("fixture") or "", b.get("market") or ""))
 
     net_pnl = round(sum(float(b.get("pnl_inr") or 0) for b in settled), 2)
-    if range_start:
-        range_label = f"Last {days} days · {'+' if net_pnl >= 0 else ''}{net_pnl:.0f}₹"
-    else:
-        range_label = f"All time · {'+' if net_pnl >= 0 else ''}{net_pnl:.0f}₹"
+    range_label = _format_range_label(
+        range_start=range_start,
+        range_end=range_end,
+        net_pnl=net_pnl,
+        all_time=all_time,
+    )
 
     page = max(1, int(page or 1))
     page_size = max(1, min(200, int(page_size or 50)))
@@ -316,7 +372,9 @@ def bet_log_entries(
         "pages": max(1, (total + page_size - 1) // page_size),
         "net_pnl_inr": net_pnl,
         "range_label": range_label,
-        "range_days": days,
+        "range_days": days if not explicit else None,
+        "date_from": range_start.isoformat() if range_start else None,
+        "date_to": range_end.isoformat() if range_end else None,
         "strategies": list(STRATEGY_META.values()),
         "unit_inr": STAKE_UNIT_INR,
     }

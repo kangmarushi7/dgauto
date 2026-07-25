@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bet Log · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=14" />
-    <link rel="stylesheet" href="/static/bets.css?v=1" />
+    <link rel="stylesheet" href="/static/bets.css?v=2" />
     <script src="/static/table_tools.js?v=6" defer></script>
   </head>
   <body>
@@ -36,15 +36,37 @@
             <option value="push">Push</option>
           </select>
         </label>
-        <label>
-          Range
-          <select id="daysFilter" aria-label="Date range">
-            <option value="7">Last 7 days</option>
-            <option value="30" selected>Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="0">All time</option>
-          </select>
-        </label>
+        <div class="bets-range" id="rangePicker">
+          <span class="bets-range__label">Range</span>
+          <button type="button" class="bets-range__trigger" id="rangeTrigger" aria-haspopup="dialog" aria-expanded="false">
+            <span id="rangeTriggerText">Last 30 days</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+              <path fill="currentColor" d="M4.5 2v1H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1.5V2h-1v1h-5V2h-1zm8.5 4H3v7h10V6z"/>
+            </svg>
+          </button>
+          <div class="bets-range__popover" id="rangePopover" hidden role="dialog" aria-label="Pick date range">
+            <div class="bets-range__presets" role="group" aria-label="Quick ranges">
+              <button type="button" data-preset="7">7d</button>
+              <button type="button" data-preset="30">30d</button>
+              <button type="button" data-preset="90">90d</button>
+              <button type="button" data-preset="all">All</button>
+            </div>
+            <div class="bets-cal__nav">
+              <button type="button" class="bets-cal__nav-btn" id="calPrev" aria-label="Previous month">‹</button>
+              <div class="bets-cal__month" id="calMonthLabel"></div>
+              <button type="button" class="bets-cal__nav-btn" id="calNext" aria-label="Next month">›</button>
+            </div>
+            <div class="bets-cal__weekdays" aria-hidden="true">
+              <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+            </div>
+            <div class="bets-cal__grid" id="calGrid" role="grid"></div>
+            <p class="bets-cal__hint" id="calHint">Click a day, or click two days for a range.</p>
+            <div class="bets-cal__actions">
+              <button type="button" class="btn-secondary" id="calClear">Clear</button>
+              <button type="button" id="calApply">Apply</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="betsRoot"></div>
@@ -59,6 +81,6 @@
     <script>
       window.INITIAL_BET_LOG = {{ payload | tojson }};
     </script>
-    <script src="/static/unified_bet_log.js?v=3" defer></script>
+    <script src="/static/unified_bet_log.js?v=4" defer></script>
   </body>
 </html>

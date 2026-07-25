@@ -277,16 +277,27 @@ async def api_bets_today(strategy: str | None = Query(default=None)):
 async def api_bets_log(
     strategy: str | None = Query(default=None),
     result: str | None = Query(default=None),
-    days: int = Query(default=30),
+    days: int | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
     page: int = Query(default=1),
     page_size: int = Query(default=50),
 ):
-    days_arg = None if days <= 0 else days
+    # Prefer explicit calendar bounds; otherwise fall back to rolling days (default 30).
+    has_dates = bool((date_from or "").strip() or (date_to or "").strip())
+    if has_dates:
+        days_arg = None
+    elif days is None:
+        days_arg = 30
+    else:
+        days_arg = None if days <= 0 else days
     payload = await run_in_threadpool(
         bet_log_entries,
         strategy=strategy,
         result=result,
         days=days_arg,
+        date_from=date_from,
+        date_to=date_to,
         page=page,
         page_size=page_size,
     )
@@ -384,14 +395,24 @@ async def bet_log_page(
     request: Request,
     strategy: str | None = Query(default=None),
     result: str | None = Query(default=None),
-    days: int = Query(default=30),
+    days: int | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
 ):
-    days_arg = None if days <= 0 else days
+    has_dates = bool((date_from or "").strip() or (date_to or "").strip())
+    if has_dates:
+        days_arg = None
+    elif days is None:
+        days_arg = 30
+    else:
+        days_arg = None if days <= 0 else days
     payload = await run_in_threadpool(
         bet_log_entries,
         strategy=strategy,
         result=result,
         days=days_arg,
+        date_from=date_from,
+        date_to=date_to,
         page=1,
         page_size=50,
     )
