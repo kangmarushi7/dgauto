@@ -92,6 +92,10 @@
   gap: 0.55rem;
 }
 
+.bets-range__popover[hidden] {
+  display: none !important;
+}
+
 .bets-range__presets {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

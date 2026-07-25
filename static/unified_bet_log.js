@@ -362,7 +362,11 @@
     render();
   }
 
-  function applyDraft() {
+  function applyDraft(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const { from, to } = orderedDraft();
     if (!from) {
       filter = { mode: "all", days: null, from: null, to: null };
