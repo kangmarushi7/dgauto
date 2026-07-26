@@ -77,6 +77,7 @@ from app.arahus_engine import (
     arahus_dashboard,
     build_arahus_slate,
     enrich_arahus_entries,
+    ensure_arahus_decision_log_from_slate,
     export_arahus_snapshots,
     flatten_picks,
     load_arahus_bet_log,
@@ -1118,15 +1119,22 @@ async def arahus_decision_log_export(
     status: str | None = Query(default=None),
     format: str = Query(default="json", description="json | csv"),
 ):
-    """Export arahus_decision_log (full why-layer including skips)."""
+    """Export arahus_decision_log (full why-layer including skips).
+
+    If the table is empty (e.g. bets were synced before decision-log shipped),
+    populate once from the current slate so Download is not an empty CSV.
+    """
     fmt = (format or "json").strip().lower()
     if fmt not in {"json", "csv"}:
         raise HTTPException(status_code=400, detail="format must be json or csv")
-    rows = await run_in_threadpool(
-        lambda: list_arahus_decision_log(
+
+    def _load() -> list[dict[str, Any]]:
+        ensure_arahus_decision_log_from_slate()
+        return list_arahus_decision_log(
             date_from=date_from, date_to=date_to, league=league, status=status
         )
-    )
+
+    rows = await run_in_threadpool(_load)
     if fmt == "json":
         return JSONResponse({"count": len(rows), "rows": rows})
 
@@ -1150,9 +1158,16 @@ async def arahus_decision_log_export(
                 "edge": r.get("edge"),
                 "ev": r.get("ev"),
                 "units": r.get("units"),
+                "xg_home": r.get("xg_home"),
+                "xg_away": r.get("xg_away"),
                 "xg_total": r.get("xg_total"),
                 "pace_score": r.get("pace_score"),
+                "nec_index": r.get("nec_index"),
+                "agix_index": r.get("agix_index"),
+                "dgrtg_gap": r.get("dgrtg_gap"),
                 "archetype": r.get("archetype"),
+                "luck_regression_value": r.get("luck_regression_value"),
+                "engine_version": r.get("engine_version"),
                 "result": r.get("result"),
                 "pnl": r.get("pnl"),
                 "hypothetical_pnl": r.get("hypothetical_pnl"),

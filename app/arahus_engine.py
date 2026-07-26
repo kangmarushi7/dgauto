@@ -1061,6 +1061,24 @@ def build_snapshot_rows_from_cards(cards: list[dict[str, Any]]) -> list[dict[str
     return rows
 
 
+def ensure_arahus_decision_log_from_slate(state: dict[str, Any] | None = None) -> dict[str, Any]:
+    """If decision log is empty, populate from the current slate (one-shot catch-up).
+
+    Used by export so Download is not an empty CSV after upgrades that landed
+    before the first post-feature Sync.
+    """
+    existing = list_arahus_decision_log()
+    if existing:
+        return {"inserted": 0, "total": len(existing), "source": "existing"}
+    from app.db import load_state as _load_state
+
+    latest = state if state is not None else _load_state("latest_data", {"matches": []})
+    cards = build_arahus_slate(latest)
+    rows = build_decision_log_rows_from_cards(cards)
+    inserted = insert_arahus_decision_log(rows)
+    return {"inserted": inserted, "total": len(list_arahus_decision_log()), "source": "slate"}
+
+
 def flatten_picks(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for card in cards:
