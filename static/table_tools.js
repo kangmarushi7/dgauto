@@ -78,6 +78,40 @@
     return value;
   }
 
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function cellDateIso(raw) {
+    const value = String(raw || "").trim();
+    if (!value || value === "—") return null;
+    const dmy = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dmy) return `${dmy[3]}-${pad2(dmy[2])}-${pad2(dmy[1])}`;
+    const iso = value.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    return null;
+  }
+
+  function isDateColumn(table, colIndex) {
+    const th = table.tHead?.rows?.[0]?.cells?.[colIndex];
+    if (!th) return false;
+    const forced = String(th.dataset.filterType || "").toLowerCase();
+    if (forced === "date") return true;
+    if (forced === "list" || forced === "text" || forced === "number") return false;
+    const label = (th.dataset.filterLabel || th.textContent || "").toLowerCase();
+    if (/\bdate\b/.test(label)) return true;
+    const values = collectColumnValues(table, colIndex).filter(Boolean);
+    if (values.length < 2) return false;
+    const dated = values.filter((v) => cellDateIso(v));
+    return dated.length >= Math.ceil(values.length * 0.7);
+  }
+
+  function orderedDateRange(from, to) {
+    if (!from) return { from: null, to: null };
+    if (!to) return { from, to: from };
+    return from <= to ? { from, to } : { from: to, to: from };
+  }
+
   function sortFilterValues(values, colIndex, table) {
     const statusLike = values.every((v) => {
       const k = v.toLowerCase();
@@ -123,8 +157,9 @@
 
   function applyColumnFilters(table) {
     const state = table._tableTools;
-    if (!state?.columnFilters) return;
-    const filters = state.columnFilters;
+    if (!state) return;
+    const filters = state.columnFilters || {};
+    const dateFilters = state.columnDateFilters || {};
     for (const row of dataRows(table)) {
       let show = true;
       for (const [colKey, selectedSet] of Object.entries(filters)) {
@@ -136,6 +171,18 @@
         if (!selectedSet.has(cellVal)) {
           show = false;
           break;
+        }
+      }
+      if (show) {
+        for (const [colKey, range] of Object.entries(dateFilters)) {
+          if (!range || !range.from) continue;
+          const colIndex = parseInt(colKey, 10);
+          const { from, to } = orderedDateRange(range.from, range.to || range.from);
+          const cellIso = cellDateIso(getFilterValue(row, colIndex, table));
+          if (!cellIso || cellIso < from || cellIso > to) {
+            show = false;
+            break;
+          }
         }
       }
       row.style.display = show ? "" : "none";
@@ -190,6 +237,8 @@
   }
 
   function isColumnFilterActive(table, colIndex) {
+    const dateRange = table._tableTools?.columnDateFilters?.[colIndex];
+    if (dateRange?.from) return true;
     const set = table._tableTools?.columnFilters?.[colIndex];
     if (!set || set.size === 0) return false;
     const allValues = collectColumnValues(table, colIndex);
@@ -234,7 +283,259 @@
     menu.style.top = `${top}px`;
   }
 
+  function openDateFilterMenu(table, colIndex, btn) {
+    closeFilterMenu(table);
+    const state = table._tableTools;
+    const th = table.tHead?.rows?.[0]?.cells?.[colIndex];
+    const colLabel =
+      th?.dataset.filterLabel || th?.querySelector(".th-label")?.textContent || "Date";
+    const existing = state.columnDateFilters[colIndex] || null;
+
+    let draftFrom = existing?.from || null;
+    let draftTo = existing?.to || existing?.from || null;
+    let pickingEnd = false;
+    let viewYear;
+    let viewMonth;
+
+    function initViewMonth() {
+      const seed = draftTo || draftFrom;
+      if (seed) {
+        const [y, m] = seed.split("-").map(Number);
+        viewYear = y;
+        viewMonth = m - 1;
+      } else {
+        const now = new Date();
+        viewYear = now.getFullYear();
+        viewMonth = now.getMonth();
+      }
+    }
+
+    initViewMonth();
+
+    const popover = document.createElement("div");
+    popover.className = "excel-filter-popover excel-filter-popover--date";
+    popover.setAttribute("role", "dialog");
+    popover.addEventListener("click", (e) => e.stopPropagation());
+
+    const title = document.createElement("div");
+    title.className = "excel-filter-title";
+    title.textContent = `Filter: ${colLabel}`;
+    popover.appendChild(title);
+
+    const sortRow = document.createElement("div");
+    sortRow.className = "excel-filter-sort";
+    const sortAsc = document.createElement("button");
+    sortAsc.type = "button";
+    sortAsc.className = "excel-filter-link";
+    sortAsc.textContent = "Sort oldest → newest";
+    const sortDesc = document.createElement("button");
+    sortDesc.type = "button";
+    sortDesc.className = "excel-filter-link";
+    sortDesc.textContent = "Sort newest → oldest";
+    sortAsc.addEventListener("click", () => {
+      state.sortIndex = colIndex;
+      state.direction = "asc";
+      applySort(table);
+      applyFilter(table);
+      markHeaderSort(table);
+    });
+    sortDesc.addEventListener("click", () => {
+      state.sortIndex = colIndex;
+      state.direction = "desc";
+      applySort(table);
+      applyFilter(table);
+      markHeaderSort(table);
+    });
+    sortRow.appendChild(sortAsc);
+    sortRow.appendChild(sortDesc);
+    popover.appendChild(sortRow);
+
+    const nav = document.createElement("div");
+    nav.className = "excel-cal__nav";
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "excel-cal__nav-btn";
+    prevBtn.setAttribute("aria-label", "Previous month");
+    prevBtn.textContent = "‹";
+    const monthLabel = document.createElement("div");
+    monthLabel.className = "excel-cal__month";
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "excel-cal__nav-btn";
+    nextBtn.setAttribute("aria-label", "Next month");
+    nextBtn.textContent = "›";
+    nav.appendChild(prevBtn);
+    nav.appendChild(monthLabel);
+    nav.appendChild(nextBtn);
+    popover.appendChild(nav);
+
+    const weekdays = document.createElement("div");
+    weekdays.className = "excel-cal__weekdays";
+    weekdays.setAttribute("aria-hidden", "true");
+    for (const day of ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]) {
+      const span = document.createElement("span");
+      span.textContent = day;
+      weekdays.appendChild(span);
+    }
+    popover.appendChild(weekdays);
+
+    const grid = document.createElement("div");
+    grid.className = "excel-cal__grid";
+    grid.setAttribute("role", "grid");
+    popover.appendChild(grid);
+
+    const hint = document.createElement("p");
+    hint.className = "excel-cal__hint";
+    popover.appendChild(hint);
+
+    function updateHint() {
+      const { from, to } = orderedDateRange(draftFrom, draftTo);
+      if (!from) {
+        hint.textContent = "Click a day, or click two days for a range.";
+      } else if (pickingEnd && from === to) {
+        hint.textContent = `Selected ${from}. Click another day to extend, or Apply.`;
+      } else if (from === to) {
+        hint.textContent = `Single day: ${from}`;
+      } else {
+        hint.textContent = `Range: ${from} → ${to}`;
+      }
+    }
+
+    function renderCalendar() {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ];
+      monthLabel.textContent = `${monthNames[viewMonth]} ${viewYear}`;
+      const first = new Date(viewYear, viewMonth, 1);
+      const startPad = (first.getDay() + 6) % 7;
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const prevDays = new Date(viewYear, viewMonth, 0).getDate();
+      const { from, to } = orderedDateRange(draftFrom, draftTo);
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+      grid.innerHTML = "";
+
+      for (let i = 0; i < 42; i++) {
+        let y = viewYear;
+        let m = viewMonth;
+        let day;
+        let outside = false;
+        if (i < startPad) {
+          day = prevDays - startPad + i + 1;
+          m -= 1;
+          if (m < 0) {
+            m = 11;
+            y -= 1;
+          }
+          outside = true;
+        } else if (i >= startPad + daysInMonth) {
+          day = i - startPad - daysInMonth + 1;
+          m += 1;
+          if (m > 11) {
+            m = 0;
+            y += 1;
+          }
+          outside = true;
+        } else {
+          day = i - startPad + 1;
+        }
+        const iso = `${y}-${pad2(m + 1)}-${pad2(day)}`;
+        const btnDay = document.createElement("button");
+        btnDay.type = "button";
+        btnDay.className = "excel-cal__day";
+        btnDay.dataset.date = iso;
+        btnDay.textContent = String(day);
+        if (outside) {
+          btnDay.classList.add("is-outside");
+          btnDay.tabIndex = -1;
+        }
+        if (iso === todayIso) btnDay.classList.add("is-today");
+        if (from && to && iso >= from && iso <= to) btnDay.classList.add("is-in-range");
+        if (from && iso === from) btnDay.classList.add("is-range-start", "is-selected");
+        if (to && iso === to) btnDay.classList.add("is-range-end", "is-selected");
+        btnDay.addEventListener("click", () => {
+          if (!draftFrom || !pickingEnd) {
+            draftFrom = iso;
+            draftTo = iso;
+            pickingEnd = true;
+          } else {
+            draftTo = iso;
+            pickingEnd = false;
+          }
+          renderCalendar();
+        });
+        grid.appendChild(btnDay);
+      }
+      updateHint();
+    }
+
+    prevBtn.addEventListener("click", () => {
+      viewMonth -= 1;
+      if (viewMonth < 0) {
+        viewMonth = 11;
+        viewYear -= 1;
+      }
+      renderCalendar();
+    });
+    nextBtn.addEventListener("click", () => {
+      viewMonth += 1;
+      if (viewMonth > 11) {
+        viewMonth = 0;
+        viewYear += 1;
+      }
+      renderCalendar();
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "excel-filter-actions";
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "excel-filter-btn";
+    clearBtn.textContent = "Clear";
+    clearBtn.addEventListener("click", () => {
+      delete state.columnDateFilters[colIndex];
+      draftFrom = null;
+      draftTo = null;
+      pickingEnd = false;
+      applyFilter(table);
+      updateFilterButtonState(table, colIndex);
+      renderCalendar();
+    });
+    const applyBtn = document.createElement("button");
+    applyBtn.type = "button";
+    applyBtn.className = "excel-filter-btn excel-filter-btn--primary";
+    applyBtn.textContent = "Apply";
+    applyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const { from, to } = orderedDateRange(draftFrom, draftTo);
+      if (!from) delete state.columnDateFilters[colIndex];
+      else state.columnDateFilters[colIndex] = { from, to };
+      delete state.columnFilters[colIndex];
+      applyFilter(table);
+      updateFilterButtonState(table, colIndex);
+      closeFilterMenu(table);
+    });
+    actions.appendChild(clearBtn);
+    actions.appendChild(applyBtn);
+    popover.appendChild(actions);
+
+    positionPopover(popover, btn);
+    state.openMenu = popover;
+    renderCalendar();
+
+    state.menuOutsideHandler = (e) => {
+      if (popover.contains(e.target) || btn.contains(e.target)) return;
+      closeFilterMenu(table);
+    };
+    setTimeout(() => document.addEventListener("click", state.menuOutsideHandler), 0);
+  }
+
   function openFilterMenu(table, colIndex, btn) {
+    if (isDateColumn(table, colIndex)) {
+      openDateFilterMenu(table, colIndex, btn);
+      return;
+    }
     closeFilterMenu(table);
     const state = table._tableTools;
     const th = table.tHead?.rows?.[0]?.cells?.[colIndex];
@@ -470,6 +771,7 @@
       sortIndex: -1,
       direction: "asc",
       columnFilters: {},
+      columnDateFilters: {},
       openMenu: null,
       openCol: -1,
       menuOutsideHandler: null,

@@ -1002,6 +1002,125 @@ table.column-filterable .col-filter-icon {
   color: #ffffff !important;
 }
 
+.excel-filter-popover--date {
+  width: min(292px, calc(100vw - 16px));
+  max-height: none;
+}
+
+.excel-cal__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.excel-cal__month {
+  font-weight: 650;
+  font-size: 0.9rem;
+  color: var(--ink, #132119);
+}
+
+.excel-cal__nav-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0 !important;
+  border: 1px solid var(--line, #e2e9de) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--ink, #132119) !important;
+  font-size: 1.15rem !important;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.excel-cal__nav-btn:hover {
+  background: #f7fbf8 !important;
+  border-color: var(--forest, #163c2c) !important;
+  transform: none !important;
+}
+
+.excel-cal__weekdays,
+.excel-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+}
+
+.excel-cal__weekdays span {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #8b978c);
+  padding: 0.2rem 0;
+}
+
+.excel-cal__day {
+  appearance: none;
+  aspect-ratio: 1;
+  border: none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ink, #132119) !important;
+  font: inherit;
+  font-size: 0.82rem !important;
+  font-weight: 550;
+  cursor: pointer;
+  box-shadow: none !important;
+  padding: 0 !important;
+  transform: none !important;
+  min-width: 0;
+}
+
+.excel-cal__day:hover:not(:disabled) {
+  background: #eef5f1 !important;
+  transform: none !important;
+}
+
+.excel-cal__day.is-outside {
+  color: #b7c0b8 !important;
+}
+
+.excel-cal__day.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--forest, #163c2c) !important;
+}
+
+.excel-cal__day.is-in-range {
+  background: color-mix(in srgb, var(--forest, #163c2c) 12%, white) !important;
+  border-radius: 0 !important;
+}
+
+.excel-cal__day.is-range-start,
+.excel-cal__day.is-range-end,
+.excel-cal__day.is-selected {
+  background: var(--forest, #163c2c) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+}
+
+.excel-cal__day.is-range-start.is-in-range {
+  border-radius: 8px 0 0 8px !important;
+}
+
+.excel-cal__day.is-range-end.is-in-range {
+  border-radius: 0 8px 8px 0 !important;
+}
+
+.excel-cal__day.is-range-start.is-range-end,
+.excel-cal__day.is-selected {
+  border-radius: 8px !important;
+}
+
+.excel-cal__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted, #8b978c);
+  line-height: 1.35;
+}
+
 /* Compact resolve control for bet-log tables */
 select.resolve-select {
   appearance: auto;

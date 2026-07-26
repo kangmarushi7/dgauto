@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 MAX_RUNTIME_SEC = int(os.getenv("AUTO_RESOLVE_MAX_RUNTIME_SEC", "240"))
 SETTLE_SOURCE = (os.getenv("BET_SETTLE_SOURCE") or "flashscore,api_football").strip().lower()
 
+
+def _settle_sources() -> list[str]:
+    """Return configured settlement sources in priority order."""
+    sources = [source.strip() for source in SETTLE_SOURCE.split(",") if source.strip()]
+    return sources or ["flashscore", "api_football"]
+
 # Generic club suffixes / tokens ignored when comparing core team names.
 _TEAM_STOPWORDS = frozenset(
     {
