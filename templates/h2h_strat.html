@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>H2H Strat - DG Bet Automation</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
-    <script src="/static/table_tools.js" defer></script>
+    <script src="/static/table_tools.js?v=7" defer></script>
   </head>
   <body>
     <main class="container">
@@ -28,7 +28,7 @@
       <section class="recommendation-card">
         <h2>Qualified H2H Bets</h2>
         <p class="hit-note">Total qualified: <strong>{{ picks|length }}</strong></p>
-        <table>
+        <table data-column-filters="1">
           <thead>
             <tr>
               <th>Date</th>
