@@ -65,6 +65,11 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     from app.h2h_strat import build_h2h_strat_picks, sync_h2h_bets
     from app.plus_ev_strat import build_plus_ev_picks, sync_plus_ev_bets
     from app.arahus_engine import build_arahus_slate, flatten_picks, sync_arahus_bets
+    from app.arahus_v2_engine import (
+        build_arahus_v2_slate,
+        flatten_picks as flatten_v2_picks,
+        sync_arahus_v2_bets,
+    )
 
     summary["main"] = _safe("main", lambda: sync_recommended_bets(matches))
     summary["lm"] = _safe("lm", lambda: sync_lm_bets(build_lm_strat_picks(matches)))
@@ -80,6 +85,12 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     summary["arahus"] = _safe(
         "arahus",
         lambda: sync_arahus_bets(flatten_picks(build_arahus_slate(state))),
+    )
+    summary["arahus_v2"] = _safe(
+        "arahus_v2",
+        lambda: (
+            lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
+        )(build_arahus_v2_slate(state)),
     )
 
     if AUTO_SYNC_CS:
@@ -146,6 +157,11 @@ def resync_todays_bets(
     from app.h2h_strat import build_h2h_strat_picks, sync_h2h_bets
     from app.plus_ev_strat import build_plus_ev_picks, sync_plus_ev_bets
     from app.arahus_engine import build_arahus_slate, flatten_picks, sync_arahus_bets
+    from app.arahus_v2_engine import (
+        build_arahus_v2_slate,
+        flatten_picks as flatten_v2_picks,
+        sync_arahus_v2_bets,
+    )
 
     jobs: dict[str, Callable[[], dict[str, Any]]] = {
         "main": lambda: sync_recommended_bets(matches),
@@ -154,6 +170,9 @@ def resync_todays_bets(
         "h2h": lambda: sync_h2h_bets(build_h2h_strat_picks(matches), fetch_pm_odds=True),
         "ev": lambda: sync_plus_ev_bets(build_plus_ev_picks(state)),
         "arahus": lambda: sync_arahus_bets(flatten_picks(build_arahus_slate(state))),
+        "arahus_v2": lambda: (
+            lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
+        )(build_arahus_v2_slate(state)),
     }
 
     from app.correct_score_strat import build_correct_score_picks, sync_correct_score_bets
@@ -172,6 +191,7 @@ def resync_todays_bets(
         "h2h": "h2h",
         "ev": "ev",
         "arahus": "arahus",
+        "arahus_v2": "arahus_v2",
         "cs": "cs",
     }
     requested = str(strategy or "").strip().lower()

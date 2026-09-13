@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arahus v2 Bet Log - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=16" />
+    <link rel="stylesheet" href="/static/arahus.css?v=1" />
+    <script src="/static/table_tools.js?v=7" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "arahus-v2-bet-log" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Arahus v2 Bet Log</h1>
+      <p class="subtitle">
+        Live book for frozen v2A Over 2.5 picks (flat 1u). Does not mix with Arahus v1 or other
+        strategy logs. Full candidate report (skips + eligibility) is a separate export.
+      </p>
+      {% include "includes/season_switch.html" %}
+
+      <div class="actions">
+        <button id="syncBtn">Sync v2A Picks</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="arahus_v2">Resync today</button>
+        <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        <a class="btn-secondary" href="/api/arahus-v2/report?format=csv">Report CSV</a>
+        <a class="btn-secondary" href="/api/arahus-v2/report?format=json">Report JSON</a>
+        <a class="btn-secondary" href="/api/arahus-v2/report?format=csv&amp;eligible_v2A=true">v2A only CSV</a>
+        <a class="btn-secondary" href="/api/arahus-v2/report?format=csv&amp;eligible_v2B=true">v2B only CSV</a>
+        <a class="btn-secondary" href="/arahus-v2">Arahus v2 Engine</a>
+        <span id="status"></span>
+      </div>
+
+      <section class="recommendations">
+        <div class="recommendation-card">
+          <h2>Arahus v2 Performance (live book)</h2>
+          <p class="hit-note" id="stats"></p>
+          <p class="hit-note" id="reportStats"></p>
+          <div id="byType" class="stats-type-grid"></div>
+        </div>
+      </section>
+
+      <table data-column-filters="1">
+        <thead>
+          <tr>
+            <th>Fixture Date</th>
+            <th>Fixture</th>
+            <th>League</th>
+            <th>Market</th>
+            <th>Conf</th>
+            <th>Odds</th>
+            <th>Units</th>
+            <th>Status</th>
+            <th>Unit PnL</th>
+            <th data-no-filter="1">Resolve</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </main>
+
+    <script>
+      const LOG_SEASON = {{ season }};
+      function apiUrl(path) {
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}season=${LOG_SEASON}`;
+      }
+
+      const statusEl = document.getElementById("status");
+      const rowsEl = document.getElementById("rows");
+      const statsEl = document.getElementById("stats");
+      const reportStatsEl = document.getElementById("reportStats");
+      const byTypeEl = document.getElementById("byType");
+      const syncBtn = document.getElementById("syncBtn");
+      const autoResolveBtn = document.getElementById("autoResolveBtn");
+
+      const IST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function fmtDate(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? value : IST.format(d).replace(",", "");
+      }
+
+      function td(text, className) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        if (className) el.className = className;
+        return el;
+      }
+
+      function renderStats(d) {
+        const avgOdds = d.avg_odds != null ? d.avg_odds : "—";
+        statsEl.textContent =
+          `Placed: ${d.placed} | Won: ${d.won} | Lost: ${d.lost} | Push: ${d.push} | ` +
+          `Win%: ${d.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${d.unit_pnl}`;
+        const r = d.report || {};
+        reportStatsEl.textContent =
+          `Report log: ${r.rows ?? 0} rows · eligible v2A ${r.eligible_v2A ?? 0}` +
+          ` · eligible v2B ${r.eligible_v2B ?? 0} · picked ${r.picked ?? 0}`;
+        byTypeEl.innerHTML = "";
+        const types = Object.values(d.by_type || {});
+        for (const t of types) {
+          const card = document.createElement("div");
+          card.className = "recommendation-card";
+          card.innerHTML =
+            `<h3 style="margin:0 0 0.35rem;font-size:1rem">${t.label || t.bet_type}</h3>` +
+            `<p class="hit-note" style="margin:0">` +
+            `${t.placed} bets · W${t.won}/L${t.lost} · ${t.win_pct}% · PnL ${t.unit_pnl}` +
+            `</p>`;
+          byTypeEl.appendChild(card);
+        }
+      }
+
+      async function resolveBet(id, result) {
+        const res = await fetch(apiUrl(`/api/arahus-v2-bet-log/${id}/resolve`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.detail || "Resolve failed";
+          return;
+        }
+        renderStats(data.dashboard);
+        renderRows(data.entries);
+      }
+
+      function renderRows(entries) {
+        rowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const cell = td("No Arahus v2 bets logged yet.");
+          cell.colSpan = 10;
+          tr.appendChild(cell);
+          rowsEl.appendChild(tr);
+          return;
+        }
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(fmtDate(e.fixture_date)));
+          tr.appendChild(td(e.fixture || ""));
+          tr.appendChild(td(e.league_name || ""));
+          tr.appendChild(td(e.market_label || e.bet_type || ""));
+          tr.appendChild(td(e.confidence_fmt ?? ""));
+          tr.appendChild(td(e.odds ?? "—"));
+          tr.appendChild(td(e.units ?? 1));
+          tr.appendChild(td(e.status || "open"));
+          tr.appendChild(
+            td(
+              e.pnl_units ?? "",
+              e.pnl_units > 0 ? "arahus-pos" : e.pnl_units < 0 ? "arahus-neg" : null
+            )
+          );
+          const actions = document.createElement("td");
+          if (String(e.status || "open").toLowerCase() === "open") {
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.onchange = () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            };
+            actions.appendChild(sel);
+          }
+          tr.appendChild(actions);
+          rowsEl.appendChild(tr);
+        }
+        if (window.TableTools) window.TableTools.reapply(rowsEl.closest("table"));
+      }
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Syncing Arahus v2 picks…";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/arahus-v2-bet-log/sync"), { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          renderStats(data.dashboard);
+          renderRows(data.entries);
+          statusEl.textContent =
+            `Synced ${data.result.inserted} picks · report ${data.result.report_log_inserted}`;
+        } catch (err) {
+          statusEl.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      autoResolveBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Auto resolving…";
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/arahus-v2-bet-log/auto-resolve"), { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
+          renderStats(data.dashboard);
+          renderRows(data.entries);
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+          if (data.result.report_log) {
+            msg += ` · report ${data.result.report_log.resolved || 0}`;
+          }
+          if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
+          statusEl.textContent = msg;
+        } catch (err) {
+          statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+
+      renderStats({{ dashboard | tojson }});
+      renderRows({{ entries | tojson }});
+      if (window.TableTools) window.TableTools.enhanceAll();
+    </script>
+    <script src="/static/resync_today.js?v=1"></script>
+  </body>
+</html>

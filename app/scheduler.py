@@ -114,8 +114,9 @@ def run_all_auto_resolves() -> dict[str, Any]:
         "cs": None,
         "h2h": None,
         "arahus": None,
+        "arahus_v2": None,
     }
-    for log_type in ("main", "lm", "no", "ev", "cs", "h2h", "arahus"):
+    for log_type in ("main", "lm", "no", "ev", "cs", "h2h", "arahus", "arahus_v2"):
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:
@@ -210,7 +211,7 @@ def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
                 misfire_grace_time=3600,
             )
             logger.info(
-                "Scheduled auto-resolve at %s :%02d %s (main + lm + no + ev + cs + h2h + arahus)",
+                "Scheduled auto-resolve at %s :%02d %s (main + lm + no + ev + cs + h2h + arahus + arahus_v2)",
                 ", ".join(f"{h:02d}" for h in resolve_hours),
                 minute,
                 getattr(tz, "key", tz),

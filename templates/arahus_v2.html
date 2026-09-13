@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arahus v2 - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=16" />
+    <link rel="stylesheet" href="/static/arahus.css?v=1" />
+    <script src="/static/table_tools.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "arahus-v2" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Arahus Engine v2</h1>
+      <p class="subtitle">
+        Frozen forward-test: <strong>Over 2.5 only</strong>, odds required in
+        <strong>1.30–1.49</strong>, edge ≥ 3pp (v2A live) / ≥ 5pp (v2B tag), EV &gt; 0,
+        confidence ≥ 66, flat 1u. BTTS off. O3.5 is watch-only. Isolated from Arahus v1.
+      </p>
+
+      <div class="actions">
+        <button id="syncBtn" type="button">Sync v2A Picks to Log</button>
+        <a class="btn-secondary" href="/arahus-v2-bet-log">Open Arahus v2 Log</a>
+        <a class="btn-secondary" href="/api/arahus-v2/report?format=csv">Download Report CSV</a>
+        <a class="btn-secondary" href="/arahus">Arahus v1</a>
+        <span id="syncStatus"></span>
+      </div>
+      <p class="meta">
+        Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong>
+        · Fixtures: <strong>{{ fixture_count }}</strong>
+        · Live picks (v2A): <strong>{{ pick_count }}</strong>
+        · Eligible v2A: <strong>{{ eligible_v2A_count }}</strong>
+        · Eligible v2B: <strong>{{ eligible_v2B_count }}</strong>
+      </p>
+
+      <section class="recommendation-card">
+        <h2>Frozen rules</h2>
+        <p class="hit-note">
+          Rank: EV → edge → confidence. Every O2.5/O3.5 candidate is written to the report log
+          with <code>eligible_v2A</code>, <code>eligible_v2B</code>, and <code>skip_reason</code>
+          for counterfactuals. Do not change thresholds mid-test.
+        </p>
+      </section>
+
+      {% if picks|length %}
+      <section class="recommendation-card">
+        <h2>Live picks (v2A)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Fixture</th>
+              <th>Market</th>
+              <th>Conf</th>
+              <th>Model</th>
+              <th>Odds</th>
+              <th>Edge</th>
+              <th>EV</th>
+              <th>Signals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in picks %}
+            <tr>
+              <td>
+                {% if p.fixture_id %}
+                <a href="/fixture/{{ p.fixture_id }}">{{ p.fixture }}</a>
+                {% else %}
+                {{ p.fixture }}
+                {% endif %}
+              </td>
+              <td>{{ p.market_label }}</td>
+              <td><strong>{{ "%.0f"|format(p.confidence) }}</strong></td>
+              <td>{{ "%.1f"|format(p.model_pct) }}%</td>
+              <td>{{ p.odds if p.odds is not none else "—" }}</td>
+              <td class="{% if p.edge and p.edge > 0 %}arahus-pos{% endif %}">
+                {% if p.edge is not none %}{{ "%+.1f"|format(p.edge) }}{% else %}—{% endif %}
+              </td>
+              <td class="{% if p.ev and p.ev > 0 %}arahus-pos{% endif %}">
+                {% if p.ev is not none %}{{ "%+.1f"|format(p.ev) }}%{% else %}—{% endif %}
+              </td>
+              <td class="arahus-signals">{{ p.signal_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      <h2 class="arahus-section-title">Candidates (all decisions)</h2>
+      {% for c in cards %}
+      <section class="recommendation-card arahus-card{% if c.has_picks %} is-live{% endif %}">
+        <div class="arahus-head">
+          <h2>
+            {% if c.fixture_id %}
+            <a href="/fixture/{{ c.fixture_id }}">{{ c.fixture }}</a>
+            {% else %}
+            {{ c.fixture }}
+            {% endif %}
+          </h2>
+          <span class="arahus-muted fixture-date">{{ c.fixture_date }}</span>
+        </div>
+        <div class="arahus-chips">
+          <span>{{ c.league_name }}</span>
+          {% if c.has_picks %}<span class="arahus-pos">LIVE PICK</span>{% endif %}
+        </div>
+        <table class="arahus-picks">
+          <thead>
+            <tr>
+              <th>Market</th>
+              <th>Model</th>
+              <th>Odds</th>
+              <th>Edge</th>
+              <th>EV</th>
+              <th>Conf</th>
+              <th>v2A</th>
+              <th>v2B</th>
+              <th>Skip</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in c.decisions %}
+            <tr>
+              <td>{{ d.market_label }}</td>
+              <td>{% if d.model_pct is not none %}{{ "%.1f"|format(d.model_pct) }}%{% else %}—{% endif %}</td>
+              <td>{{ d.odds if d.odds is not none else "—" }}</td>
+              <td>{% if d.edge is not none %}{{ "%+.1f"|format(d.edge) }}{% else %}—{% endif %}</td>
+              <td>{% if d.ev is not none %}{{ "%+.1f"|format(d.ev) }}%{% else %}—{% endif %}</td>
+              <td>{{ "%.0f"|format(d.confidence) if d.confidence is not none else "—" }}</td>
+              <td>{{ "Y" if d.eligible_v2A else "—" }}</td>
+              <td>{{ "Y" if d.eligible_v2B else "—" }}</td>
+              <td class="arahus-muted">{{ d.skip_reason }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="arahus-muted">No O2.5/O3.5 model %</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% else %}
+      <p class="arahus-muted">No fixtures in the latest slate. Refresh from DataGaffer first.</p>
+      {% endfor %}
+    </main>
+
+    <script>
+      const scrapedAtEl = document.getElementById("scrapedAt");
+      const IST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      function fmtIst(value) {
+        if (!value || value === "Never") return value || "";
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? value : IST.format(d).replace(",", "");
+      }
+      scrapedAtEl.textContent = fmtIst(scrapedAtEl.textContent.trim());
+      document.querySelectorAll(".fixture-date").forEach((el) => {
+        const v = (el.textContent || "").trim();
+        if (v) el.textContent = fmtIst(v);
+      });
+
+      document.getElementById("syncBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("syncBtn");
+        const status = document.getElementById("syncStatus");
+        status.textContent = "Syncing…";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/arahus-v2-bet-log/sync", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+          status.textContent =
+            `Synced ${data.result.inserted} picks · report rows ${data.result.report_log_inserted}` +
+            ` (log ${data.result.total})`;
+        } catch (err) {
+          status.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      if (window.TableTools) window.TableTools.enhanceAll();
+    </script>
+  </body>
+</html>

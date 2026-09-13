@@ -55,10 +55,11 @@ STRATEGY_META: dict[str, dict[str, str]] = {
     "h2h": {"id": "h2h", "label": "Head to Head", "short": "H2H"},
     "ev": {"id": "ev", "label": "+EV Finder", "short": "+EV"},
     "cs": {"id": "cs", "label": "Closing Steam", "short": "CS"},
+    "arahus_v2": {"id": "arahus_v2", "label": "Arahus v2", "short": "Av2"},
     "prop": {"id": "prop", "label": "Prop Model", "short": "Prop"},
 }
 
-LOG_TYPES = ("main", "lm", "no", "h2h", "ev", "cs")
+LOG_TYPES = ("main", "lm", "no", "h2h", "ev", "cs", "arahus_v2")
 
 
 def _parse_iso(value: Any) -> datetime | None:
@@ -109,6 +110,8 @@ def _market_for_entry(entry: dict[str, Any], strategy: str) -> str:
     if strategy == "no":
         team = str(entry.get("team_name") or "").strip()
         return f"{team} not to win" if team else "Not to win"
+    if strategy == "arahus_v2":
+        return "Over 2.5"
     if strategy == "prop":
         player = str(entry.get("player_name") or entry.get("team_name") or "Player").strip()
         side = str(entry.get("side") or "").upper()

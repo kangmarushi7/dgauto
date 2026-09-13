@@ -167,6 +167,10 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/arahus/export` - export Arahus pick snapshots (`format=json|csv`, `date_from`, `date_to`, `decision`)
 - `GET /api/arahus/decision-log` - export full decision log including skips (`format`, `date_from`, `date_to`, `league`, `status`)
 - `POST /api/arahus-bet-log/auto-resolve` - settle open Arahus bets (+ decision-log rows)
+- `GET /arahus-v2` / `GET /api/arahus-v2` - Arahus v2 frozen O2.5 forward-test slate
+- `POST /api/arahus-v2-bet-log/sync` - sync v2A live picks (`log_type = "arahus_v2"`) + report log
+- `GET /api/arahus-v2/report` - export full v2 candidate report (`format`, eligibility filters)
+- `POST /api/arahus-v2-bet-log/auto-resolve` - settle v2 bets (+ report-log rows)
 - `POST /api/bet-log/sync-recommended` - sync homepage recommended bets
 - `POST /api/lm-bet-log/sync` - sync LM Strat bets
 - `POST /api/bet-log/auto-resolve` - resolve open main bet log bets
@@ -216,6 +220,27 @@ python scripts/export_decision_log.py --status skipped_low_edge --from 2026-07-0
 ```
 
 Also: `GET /api/arahus/decision-log?format=csv`
+
+## Arahus Engine v2 (forward test)
+
+`/arahus-v2` is an **isolated** frozen protocol (does not change v1):
+
+- Live market: **Over 2.5 only** (O3.5 watch/research, never live)
+- Odds required in **1.30–1.49**; missing odds skipped
+- Edge ≥ **3pp** = v2A (live); ≥ **5pp** tagged v2B for counterfactual
+- EV > 0 on `model_pct`; confidence ≥ **66**; flat **1u** stake
+- BTTS off; rank EV → edge → confidence
+
+Every O2.5/O3.5 candidate is appended to `arahus_v2_report_log` with
+`eligible_v2A`, `eligible_v2B`, `skip_reason`, model/odds/edge/EV/conf/stake/result/pnl.
+Live picks go to `/arahus-v2-bet-log` (`log_type = "arahus_v2"`) and also appear on
+Today's Bets / unified Bet Log as strategy **Arahus v2**.
+
+```text
+GET /api/arahus-v2/report?format=csv
+GET /api/arahus-v2/report?format=csv&eligible_v2A=true
+GET /api/arahus-v2/report?format=json&eligible_v2B=true
+```
 
 TODO(retention): decision-log volume is ~5–10× bet_entries (all markets × syncs).
 Archive/old-row policy not implemented yet.

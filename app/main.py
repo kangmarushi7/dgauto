@@ -30,7 +30,14 @@ from app.scheduler import (
     start_auto_resolve_scheduler,
     stop_auto_resolve_scheduler,
 )
-from app.db import check_db_health, init_db, list_arahus_decision_log, load_state, save_state
+from app.db import (
+    check_db_health,
+    init_db,
+    list_arahus_decision_log,
+    list_arahus_v2_report_log,
+    load_state,
+    save_state,
+)
 from app.lm_strat import (
     build_lm_strat_picks,
     lm_dashboard,
@@ -83,6 +90,16 @@ from app.arahus_engine import (
     load_arahus_bet_log,
     resolve_arahus_bet,
     sync_arahus_bets,
+)
+from app.arahus_v2_engine import (
+    arahus_v2_dashboard,
+    build_arahus_v2_slate,
+    enrich_arahus_v2_entries,
+    ensure_arahus_v2_report_from_slate,
+    flatten_picks as flatten_arahus_v2_picks,
+    load_arahus_v2_bet_log,
+    resolve_arahus_v2_bet,
+    sync_arahus_v2_bets,
 )
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
@@ -182,6 +199,16 @@ def _arahus_log_payload(*, season: int | None = None) -> dict:
         **season_context(season_id),
         "entries": enrich_arahus_entries(entries),
         "dashboard": arahus_dashboard(entries),
+    }
+
+
+def _arahus_v2_log_payload(*, season: int | None = None) -> dict:
+    season_id = _resolve_season(season)
+    entries = sort_by_fixture_date(filter_entries_by_season(load_arahus_v2_bet_log(), season_id))
+    return {
+        **season_context(season_id),
+        "entries": enrich_arahus_v2_entries(entries),
+        "dashboard": arahus_v2_dashboard(entries),
     }
 
 
@@ -564,6 +591,46 @@ async def arahus_engine_page(request: Request):
 async def arahus_bet_log_page(request: Request, season: int | None = Query(default=None)):
     payload = _arahus_log_payload(season=season)
     return templates.TemplateResponse(request, "arahus_bet_log.html", payload)
+
+
+@app.get("/arahus-v2")
+async def arahus_v2_engine_page(request: Request):
+    """Arahus v2 — frozen O2.5 forward-test protocol (isolated from v1)."""
+    data = read_latest()
+    cards = await run_in_threadpool(build_arahus_v2_slate, data)
+    picks = flatten_arahus_v2_picks(cards)
+    eligible_a = sum(
+        1
+        for c in cards
+        for d in (c.get("decisions") or [])
+        if d.get("eligible_v2A")
+    )
+    eligible_b = sum(
+        1
+        for c in cards
+        for d in (c.get("decisions") or [])
+        if d.get("eligible_v2B")
+    )
+    return templates.TemplateResponse(
+        request,
+        "arahus_v2.html",
+        {
+            "data": data,
+            "cards": cards,
+            "picks": picks,
+            "pick_count": len(picks),
+            "fixture_count": len(cards),
+            "qualified_fixtures": sum(1 for c in cards if c.get("has_picks")),
+            "eligible_v2A_count": eligible_a,
+            "eligible_v2B_count": eligible_b,
+        },
+    )
+
+
+@app.get("/arahus-v2-bet-log")
+async def arahus_v2_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    payload = _arahus_v2_log_payload(season=season)
+    return templates.TemplateResponse(request, "arahus_v2_bet_log.html", payload)
 
 
 @app.get("/lm-bet-log")
@@ -1209,6 +1276,160 @@ async def arahus_bet_log_resolve(
 async def arahus_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "arahus")
     return JSONResponse({"result": result, **_arahus_log_payload(season=season)})
+
+
+@app.get("/api/arahus-v2")
+async def arahus_v2_engine_data(picks_only: bool = Query(default=False)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_v2_slate, latest)
+    picks = flatten_arahus_v2_picks(cards)
+    if picks_only:
+        return JSONResponse(
+            {
+                "scraped_at": latest.get("scraped_at"),
+                "pick_count": len(picks),
+                "picks": picks,
+            }
+        )
+    return JSONResponse(
+        {
+            "scraped_at": latest.get("scraped_at"),
+            "fixture_count": len(cards),
+            "qualified_fixtures": sum(1 for c in cards if c.get("has_picks")),
+            "pick_count": len(picks),
+            "cards": cards,
+            "picks": picks,
+        }
+    )
+
+
+@app.get("/api/arahus-v2-bet-log")
+async def arahus_v2_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_arahus_v2_log_payload(season=season))
+
+
+@app.post("/api/arahus-v2-bet-log/sync")
+async def arahus_v2_bet_log_sync(season: int | None = Query(default=None)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_v2_slate, latest)
+    picks = flatten_arahus_v2_picks(cards)
+    result = await run_in_threadpool(lambda: sync_arahus_v2_bets(picks, cards=cards))
+    return JSONResponse({"result": result, **_arahus_v2_log_payload(season=season)})
+
+
+@app.get("/api/arahus-v2/report")
+async def arahus_v2_report_export(
+    format: str = Query(default="csv"),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    league: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    eligible_v2A: bool | None = Query(default=None),
+    eligible_v2B: bool | None = Query(default=None),
+):
+    """Export arahus_v2_report_log (all candidates + eligibility flags)."""
+    fmt = (format or "csv").strip().lower()
+    if fmt not in {"json", "csv"}:
+        raise HTTPException(status_code=400, detail="format must be json or csv")
+
+    def _load() -> list[dict[str, Any]]:
+        ensure_arahus_v2_report_from_slate()
+        return list_arahus_v2_report_log(
+            date_from=date_from,
+            date_to=date_to,
+            league=league,
+            status=status,
+            eligible_v2A=eligible_v2A,
+            eligible_v2B=eligible_v2B,
+        )
+
+    rows = await run_in_threadpool(_load)
+    if fmt == "json":
+        return JSONResponse({"count": len(rows), "rows": rows})
+
+    flat_rows: list[dict[str, Any]] = []
+    for r in rows:
+        flat_rows.append(
+            {
+                "id": r.get("id"),
+                "fixture_id": r.get("fixture_id"),
+                "synced_at": r.get("synced_at"),
+                "match_date": r.get("match_date"),
+                "league": r.get("league"),
+                "home_team": r.get("home_team"),
+                "away_team": r.get("away_team"),
+                "fixture": r.get("fixture"),
+                "market": r.get("market") or r.get("bet_type"),
+                "bet_type": r.get("bet_type"),
+                "status": r.get("status"),
+                "model_pct": r.get("model_pct"),
+                "odds": r.get("odds"),
+                "implied_pct": r.get("implied_pct"),
+                "edge_pct": r.get("edge_pct"),
+                "ev": r.get("ev"),
+                "confidence": r.get("confidence"),
+                "stake": r.get("stake"),
+                "eligible_v2A": r.get("eligible_v2A"),
+                "eligible_v2B": r.get("eligible_v2B"),
+                "eligible_secondary": r.get("eligible_secondary"),
+                "skip_reason": r.get("skip_reason"),
+                "result": r.get("result"),
+                "pnl": r.get("pnl"),
+                "resolved_at": r.get("resolved_at"),
+                "xg_total": r.get("xg_total"),
+                "archetype": r.get("archetype"),
+                "engine_version": r.get("engine_version"),
+                "signals": json.dumps(r.get("signals") or [], ensure_ascii=False),
+            }
+        )
+    buf = io.StringIO()
+    if flat_rows:
+        writer = csv.DictWriter(buf, fieldnames=list(flat_rows[0].keys()))
+        writer.writeheader()
+        for row in flat_rows:
+            writer.writerow(row)
+    else:
+        writer = csv.writer(buf)
+        writer.writerow(
+            [
+                "id",
+                "market",
+                "model_pct",
+                "odds",
+                "implied_pct",
+                "edge_pct",
+                "ev",
+                "confidence",
+                "stake",
+                "eligible_v2A",
+                "eligible_v2B",
+                "skip_reason",
+                "result",
+                "pnl",
+            ]
+        )
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="arahus_v2_report.csv"'},
+    )
+
+
+@app.post("/api/arahus-v2-bet-log/{bet_id}/resolve")
+async def arahus_v2_bet_log_resolve(
+    bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    try:
+        updated = resolve_arahus_v2_bet(bet_id, str(payload.get("result", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"updated": updated, **_arahus_v2_log_payload(season=season)})
+
+
+@app.post("/api/arahus-v2-bet-log/auto-resolve")
+async def arahus_v2_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "arahus_v2")
+    return JSONResponse({"result": result, **_arahus_v2_log_payload(season=season)})
 
 
 @app.get("/api/lm-bet-log")

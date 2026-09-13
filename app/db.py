@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     Float,
     Integer,
@@ -503,6 +504,128 @@ def update_arahus_decision_log_result(
         updated["result"] = result
         updated["pnl"] = pnl
         updated["hypothetical_pnl"] = hypothetical_pnl
+        updated["resolved_at"] = resolved_at
+        return updated
+
+
+# --- Arahus v2 forward-test report log (all candidates + eligibility flags) ---
+
+arahus_v2_report_log = Table(
+    "arahus_v2_report_log",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("fixture_id", String(64), index=True),
+    Column("synced_at", String(64), nullable=False, index=True),
+    Column("match_date", String(64), index=True),
+    Column("league", String(200), index=True),
+    Column("home_team", String(200), nullable=False, default=""),
+    Column("away_team", String(200), nullable=False, default=""),
+    Column("fixture", Text, nullable=False, default=""),
+    Column("bet_type", String(80), nullable=False, default="", index=True),
+    Column("market", String(80), nullable=False, default=""),
+    Column("team_name", String(200), nullable=False, default=""),
+    Column("status", String(40), nullable=False, index=True),
+    Column("model_pct", Float),
+    Column("confidence", Float),
+    Column("odds", Float),
+    Column("implied_pct", Float),
+    Column("edge_pct", Float),
+    Column("ev", Float),
+    Column("stake", Float),
+    Column("eligible_v2A", Boolean, nullable=False, default=False, index=True),
+    Column("eligible_v2B", Boolean, nullable=False, default=False, index=True),
+    Column("eligible_secondary", Boolean, nullable=False, default=False),
+    Column("skip_reason", String(64), nullable=False, default="", index=True),
+    Column("signals", JSON),
+    Column("xg_home", Float),
+    Column("xg_away", Float),
+    Column("xg_total", Float),
+    Column("pace_score", Float),
+    Column("nec_index", Float),
+    Column("agix_index", Float),
+    Column("dgrtg_gap", Float),
+    Column("archetype", String(80)),
+    Column("engine_config_snapshot", JSON, nullable=False),
+    Column("engine_version", String(40), nullable=False, default=""),
+    Column("result", String(10)),
+    Column("pnl", Float),
+    Column("resolved_at", String(64)),
+)
+
+
+def insert_arahus_v2_report_log(rows: list[dict[str, Any]]) -> int:
+    if not rows:
+        return 0
+    with engine.begin() as conn:
+        conn.execute(arahus_v2_report_log.insert(), rows)
+    return len(rows)
+
+
+def list_arahus_v2_report_log(
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    league: str | None = None,
+    status: str | None = None,
+    eligible_v2A: bool | None = None,
+    eligible_v2B: bool | None = None,
+    unresolved_only: bool = False,
+) -> list[dict[str, Any]]:
+    with engine.begin() as conn:
+        rows = [dict(r) for r in conn.execute(select(arahus_v2_report_log)).mappings()]
+
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        d = str(row.get("match_date") or row.get("synced_at") or "")[:10]
+        if date_from and d and d < date_from[:10]:
+            continue
+        if date_to and d and d > date_to[:10]:
+            continue
+        if league and str(row.get("league") or "") != league:
+            continue
+        if status and str(row.get("status") or "") != status:
+            continue
+        if eligible_v2A is not None and bool(row.get("eligible_v2A")) != eligible_v2A:
+            continue
+        if eligible_v2B is not None and bool(row.get("eligible_v2B")) != eligible_v2B:
+            continue
+        if unresolved_only and row.get("resolved_at"):
+            continue
+        out.append(row)
+    out.sort(
+        key=lambda r: (
+            str(r.get("match_date") or ""),
+            str(r.get("fixture") or ""),
+            str(r.get("bet_type") or ""),
+            int(r.get("id") or 0),
+        )
+    )
+    return out
+
+
+def update_arahus_v2_report_log_result(
+    row_id: int,
+    *,
+    result: str,
+    pnl: float | None,
+    resolved_at: str,
+) -> dict[str, Any] | None:
+    with engine.begin() as conn:
+        row = conn.execute(
+            select(arahus_v2_report_log).where(arahus_v2_report_log.c.id == row_id)
+        ).mappings().first()
+        if not row:
+            return None
+        if row.get("resolved_at"):
+            return dict(row)
+        conn.execute(
+            arahus_v2_report_log.update()
+            .where(arahus_v2_report_log.c.id == row_id)
+            .values(result=result, pnl=pnl, resolved_at=resolved_at)
+        )
+        updated = dict(row)
+        updated["result"] = result
+        updated["pnl"] = pnl
         updated["resolved_at"] = resolved_at
         return updated
 
