@@ -612,6 +612,12 @@ tbody tr:hover td {
   margin: 0.5rem 0 0.65rem;
 }
 
+.table-csv-export {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.35rem;
+}
+
 .table-filter-input {
   width: 280px;
   max-width: 100%;

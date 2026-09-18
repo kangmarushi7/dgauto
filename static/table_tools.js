@@ -857,6 +857,23 @@
     });
   }
 
+  function attachCsvExportToolbar(table) {
+    if (!csvExportEnabled(table)) return;
+    if (table.dataset.csvToolbarAttached === "1") return;
+    table.dataset.csvToolbarAttached = "1";
+
+    const bar = document.createElement("div");
+    bar.className = "table-tools table-csv-export";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-secondary";
+    btn.textContent = "Export CSV";
+    btn.setAttribute("aria-label", "Download visible rows as CSV");
+    btn.addEventListener("click", () => exportTableCsv(table));
+    bar.appendChild(btn);
+    table.parentNode.insertBefore(bar, table);
+  }
+
   function enhanceWithColumnFilters(table) {
     table.classList.add("sortable-filterable", "column-filterable");
     table._tableTools = {
@@ -869,6 +886,7 @@
       menuOutsideHandler: null,
     };
     buildColumnHeaders(table);
+    attachCsvExportToolbar(table);
   }
 
   function enhanceWithSearchFilter(table) {
@@ -943,5 +961,11 @@
     boot();
   }
 
-  window.TableTools = { enhanceTable, enhanceAll, reapply, closeFilterMenu };
+  window.TableTools = {
+    enhanceTable,
+    enhanceAll,
+    reapply,
+    closeFilterMenu,
+    exportTableCsv,
+  };
 })();

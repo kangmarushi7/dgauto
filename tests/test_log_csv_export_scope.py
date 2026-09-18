@@ -42,6 +42,7 @@ class LogCsvExportScopeTests(unittest.TestCase):
         self.assertIn('btn.textContent = "Export CSV"', script)
         self.assertIn("exportTableCsv(table);", script)
         self.assertIn("table?.dataset.csvExport === \"1\"", script)
+        self.assertIn("attachCsvExportToolbar(table)", script)
 
 
 if __name__ == "__main__":
