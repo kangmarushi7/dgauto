@@ -140,6 +140,92 @@
     return sortFilterValues(Array.from(seen.values()), colIndex, table);
   }
 
+  function csvExportEnabled(table) {
+    return table?.dataset.csvExport === "1";
+  }
+
+  function csvColumnIndexes(table) {
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    const indexes = [];
+    headers.forEach((th, idx) => {
+      if (th.dataset.noExport === "1") return;
+      if (th.dataset.noFilter === "1") return;
+      indexes.push(idx);
+    });
+    return indexes;
+  }
+
+  function csvHeaderLabel(th) {
+    const label =
+      th?.dataset.filterLabel ||
+      th?.querySelector(".th-label")?.textContent ||
+      th?.textContent ||
+      "";
+    return String(label).trim();
+  }
+
+  function csvEscape(value) {
+    const text = String(value ?? "");
+    if (!/[",\n]/.test(text)) return text;
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  function csvCellText(cell) {
+    return String(cell?.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function csvFilename(table) {
+    const custom = String(table?.dataset.csvFilename || "").trim();
+    if (custom) return `${custom}.csv`;
+    const pathSlug = String(window.location?.pathname || "table")
+      .replace(/^\/+|\/+$/g, "")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
+    return `${pathSlug || "table"}-export.csv`;
+  }
+
+  function exportTableCsv(table) {
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    const colIndexes = csvColumnIndexes(table);
+    if (!headers.length || !colIndexes.length) return;
+
+    const lines = [];
+    const headerRow = colIndexes.map((idx) => csvEscape(csvHeaderLabel(headers[idx])));
+    lines.push(headerRow.join(","));
+
+    const rows = dataRows(table).filter((row) => row.style.display !== "none");
+    for (const row of rows) {
+      const cells = colIndexes.map((idx) => csvEscape(csvCellText(row.cells[idx])));
+      lines.push(cells.join(","));
+    }
+
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = csvFilename(table);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function buildExportCsvBtn(table) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "excel-filter-btn";
+    btn.textContent = "Export CSV";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportTableCsv(table);
+      closeFilterMenu(table);
+    });
+    return btn;
+  }
+
   function closeFilterMenu(table) {
     const state = table._tableTools;
     if (!state?.openMenu) return;
@@ -489,6 +575,9 @@
 
     const actions = document.createElement("div");
     actions.className = "excel-filter-actions";
+    if (csvExportEnabled(table)) {
+      actions.appendChild(buildExportCsvBtn(table));
+    }
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "excel-filter-btn";
@@ -673,6 +762,9 @@
 
     const actions = document.createElement("div");
     actions.className = "excel-filter-actions";
+    if (csvExportEnabled(table)) {
+      actions.appendChild(buildExportCsvBtn(table));
+    }
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "excel-filter-btn";
