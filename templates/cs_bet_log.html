@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Correct Score Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=16" />
+    <link rel="stylesheet" href="/static/style.css?v=17" />
     <link rel="stylesheet" href="/static/cs_strat.css?v=1" />
-    <script src="/static/table_tools.js?v=7" defer></script>
+    <script src="/static/table_tools.js?v=8" defer></script>
   </head>
   <body>
     <main class="container">
@@ -37,7 +37,7 @@
 
       <section class="recommendation-card">
         <h2>Baskets</h2>
-        <table data-column-filters="1">
+        <table data-column-filters="1" data-csv-export="cs-bet-log-baskets.csv">
           <thead>
             <tr>
               <th>Fixture Date</th>
@@ -58,7 +58,7 @@
 
       <section class="recommendation-card">
         <h2>Legs</h2>
-        <table data-column-filters="1">
+        <table data-column-filters="1" data-csv-export="cs-bet-log-legs.csv">
           <thead>
             <tr>
               <th>Fixture Date</th>

@@ -609,7 +609,15 @@ tbody tr:hover td {
 }
 
 .table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
   margin: 0.5rem 0 0.65rem;
+}
+
+.table-csv-export {
+  margin: 0;
 }
 
 .table-filter-input {

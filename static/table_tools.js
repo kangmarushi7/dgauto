@@ -765,6 +765,96 @@
     });
   }
 
+  function csvEscape(value) {
+    const s = String(value ?? "");
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
+
+  function headerLabel(th) {
+    if (!th) return "";
+    return (
+      th.dataset.filterLabel ||
+      th.querySelector(".th-label")?.textContent ||
+      th.textContent ||
+      ""
+    ).trim();
+  }
+
+  function exportableColIndexes(table) {
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    const indexes = [];
+    headers.forEach((th, idx) => {
+      if (th.dataset.noFilter === "1") return;
+      if (th.dataset.noCsv === "1") return;
+      indexes.push(idx);
+    });
+    return indexes;
+  }
+
+  function visibleDataRows(table) {
+    return dataRows(table).filter((row) => row.style.display !== "none");
+  }
+
+  function tableToCsv(table) {
+    const cols = exportableColIndexes(table);
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    const lines = [];
+    lines.push(cols.map((i) => csvEscape(headerLabel(headers[i]))).join(","));
+    for (const row of visibleDataRows(table)) {
+      lines.push(
+        cols
+          .map((i) => csvEscape((row.cells[i]?.textContent || "").trim()))
+          .join(","),
+      );
+    }
+    return lines.join("\n");
+  }
+
+  function downloadCsv(filename, content) {
+    const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "export.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function ensureTableToolsBar(table) {
+    const state = table._tableTools;
+    if (state?.toolbar) return state.toolbar;
+    let bar = table.previousElementSibling;
+    if (!bar || !bar.classList.contains("table-tools")) {
+      bar = document.createElement("div");
+      bar.className = "table-tools";
+      table.parentNode.insertBefore(bar, table);
+    }
+    if (state) state.toolbar = bar;
+    return bar;
+  }
+
+  function mountCsvExportButton(table) {
+    const raw = (table.dataset.csvExport || "").trim();
+    if (!raw) return;
+    const filename = raw === "1" || raw.toLowerCase() === "true" ? "export.csv" : raw;
+    const bar = ensureTableToolsBar(table);
+    if (bar.querySelector("[data-csv-export-btn]")) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-secondary table-csv-export";
+    btn.dataset.csvExportBtn = "1";
+    btn.textContent = "Export CSV";
+    btn.setAttribute("aria-label", `Export ${filename}`);
+    btn.addEventListener("click", () => {
+      downloadCsv(filename, tableToCsv(table));
+    });
+    bar.appendChild(btn);
+    if (table._tableTools) table._tableTools.csvFilename = filename;
+  }
+
   function enhanceWithColumnFilters(table) {
     table.classList.add("sortable-filterable", "column-filterable");
     table._tableTools = {
@@ -775,8 +865,10 @@
       openMenu: null,
       openCol: -1,
       menuOutsideHandler: null,
+      toolbar: null,
     };
     buildColumnHeaders(table);
+    mountCsvExportButton(table);
   }
 
   function enhanceWithSearchFilter(table) {
@@ -791,7 +883,7 @@
     controls.appendChild(input);
     table.parentNode.insertBefore(controls, table);
 
-    table._tableTools = { input, sortIndex: -1, direction: "asc" };
+    table._tableTools = { input, sortIndex: -1, direction: "asc", toolbar: controls };
 
     const headers = Array.from(table.tHead.rows[0].cells);
     headers.forEach((h, idx) => {
@@ -813,6 +905,7 @@
     input.addEventListener("input", function () {
       applyFilter(table);
     });
+    mountCsvExportButton(table);
   }
 
   function enhanceTable(table) {
@@ -851,5 +944,14 @@
     boot();
   }
 
-  window.TableTools = { enhanceTable, enhanceAll, reapply, closeFilterMenu };
+  window.TableTools = {
+    enhanceTable,
+    enhanceAll,
+    reapply,
+    closeFilterMenu,
+    exportCsv: (table, filename) => {
+      if (!table) return;
+      downloadCsv(filename || table.dataset.csvExport || "export.csv", tableToCsv(table));
+    },
+  };
 })();
