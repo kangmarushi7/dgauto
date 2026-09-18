@@ -111,8 +111,20 @@ from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_sc
 from app.prop_model_scrape import start_scrape_background
 from app.prop_model_bets import (
     add_prop_bet,
+    list_prop_bets,
     prop_bet_log_payload,
     resolve_prop_bet,
+)
+from app.bet_log_export import (
+    CS_BASKET_FIELDS,
+    CS_LEG_FIELDS,
+    PROP_BET_FIELDS,
+    STANDARD_BET_FIELDS,
+    cs_basket_rows,
+    cs_leg_rows,
+    dicts_to_csv,
+    prop_bet_rows,
+    standard_bet_rows,
 )
 from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context, sort_by_fixture_date
 
@@ -210,6 +222,41 @@ def _arahus_v2_log_payload(*, season: int | None = None) -> dict:
         "entries": enrich_arahus_v2_entries(entries),
         "dashboard": arahus_v2_dashboard(entries),
     }
+
+
+def _csv_attachment(content: str, filename: str) -> Response:
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _season_scoped_entries(
+    loader,
+    season_id: int,
+    enrich_fn=None,
+) -> list[dict[str, Any]]:
+    entries = sort_by_fixture_date(filter_entries_by_season(loader(), season_id))
+    if enrich_fn:
+        return enrich_fn(entries)
+    return entries
+
+
+async def _export_strategy_bet_log_csv(
+    *,
+    loader,
+    basename: str,
+    season: int | None,
+    enrich_fn=None,
+) -> Response:
+    season_id = _resolve_season(season)
+    entries = await run_in_threadpool(
+        lambda: _season_scoped_entries(loader, season_id, enrich_fn)
+    )
+    rows = standard_bet_rows(entries)
+    content = dicts_to_csv(rows, STANDARD_BET_FIELDS)
+    return _csv_attachment(content, f"{basename}_season{season_id}.csv")
 
 
 def _bot_api_authorized(x_api_key: str | None = Header(default=None, alias="X-Api-Key")) -> None:
@@ -415,6 +462,18 @@ async def prop_model_clear_scrape_log():
 @app.get("/api/prop-model/bet-log")
 async def prop_model_bet_log_api():
     return JSONResponse(prop_bet_log_payload())
+
+
+@app.get("/api/prop-model/bet-log/export")
+async def prop_model_bet_log_export(
+    format: str = Query(default="csv", description="csv"),
+):
+    fmt = (format or "csv").strip().lower()
+    if fmt != "csv":
+        raise HTTPException(status_code=400, detail="format must be csv")
+    entries = await run_in_threadpool(list_prop_bets)
+    content = dicts_to_csv(prop_bet_rows(entries), PROP_BET_FIELDS)
+    return _csv_attachment(content, "prop_bet_log.csv")
 
 
 @app.post("/api/prop-model/bet-log")
@@ -1057,6 +1116,57 @@ async def arahus_engine_data(picks_only: bool = Query(default=False)):
     )
 
 
+@app.get("/api/no-bet-log/export")
+async def no_bet_log_export(season: int | None = Query(default=None)):
+    return await _export_strategy_bet_log_csv(
+        loader=load_no_bet_log, basename="no_bet_log", season=season
+    )
+
+
+@app.get("/api/h2h-bet-log/export")
+async def h2h_bet_log_export(season: int | None = Query(default=None)):
+    return await _export_strategy_bet_log_csv(
+        loader=load_h2h_bet_log,
+        basename="h2h_bet_log",
+        season=season,
+        enrich_fn=enrich_h2h_entries,
+    )
+
+
+@app.get("/api/plus-ev-bet-log/export")
+async def plus_ev_bet_log_export(season: int | None = Query(default=None)):
+    return await _export_strategy_bet_log_csv(
+        loader=load_plus_ev_bet_log,
+        basename="plus_ev_bet_log",
+        season=season,
+        enrich_fn=enrich_plus_ev_entries,
+    )
+
+
+@app.get("/api/correct-score-bet-log/export")
+async def correct_score_bet_log_export(
+    season: int | None = Query(default=None),
+    scope: str = Query(default="legs", description="legs | baskets"),
+):
+    scope_l = (scope or "legs").strip().lower()
+    if scope_l not in {"legs", "baskets"}:
+        raise HTTPException(status_code=400, detail="scope must be legs or baskets")
+    season_id = _resolve_season(season)
+    entries = await run_in_threadpool(
+        lambda: _season_scoped_entries(load_correct_score_bet_log, season_id)
+    )
+    if scope_l == "baskets":
+        rows = cs_basket_rows(group_into_baskets(entries))
+        content = dicts_to_csv(rows, CS_BASKET_FIELDS)
+        filename = f"cs_baskets_season{season_id}.csv"
+    else:
+        enriched = enrich_correct_score_entries(entries)
+        rows = cs_leg_rows(enriched)
+        content = dicts_to_csv(rows, CS_LEG_FIELDS)
+        filename = f"cs_legs_season{season_id}.csv"
+    return _csv_attachment(content, filename)
+
+
 @app.get("/api/arahus-bet-log")
 async def arahus_bet_log_data(season: int | None = Query(default=None)):
     return JSONResponse(_arahus_log_payload(season=season))
@@ -1435,6 +1545,13 @@ async def arahus_v2_bet_log_auto_resolve(season: int | None = Query(default=None
 @app.get("/api/lm-bet-log")
 async def lm_bet_log_data(season: int | None = Query(default=None)):
     return JSONResponse(_strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season))
+
+
+@app.get("/api/lm-bet-log/export")
+async def lm_bet_log_export(season: int | None = Query(default=None)):
+    return await _export_strategy_bet_log_csv(
+        loader=load_lm_bet_log, basename="lm_bet_log", season=season
+    )
 
 
 @app.post("/api/lm-bet-log/sync")

@@ -24,6 +24,9 @@
         <button id="syncBtn">Sync Baskets</button>
         <button type="button" class="btn-secondary" data-resync-strategy="cs">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Legs</button>
+        {% set log_export_href = "/api/correct-score-bet-log/export?format=csv&scope=legs&season=" ~ season %}
+        {% set log_export_baskets_href = "/api/correct-score-bet-log/export?format=csv&scope=baskets&season=" ~ season %}
+        {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
 

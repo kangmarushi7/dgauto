@@ -444,6 +444,53 @@ main.container > h1 {
   margin: 0 0 1.15rem;
 }
 
+.log-export-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.log-export-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.log-export-menu__caret {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.65;
+}
+
+.log-export-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 11rem;
+  padding: 0.35rem 0;
+  background: #fff;
+  border: 1px solid var(--dg-line);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  z-index: 50;
+}
+
+.log-export-menu__item {
+  display: block;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--dg-ink);
+  text-decoration: none;
+}
+
+.log-export-menu__item:hover {
+  background: var(--dg-surface-muted, #f4f7f6);
+}
+
 button,
 .pm-btn,
 .btn-primary,

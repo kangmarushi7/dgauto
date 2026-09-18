@@ -87,6 +87,10 @@
           <h2>Open &amp; settled</h2>
           <p>Resolve when the game is final</p>
         </div>
+        <div class="pm-run">
+          {% set log_export_href = "/api/prop-model/bet-log/export?format=csv" %}
+          {% include "includes/log_export_menu.html" %}
+        </div>
         <div class="pm-table-wrap">
           <table class="pm-table" data-column-filters="1">
             <thead>

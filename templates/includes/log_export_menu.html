@@ -1,0 +1,20 @@
+{# Requires log_export_href; optional log_export_baskets_href for CS baskets. #}
+<div class="log-export-menu" data-log-export-menu>
+  <button
+    type="button"
+    class="btn-secondary log-export-menu__trigger"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-controls="logExportPanel"
+  >
+    Menu
+    <span class="log-export-menu__caret" aria-hidden="true"></span>
+  </button>
+  <div class="log-export-menu__panel" id="logExportPanel" role="menu" hidden>
+    <a role="menuitem" class="log-export-menu__item" href="{{ log_export_href }}">Export CSV</a>
+    {% if log_export_baskets_href %}
+    <a role="menuitem" class="log-export-menu__item" href="{{ log_export_baskets_href }}">Export baskets CSV</a>
+    {% endif %}
+  </div>
+</div>
+<script src="/static/log_export_menu.js?v=1" defer></script>

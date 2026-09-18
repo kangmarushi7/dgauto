@@ -21,6 +21,8 @@
         <button type="button" class="btn-secondary" data-resync-strategy="h2h">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
         <a href="/h2h-strat">Go to H2H Strat</a>
+        {% set log_export_href = "/api/h2h-bet-log/export?format=csv&season=" ~ season %}
+        {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
 
