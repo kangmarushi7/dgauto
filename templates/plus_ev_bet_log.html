@@ -20,6 +20,8 @@
         <button id="syncBtn">Sync +EV Bets</button>
         <button type="button" class="btn-secondary" data-resync-strategy="ev">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        {% set log_export_href = "/api/plus-ev-bet-log/export?format=csv&season=" ~ season %}
+        {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
 

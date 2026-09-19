@@ -20,6 +20,8 @@
         <button id="syncBtn">Sync LM Strat Bets</button>
         <button type="button" class="btn-secondary" data-resync-strategy="lm">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        {% set log_export_href = "/api/lm-bet-log/export?format=csv&season=" ~ season %}
+        {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
 
