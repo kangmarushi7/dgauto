@@ -64,7 +64,7 @@ When `closing_odds` exists:
 
 - `bet_implied = 1 / odds_at_signal`
 - `close_implied = 1 / closing_odds`
-- `clv = bet_implied - close_implied` (>0 = better price than close)
+- `clv = close_implied - bet_implied` (>0 = longer price than close / beat the close)
 
 Season 2 CSV seed has **no closing odds** → CLV cannot be measured for those rows.
 
