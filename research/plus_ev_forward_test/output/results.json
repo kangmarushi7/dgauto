@@ -1,0 +1,568 @@
+{
+  "generated_at": "2026-09-19T05:13:18.761388+00:00",
+  "research_only": true,
+  "n_signals_total": 769,
+  "portfolios": {
+    "P1_ODDS_2_10_2_50": {
+      "n": 227,
+      "bets": 227,
+      "open": 22,
+      "wins": 103,
+      "losses": 124,
+      "pushes": 0,
+      "win_rate": 0.45374449339207046,
+      "average_odds": 2.2465198237885464,
+      "total_stake": 227.0,
+      "total_pnl": 4.280000000000003,
+      "roi": 0.018854625550660805,
+      "max_drawdown": -24.27,
+      "avg_model_probability": 0.5364101538915182,
+      "avg_calibrated_probability": NaN,
+      "avg_raw_EV": 0.20255506607929516,
+      "avg_calibrated_EV": NaN,
+      "avg_fair_market_edge": null,
+      "mean_clv": null,
+      "median_clv": null,
+      "pct_positive_clv": null,
+      "clv_n": 0,
+      "roi_bootstrap": {
+        "mean": 0.020474669603524228,
+        "ci_low": -0.12190859030837009,
+        "ci_high": 0.17190859030837
+      },
+      "status": "PROMISING \u2014 NEEDS MORE DATA",
+      "sample_milestone": "meaningful (100\u2013249)",
+      "rolling": {
+        "rolling_50": {
+          "available": true,
+          "roi": 0.132,
+          "win_rate": 0.5,
+          "mean_clv": null
+        },
+        "rolling_100": {
+          "available": true,
+          "roi": 0.103,
+          "win_rate": 0.49,
+          "mean_clv": null
+        },
+        "rolling_250": {
+          "available": false,
+          "n": 227
+        },
+        "rolling_500": {
+          "available": false,
+          "n": 227
+        }
+      },
+      "monthly": [
+        {
+          "month": "2026-07",
+          "n": 22,
+          "bets": 22,
+          "open": 0,
+          "wins": 8,
+          "losses": 14,
+          "pushes": 0,
+          "win_rate": 0.36363636363636365,
+          "average_odds": 2.2413636363636367,
+          "total_stake": 22.0,
+          "total_pnl": -3.8200000000000003,
+          "roi": -0.17363636363636364,
+          "max_drawdown": -8.8,
+          "avg_model_probability": 0.5308101691267164,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.18836363636363637,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-08",
+          "n": 117,
+          "bets": 117,
+          "open": 0,
+          "wins": 52,
+          "losses": 65,
+          "pushes": 0,
+          "win_rate": 0.4444444444444444,
+          "average_odds": 2.2378632478632476,
+          "total_stake": 117.0,
+          "total_pnl": -0.7999999999999996,
+          "roi": -0.006837606837606834,
+          "max_drawdown": -24.27,
+          "avg_model_probability": 0.5430246762942293,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.2127948717948718,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-09",
+          "n": 88,
+          "bets": 88,
+          "open": 0,
+          "wins": 43,
+          "losses": 45,
+          "pushes": 0,
+          "win_rate": 0.48863636363636365,
+          "average_odds": 2.259318181818182,
+          "total_stake": 88.0,
+          "total_pnl": 8.9,
+          "roi": 0.10113636363636364,
+          "max_drawdown": -7.0,
+          "avg_model_probability": 0.5290158418882052,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.19248863636363636,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        }
+      ],
+      "meta": {
+        "id": "P1_ODDS_2_10_2_50",
+        "label": "Portfolio 1 \u2014 Odds 2.10\u20132.50",
+        "hypothesis": "Qualifying bets priced 2.10\u20132.50 are repeatable",
+        "description": "Every qualifying +EV signal with bet-time odds in [2.10, 2.50]. No market restriction."
+      },
+      "live_forward_n": 0,
+      "historical_seed_n": 249
+    },
+    "P2_DC_X2": {
+      "n": 65,
+      "bets": 65,
+      "open": 5,
+      "wins": 34,
+      "losses": 31,
+      "pushes": 0,
+      "win_rate": 0.5230769230769231,
+      "average_odds": 1.699846153846154,
+      "total_stake": 65.0,
+      "total_pnl": -6.83,
+      "roi": -0.10507692307692308,
+      "max_drawdown": -11.97,
+      "avg_model_probability": 0.6652793339768241,
+      "avg_calibrated_probability": NaN,
+      "avg_raw_EV": 0.12158461538461537,
+      "avg_calibrated_EV": NaN,
+      "avg_fair_market_edge": null,
+      "mean_clv": null,
+      "median_clv": null,
+      "pct_positive_clv": null,
+      "clv_n": 0,
+      "roi_bootstrap": {
+        "mean": -0.10296538461538461,
+        "ci_low": -0.30246923076923077,
+        "ci_high": 0.10784999999999997
+      },
+      "status": "NEGATIVE",
+      "sample_milestone": "interesting (50\u201399)",
+      "rolling": {
+        "rolling_50": {
+          "available": true,
+          "roi": 0.05619999999999999,
+          "win_rate": 0.62,
+          "mean_clv": null
+        },
+        "rolling_100": {
+          "available": false,
+          "n": 65
+        },
+        "rolling_250": {
+          "available": false,
+          "n": 65
+        },
+        "rolling_500": {
+          "available": false,
+          "n": 65
+        }
+      },
+      "monthly": [
+        {
+          "month": "2026-07",
+          "n": 5,
+          "bets": 5,
+          "open": 0,
+          "wins": 2,
+          "losses": 3,
+          "pushes": 0,
+          "win_rate": 0.4,
+          "average_odds": 1.7399999999999998,
+          "total_stake": 5.0,
+          "total_pnl": -1.34,
+          "roi": -0.268,
+          "max_drawdown": -2.17,
+          "avg_model_probability": 0.6369395628707084,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.10640000000000001,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-08",
+          "n": 20,
+          "bets": 20,
+          "open": 0,
+          "wins": 8,
+          "losses": 12,
+          "pushes": 0,
+          "win_rate": 0.4,
+          "average_odds": 1.7065000000000001,
+          "total_stake": 20.0,
+          "total_pnl": -6.36,
+          "roi": -0.318,
+          "max_drawdown": -10.5,
+          "avg_model_probability": 0.6689785217400892,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.1315,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-09",
+          "n": 40,
+          "bets": 40,
+          "open": 0,
+          "wins": 24,
+          "losses": 16,
+          "pushes": 0,
+          "win_rate": 0.6,
+          "average_odds": 1.6915,
+          "total_stake": 40.0,
+          "total_pnl": 0.8699999999999997,
+          "roi": 0.02174999999999999,
+          "max_drawdown": -4.33,
+          "avg_model_probability": 0.6669722114834562,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.11852500000000002,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        }
+      ],
+      "meta": {
+        "id": "P2_DC_X2",
+        "label": "Portfolio 2 \u2014 DC X2",
+        "hypothesis": "Qualifying Double Chance X2 is repeatable",
+        "description": "Every qualifying DC X2 signal. No additional optimization."
+      },
+      "live_forward_n": 0,
+      "historical_seed_n": 70
+    },
+    "P3_O3_5": {
+      "n": 133,
+      "bets": 133,
+      "open": 15,
+      "wins": 69,
+      "losses": 64,
+      "pushes": 0,
+      "win_rate": 0.518796992481203,
+      "average_odds": 2.077443609022556,
+      "total_stake": 133.0,
+      "total_pnl": 7.390000000000001,
+      "roi": 0.05556390977443609,
+      "max_drawdown": -10.750000000000002,
+      "avg_model_probability": 0.573481944340629,
+      "avg_calibrated_probability": NaN,
+      "avg_raw_EV": 0.17878195488721804,
+      "avg_calibrated_EV": NaN,
+      "avg_fair_market_edge": null,
+      "mean_clv": null,
+      "median_clv": null,
+      "pct_positive_clv": null,
+      "clv_n": 0,
+      "roi_bootstrap": {
+        "mean": 0.05477161654135339,
+        "ci_low": -0.11776127819548872,
+        "ci_high": 0.2248947368421052
+      },
+      "status": "PROMISING \u2014 NEEDS MORE DATA",
+      "sample_milestone": "meaningful (100\u2013249)",
+      "rolling": {
+        "rolling_50": {
+          "available": true,
+          "roi": -0.0904,
+          "win_rate": 0.46,
+          "mean_clv": null
+        },
+        "rolling_100": {
+          "available": true,
+          "roi": 0.08100000000000002,
+          "win_rate": 0.53,
+          "mean_clv": null
+        },
+        "rolling_250": {
+          "available": false,
+          "n": 133
+        },
+        "rolling_500": {
+          "available": false,
+          "n": 133
+        }
+      },
+      "monthly": [
+        {
+          "month": "2026-07",
+          "n": 11,
+          "bets": 11,
+          "open": 0,
+          "wins": 3,
+          "losses": 8,
+          "pushes": 0,
+          "win_rate": 0.2727272727272727,
+          "average_odds": 2.1609090909090907,
+          "total_stake": 11.0,
+          "total_pnl": -4.49,
+          "roi": -0.4081818181818182,
+          "max_drawdown": -5.09,
+          "avg_model_probability": 0.5640107346669937,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.21290909090909088,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-08",
+          "n": 70,
+          "bets": 70,
+          "open": 0,
+          "wins": 43,
+          "losses": 27,
+          "pushes": 0,
+          "win_rate": 0.6142857142857143,
+          "average_odds": 2.080428571428571,
+          "total_stake": 70.0,
+          "total_pnl": 18.400000000000002,
+          "roi": 0.2628571428571429,
+          "max_drawdown": -5.53,
+          "avg_model_probability": 0.5699729001356917,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.1763857142857143,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-09",
+          "n": 52,
+          "bets": 52,
+          "open": 0,
+          "wins": 23,
+          "losses": 29,
+          "pushes": 0,
+          "win_rate": 0.4423076923076923,
+          "average_odds": 2.0557692307692306,
+          "total_stake": 52.0,
+          "total_pnl": -6.52,
+          "roi": -0.12538461538461537,
+          "max_drawdown": -10.02,
+          "avg_model_probability": 0.5802091828166984,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.17478846153846156,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        }
+      ],
+      "meta": {
+        "id": "P3_O3_5",
+        "label": "Portfolio 3 \u2014 Over 3.5 (benchmark)",
+        "hypothesis": "Qualifying Over 3.5 is a useful benchmark/control",
+        "description": "Every qualifying O3.5 signal. Benchmark/control."
+      },
+      "live_forward_n": 0,
+      "historical_seed_n": 148
+    },
+    "P4_O2_5": {
+      "n": 369,
+      "bets": 369,
+      "open": 30,
+      "wins": 228,
+      "losses": 139,
+      "pushes": 2,
+      "win_rate": 0.6212534059945504,
+      "average_odds": 1.6379403794037943,
+      "total_stake": 369.0,
+      "total_pnl": 2.230000000000002,
+      "roi": 0.006043360433604342,
+      "max_drawdown": -17.589999999999996,
+      "avg_model_probability": 0.681355471825929,
+      "avg_calibrated_probability": NaN,
+      "avg_raw_EV": 0.10200271002710026,
+      "avg_calibrated_EV": NaN,
+      "avg_fair_market_edge": null,
+      "mean_clv": null,
+      "median_clv": null,
+      "pct_positive_clv": null,
+      "clv_n": 0,
+      "roi_bootstrap": {
+        "mean": 0.0068080623306233075,
+        "ci_low": -0.07542276422764228,
+        "ci_high": 0.08899796747967481
+      },
+      "status": "PROMISING \u2014 NEEDS MORE DATA",
+      "sample_milestone": "strong forward-test sample building (250\u2013499)",
+      "rolling": {
+        "rolling_50": {
+          "available": true,
+          "roi": -0.06480000000000002,
+          "win_rate": 0.5714285714285714,
+          "mean_clv": null
+        },
+        "rolling_100": {
+          "available": true,
+          "roi": -0.017899999999999996,
+          "win_rate": 0.6020408163265306,
+          "mean_clv": null
+        },
+        "rolling_250": {
+          "available": true,
+          "roi": 0.013120000000000008,
+          "win_rate": 0.625,
+          "mean_clv": null
+        },
+        "rolling_500": {
+          "available": false,
+          "n": 369
+        }
+      },
+      "monthly": [
+        {
+          "month": "2026-07",
+          "n": 31,
+          "bets": 31,
+          "open": 0,
+          "wins": 16,
+          "losses": 15,
+          "pushes": 0,
+          "win_rate": 0.5161290322580645,
+          "average_odds": 1.6293548387096775,
+          "total_stake": 31.0,
+          "total_pnl": -4.85,
+          "roi": -0.1564516129032258,
+          "max_drawdown": -7.83,
+          "avg_model_probability": 0.6907913955140336,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.11574193548387098,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-08",
+          "n": 192,
+          "bets": 192,
+          "open": 0,
+          "wins": 128,
+          "losses": 64,
+          "pushes": 0,
+          "win_rate": 0.6666666666666666,
+          "average_odds": 1.6466666666666665,
+          "total_stake": 192.0,
+          "total_pnl": 15.15,
+          "roi": 0.07890625,
+          "max_drawdown": -10.61,
+          "avg_model_probability": 0.6776443482791018,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.10022395833333332,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        },
+        {
+          "month": "2026-09",
+          "n": 146,
+          "bets": 146,
+          "open": 0,
+          "wins": 84,
+          "losses": 60,
+          "pushes": 2,
+          "win_rate": 0.5833333333333334,
+          "average_odds": 1.6282876712328767,
+          "total_stake": 146.0,
+          "total_pnl": -8.07,
+          "roi": -0.05527397260273973,
+          "max_drawdown": -10.659999999999998,
+          "avg_model_probability": 0.6842323354331866,
+          "avg_calibrated_probability": NaN,
+          "avg_raw_EV": 0.10142465753424658,
+          "avg_calibrated_EV": NaN,
+          "avg_fair_market_edge": null,
+          "mean_clv": null,
+          "median_clv": null,
+          "pct_positive_clv": null,
+          "clv_n": 0
+        }
+      ],
+      "meta": {
+        "id": "P4_O2_5",
+        "label": "Portfolio 4 \u2014 Over 2.5 (benchmark)",
+        "hypothesis": "Qualifying Over 2.5 is a useful benchmark/control",
+        "description": "Every qualifying O2.5 signal. Benchmark/control."
+      },
+      "live_forward_n": 0,
+      "historical_seed_n": 399
+    }
+  },
+  "comparison_answers": {
+    "1_positive_clv": [
+      "none (or CLV unavailable)"
+    ],
+    "2_positive_roi": [
+      "Portfolio 1 \u2014 Odds 2.10\u20132.50",
+      "Portfolio 3 \u2014 Over 3.5 (benchmark)",
+      "Portfolio 4 \u2014 Over 2.5 (benchmark)"
+    ],
+    "3_positive_clv_and_roi": [
+      "none"
+    ],
+    "4_enough_sample_meaningful": [
+      "Portfolio 1 \u2014 Odds 2.10\u20132.50",
+      "Portfolio 3 \u2014 Over 3.5 (benchmark)",
+      "Portfolio 4 \u2014 Over 2.5 (benchmark)"
+    ],
+    "5_inconclusive": [
+      "Portfolio 1 \u2014 Odds 2.10\u20132.50",
+      "Portfolio 3 \u2014 Over 3.5 (benchmark)",
+      "Portfolio 4 \u2014 Over 2.5 (benchmark)"
+    ],
+    "6_evidence_better_prices_than_market": "Insufficient \u2014 closing odds not available on historical seed; await live forward CLV accumulation."
+  },
+  "clv_global_note": "CLV requires closing_odds. Historical Season 2 seed rows have null closing odds. Live forward collector captures latest pre-kickoff odds going forward."
+}
