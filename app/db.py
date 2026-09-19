@@ -630,6 +630,126 @@ def update_arahus_v2_report_log_result(
         return updated
 
 
+# --- Arahus Live Candidate V1 decision log (auditable qualify/reject) ---
+
+arahus_live_v1_decision_log = Table(
+    "arahus_live_v1_decision_log",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("strategy_version", String(40), nullable=False, default="arahus-live-v1", index=True),
+    Column("fixture_id", String(64), index=True),
+    Column("signal_timestamp", String(64), nullable=False, index=True),
+    Column("kickoff_timestamp", String(64), index=True),
+    Column("synced_at", String(64), nullable=False, index=True),
+    Column("match_date", String(64), index=True),
+    Column("league", String(200), index=True),
+    Column("home_team", String(200), nullable=False, default=""),
+    Column("away_team", String(200), nullable=False, default=""),
+    Column("fixture", Text, nullable=False, default=""),
+    Column("bet_type", String(80), nullable=False, default="", index=True),
+    Column("market", String(80), nullable=False, default=""),
+    Column("team_name", String(200), nullable=False, default=""),
+    Column("confidence", Float),
+    Column("entry_odds", Float),
+    Column("odds", Float),
+    Column("odds_source", String(80)),
+    Column("bookmaker", String(80)),
+    Column("qualification_result", Boolean, nullable=False, default=False, index=True),
+    Column("rejection_reason", String(64), index=True),
+    Column("decision", String(16), nullable=False, default="SKIP", index=True),
+    Column("stake", Float),
+    Column("units", Float),
+    Column("model_pct", Float),
+    Column("implied_pct", Float),
+    Column("edge_pct", Float),
+    Column("ev", Float),
+    Column("status", String(40), nullable=False, default="skipped", index=True),
+    Column("signals", JSON),
+    Column("closing_odds", Float),
+    Column("closing_timestamp", String(64)),
+    Column("clv", Float),
+    Column("engine_config_snapshot", JSON, nullable=False),
+    Column("engine_version", String(40), nullable=False, default=""),
+    Column("result", String(10)),
+    Column("pnl", Float),
+    Column("flat_1u_pnl", Float),
+    Column("resolved_at", String(64)),
+)
+
+
+def insert_arahus_live_v1_decision_log(rows: list[dict[str, Any]]) -> int:
+    if not rows:
+        return 0
+    with engine.begin() as conn:
+        conn.execute(arahus_live_v1_decision_log.insert(), rows)
+    return len(rows)
+
+
+def list_arahus_live_v1_decision_log(
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    qualification_result: bool | None = None,
+    unresolved_only: bool = False,
+) -> list[dict[str, Any]]:
+    with engine.begin() as conn:
+        rows = [dict(r) for r in conn.execute(select(arahus_live_v1_decision_log)).mappings()]
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        d = str(row.get("match_date") or row.get("signal_timestamp") or "")[:10]
+        if date_from and d and d < date_from[:10]:
+            continue
+        if date_to and d and d > date_to[:10]:
+            continue
+        if qualification_result is not None and bool(row.get("qualification_result")) != qualification_result:
+            continue
+        if unresolved_only and row.get("resolved_at"):
+            continue
+        out.append(row)
+    out.sort(
+        key=lambda r: (
+            str(r.get("signal_timestamp") or ""),
+            str(r.get("fixture") or ""),
+            int(r.get("id") or 0),
+        )
+    )
+    return out
+
+
+def update_arahus_live_v1_decision_log_result(
+    row_id: int,
+    *,
+    result: str,
+    pnl: float | None,
+    flat_1u_pnl: float | None,
+    resolved_at: str,
+) -> dict[str, Any] | None:
+    with engine.begin() as conn:
+        row = conn.execute(
+            select(arahus_live_v1_decision_log).where(arahus_live_v1_decision_log.c.id == row_id)
+        ).mappings().first()
+        if not row:
+            return None
+        if row.get("resolved_at"):
+            return dict(row)
+        conn.execute(
+            arahus_live_v1_decision_log.update()
+            .where(arahus_live_v1_decision_log.c.id == row_id)
+            .values(
+                result=result,
+                pnl=pnl,
+                flat_1u_pnl=flat_1u_pnl,
+                resolved_at=resolved_at,
+            )
+        )
+        updated = dict(row)
+        updated["result"] = result
+        updated["pnl"] = pnl
+        updated["flat_1u_pnl"] = flat_1u_pnl
+        updated["resolved_at"] = resolved_at
+        return updated
+
+
 def check_db_health() -> dict[str, Any]:
     try:
         with engine.begin() as conn:

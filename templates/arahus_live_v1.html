@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arahus Live V1 - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/arahus.css?v=1" />
+    <script src="/static/table_tools.js?v=9" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "arahus-live-v1" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Arahus Live Candidate V1</h1>
+      <p class="subtitle">
+        Frozen forward-validation candidate:
+        <strong>Over 2.5 only</strong>,
+        odds <strong>1.30–1.49</strong> inclusive,
+        <strong>all leagues</strong>,
+        confidence informational only (not a gate),
+        existing Arahus stake ladder.
+        Isolated from Arahus v1 / v2.
+      </p>
+
+      <div class="actions">
+        <button id="syncBtn" type="button">Sync Live V1 Qualifiers</button>
+        <a class="btn-secondary" href="/arahus-live-v1-bet-log">Open Live V1 Log</a>
+        <a class="btn-secondary" href="/api/arahus-live-v1/decisions?format=csv">Download Decisions CSV</a>
+        <a class="btn-secondary" href="/arahus">Arahus v1</a>
+        <a class="btn-secondary" href="/arahus-v2">Arahus v2</a>
+        <span id="syncStatus"></span>
+      </div>
+      <p class="meta">
+        Last scrape: <strong id="scrapedAt">{{ data.scraped_at or "Never" }}</strong>
+        · Fixtures: <strong>{{ fixture_count }}</strong>
+        · Qualified: <strong>{{ qualified_count }}</strong>
+        · Rejected: <strong>{{ rejected_count }}</strong>
+        · Auto-sync:
+        <strong>{% if enabled_auto_sync %}ON{% else %}OFF (ARAHUS_LIVE_V1_ENABLED=false){% endif %}</strong>
+      </p>
+
+      <section class="recommendation-card">
+        <h2>Frozen rules</h2>
+        <p class="hit-note">
+          Qualification = Over 2.5 AND 1.30 ≤ odds ≤ 1.49. No league whitelist. No confidence threshold.
+          No BTTS / O3.5. Stake uses the existing Arahus v1 ladder (0.75 / 1.0 / 1.5).
+          OOS reference (validation only, not a guarantee): Sep 1–19 2026 · N=62 · +4.231u · +7.76% ROI.
+        </p>
+      </section>
+
+      {% if picks|length %}
+      <section class="recommendation-card">
+        <h2>Qualified picks (Live V1)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>Market</th>
+              <th>Conf</th>
+              <th>Odds</th>
+              <th>Stake</th>
+              <th>Signals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in picks %}
+            <tr>
+              <td>
+                {% if p.fixture_id %}
+                <a href="/fixture/{{ p.fixture_id }}">{{ p.fixture }}</a>
+                {% else %}
+                {{ p.fixture }}
+                {% endif %}
+              </td>
+              <td>{{ p.league_name }}</td>
+              <td>{{ p.market_label }}</td>
+              <td><strong>{{ "%.0f"|format(p.confidence or 0) }}</strong></td>
+              <td>{{ p.odds if p.odds is not none else "—" }}</td>
+              <td>{{ p.units if p.units is not none else "—" }}</td>
+              <td class="hit-note">{{ p.signal_summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% else %}
+      <section class="recommendation-card">
+        <h2>Qualified picks</h2>
+        <p class="hit-note">No Live V1 qualifiers on the current slate.</p>
+      </section>
+      {% endif %}
+    </main>
+
+    <script>
+      const syncBtn = document.getElementById("syncBtn");
+      const syncStatus = document.getElementById("syncStatus");
+      syncBtn.addEventListener("click", async () => {
+        syncStatus.textContent = "Syncing…";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch("/api/arahus-live-v1-bet-log/sync", { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          syncStatus.textContent =
+            `Inserted ${data.result?.inserted ?? 0} · decisions ${data.result?.decision_log_inserted ?? 0}`;
+        } catch (err) {
+          syncStatus.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -34,6 +34,7 @@ from app.db import (
     check_db_health,
     init_db,
     list_arahus_decision_log,
+    list_arahus_live_v1_decision_log,
     list_arahus_v2_report_log,
     load_state,
     save_state,
@@ -100,6 +101,18 @@ from app.arahus_v2_engine import (
     load_arahus_v2_bet_log,
     resolve_arahus_v2_bet,
     sync_arahus_v2_bets,
+)
+from app.arahus_live_v1_engine import (
+    ENABLED as ARAHUS_LIVE_V1_ENABLED,
+    STRATEGY_LABEL as ARAHUS_LIVE_V1_LABEL,
+    arahus_live_v1_dashboard,
+    build_arahus_live_v1_slate,
+    enrich_arahus_live_v1_entries,
+    flatten_picks as flatten_arahus_live_v1_picks,
+    load_arahus_live_v1_bet_log,
+    resolve_arahus_live_v1_bet,
+    sync_arahus_live_v1_bets,
+    engine_config_snapshot as arahus_live_v1_config,
 )
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
@@ -221,6 +234,18 @@ def _arahus_v2_log_payload(*, season: int | None = None) -> dict:
         **season_context(season_id),
         "entries": enrich_arahus_v2_entries(entries),
         "dashboard": arahus_v2_dashboard(entries),
+    }
+
+
+def _arahus_live_v1_log_payload(*, season: int | None = None) -> dict:
+    season_id = _resolve_season(season)
+    entries = sort_by_fixture_date(filter_entries_by_season(load_arahus_live_v1_bet_log(), season_id))
+    return {
+        **season_context(season_id),
+        "entries": enrich_arahus_live_v1_entries(entries),
+        "dashboard": arahus_live_v1_dashboard(entries),
+        "config": arahus_live_v1_config(),
+        "enabled_auto_sync": ARAHUS_LIVE_V1_ENABLED,
     }
 
 
@@ -690,6 +715,38 @@ async def arahus_v2_engine_page(request: Request):
 async def arahus_v2_bet_log_page(request: Request, season: int | None = Query(default=None)):
     payload = _arahus_v2_log_payload(season=season)
     return templates.TemplateResponse(request, "arahus_v2_bet_log.html", payload)
+
+
+@app.get("/arahus-live-v1")
+async def arahus_live_v1_engine_page(request: Request):
+    """Arahus Live Candidate V1 — frozen O2.5 odds 1.30–1.49, all leagues, no conf gate."""
+    data = read_latest()
+    cards = await run_in_threadpool(build_arahus_live_v1_slate, data)
+    picks = flatten_arahus_live_v1_picks(cards)
+    decisions = [d for c in cards for d in (c.get("decisions") or [])]
+    rejected = sum(1 for d in decisions if not d.get("qualification_result"))
+    return templates.TemplateResponse(
+        request,
+        "arahus_live_v1.html",
+        {
+            "data": data,
+            "cards": cards,
+            "picks": picks,
+            "pick_count": len(picks),
+            "fixture_count": len(cards),
+            "qualified_count": len(picks),
+            "rejected_count": rejected,
+            "config": arahus_live_v1_config(),
+            "enabled_auto_sync": ARAHUS_LIVE_V1_ENABLED,
+            "strategy_label": ARAHUS_LIVE_V1_LABEL,
+        },
+    )
+
+
+@app.get("/arahus-live-v1-bet-log")
+async def arahus_live_v1_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    payload = _arahus_live_v1_log_payload(season=season)
+    return templates.TemplateResponse(request, "arahus_live_v1_bet_log.html", payload)
 
 
 @app.get("/lm-bet-log")
@@ -1540,6 +1597,122 @@ async def arahus_v2_bet_log_resolve(
 async def arahus_v2_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "arahus_v2")
     return JSONResponse({"result": result, **_arahus_v2_log_payload(season=season)})
+
+
+@app.get("/api/arahus-live-v1")
+async def arahus_live_v1_engine_data(picks_only: bool = Query(default=False)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_live_v1_slate, latest)
+    picks = flatten_arahus_live_v1_picks(cards)
+    if picks_only:
+        return JSONResponse(
+            {
+                "scraped_at": latest.get("scraped_at"),
+                "picks": picks,
+                "config": arahus_live_v1_config(),
+                "enabled_auto_sync": ARAHUS_LIVE_V1_ENABLED,
+            }
+        )
+    return JSONResponse(
+        {
+            "scraped_at": latest.get("scraped_at"),
+            "cards": cards,
+            "picks": picks,
+            "config": arahus_live_v1_config(),
+            "enabled_auto_sync": ARAHUS_LIVE_V1_ENABLED,
+        }
+    )
+
+
+@app.get("/api/arahus-live-v1-bet-log")
+async def arahus_live_v1_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(_arahus_live_v1_log_payload(season=season))
+
+
+@app.post("/api/arahus-live-v1-bet-log/sync")
+async def arahus_live_v1_bet_log_sync(season: int | None = Query(default=None)):
+    latest = read_latest()
+    cards = await run_in_threadpool(build_arahus_live_v1_slate, latest)
+    picks = flatten_arahus_live_v1_picks(cards)
+    result = await run_in_threadpool(lambda: sync_arahus_live_v1_bets(picks, cards=cards))
+    return JSONResponse({"result": result, **_arahus_live_v1_log_payload(season=season)})
+
+
+@app.get("/api/arahus-live-v1/decisions")
+async def arahus_live_v1_decisions_export(
+    format: str = Query(default="json"),
+    qualification_result: bool | None = Query(default=None),
+):
+    rows = list_arahus_live_v1_decision_log(qualification_result=qualification_result)
+    if format == "csv":
+        flat_rows = []
+        for r in rows:
+            flat_rows.append(
+                {
+                    "id": r.get("id"),
+                    "strategy_version": r.get("strategy_version"),
+                    "signal_timestamp": r.get("signal_timestamp"),
+                    "kickoff_timestamp": r.get("kickoff_timestamp"),
+                    "league": r.get("league"),
+                    "home_team": r.get("home_team"),
+                    "away_team": r.get("away_team"),
+                    "fixture": r.get("fixture"),
+                    "market": r.get("market"),
+                    "confidence": r.get("confidence"),
+                    "entry_odds": r.get("entry_odds"),
+                    "qualification_result": r.get("qualification_result"),
+                    "rejection_reason": r.get("rejection_reason"),
+                    "decision": r.get("decision"),
+                    "stake": r.get("stake"),
+                    "result": r.get("result"),
+                    "pnl": r.get("pnl"),
+                    "flat_1u_pnl": r.get("flat_1u_pnl"),
+                }
+            )
+        buf = io.StringIO()
+        if flat_rows:
+            writer = csv.DictWriter(buf, fieldnames=list(flat_rows[0].keys()))
+            writer.writeheader()
+            for row in flat_rows:
+                writer.writerow(row)
+        else:
+            writer = csv.writer(buf)
+            writer.writerow(
+                [
+                    "strategy_version",
+                    "signal_timestamp",
+                    "league",
+                    "market",
+                    "confidence",
+                    "entry_odds",
+                    "qualification_result",
+                    "rejection_reason",
+                    "stake",
+                ]
+            )
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="arahus_live_v1_decisions.csv"'},
+        )
+    return JSONResponse({"rows": rows, "config": arahus_live_v1_config()})
+
+
+@app.post("/api/arahus-live-v1-bet-log/{bet_id}/resolve")
+async def arahus_live_v1_bet_log_resolve(
+    bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    try:
+        updated = resolve_arahus_live_v1_bet(bet_id, str(payload.get("result", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse({"updated": updated, **_arahus_live_v1_log_payload(season=season)})
+
+
+@app.post("/api/arahus-live-v1-bet-log/auto-resolve")
+async def arahus_live_v1_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "arahus_live_v1")
+    return JSONResponse({"result": result, **_arahus_live_v1_log_payload(season=season)})
 
 
 @app.get("/api/lm-bet-log")
