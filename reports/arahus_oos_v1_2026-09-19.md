@@ -1,6 +1,6 @@
 # Arahus O2.5 OOS Validation
 
-_Generated: 2026-09-19T21:05:32.168431+00:00_
+_Generated: 2026-09-19T21:05:48.588028+00:00_
 
 **research_only = true** · **can_place_real_bet = false**
 
@@ -44,7 +44,7 @@ Sources checked: `app/arahus_engine.py`, `app/arahus_v2_engine.py`, `app/flashsc
 | ROI | 7.76% |
 | Avg PnL / bet | 0.0682 |
 | Max Drawdown (u) | 2.890 |
-| Max Drawdown % | 227.27% |
+| Max Drawdown % | 5.30% |
 | Longest Losing Streak | 2 |
 | Longest Winning Streak | 11 |
 | Worst loss / Best win | -1.500 / 0.540 |
@@ -164,7 +164,7 @@ N required for SE≈0.05 on mean per-bet return: **112** (σ=0.5284). N ≈ (σ/
 - OOS ROI was positive (7.76%).
 - Sample size: N=62 (larger sample).
 - Bootstrap 95% CI for portfolio ROI: [-7.75%, 22.32%].
-- Max drawdown: 2.890u (227.27%).
+- Max drawdown: 2.890u (5.30%).
 - Stability: see weekly / rolling tables; last rolling-25 ROI=11.41%.
 - League filtering: **could not be tested** — whitelist undefined; B ≡ C.
 - CLV: CLV unavailable in current dataset..
