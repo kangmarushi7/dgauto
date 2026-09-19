@@ -23,24 +23,70 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("/home/ubuntu/.cursor/projects/workspace/uploads/plus_ev_bet_log_season2_39ab.csv"),
     )
 
+    seed_db = sub.add_parser(
+        "seed-db",
+        help="Seed from VPS: DATABASE_URL Postgres, else APP_BASE_URL /api/plus-ev-bet-log",
+    )
+    seed_db.add_argument(
+        "--season",
+        type=int,
+        default=None,
+        help="Optional season filter (1 or 2). Default: all seasons in DB.",
+    )
+    seed_db.add_argument(
+        "--prefer",
+        choices=("auto", "db", "api"),
+        default="auto",
+        help="auto: DATABASE_URL if set else HTTP API; db/api force one path",
+    )
+    seed_db.add_argument(
+        "--base-url",
+        default=None,
+        help="App base URL for HTTP seed (default: APP_BASE_URL or Railway prod)",
+    )
+
     sub.add_parser("collect", help="Collect live +EV signals into research ledger (no real bets)")
     sub.add_parser("snapshot-closing", help="Capture latest pre-kickoff odds for open live signals")
     sub.add_parser("settle", help="Fill results from production bet log (read-only)")
     sub.add_parser("report", help="Generate portfolio report / CSV / JSON / plots")
 
-    all_cmd = sub.add_parser("run-all", help="seed (optional) + report for current ledger")
+    all_cmd = sub.add_parser("run-all", help="seed CSV (optional) + report for current ledger")
     all_cmd.add_argument(
         "--input",
         type=Path,
         default=Path("/home/ubuntu/.cursor/projects/workspace/uploads/plus_ev_bet_log_season2_39ab.csv"),
     )
     all_cmd.add_argument("--skip-seed", action="store_true")
+    all_cmd.add_argument(
+        "--from-db",
+        action="store_true",
+        help="Seed from VPS DATABASE_URL or live /api/plus-ev-bet-log instead of CSV",
+    )
+    all_cmd.add_argument("--season", type=int, default=None)
+    all_cmd.add_argument("--prefer", choices=("auto", "db", "api"), default="auto")
+    all_cmd.add_argument("--base-url", default=None)
 
     args = p.parse_args(argv)
 
     if args.cmd == "seed-season2":
         stats = seed_from_season2_csv(args.input, args.data_dir)
         print(json.dumps(stats, indent=2))
+        return 0
+
+    if args.cmd == "seed-db":
+        from research.plus_ev_forward_test.seed_db import seed_from_vps
+
+        print(
+            json.dumps(
+                seed_from_vps(
+                    args.data_dir,
+                    season=args.season,
+                    prefer=args.prefer,
+                    base_url=args.base_url,
+                ),
+                indent=2,
+            )
+        )
         return 0
 
     if args.cmd == "collect":
@@ -68,7 +114,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "run-all":
         if not args.skip_seed:
-            stats = seed_from_season2_csv(args.input, args.data_dir)
+            if args.from_db:
+                from research.plus_ev_forward_test.seed_db import seed_from_vps
+
+                stats = seed_from_vps(
+                    args.data_dir,
+                    season=args.season,
+                    prefer=args.prefer,
+                    base_url=args.base_url,
+                )
+            else:
+                stats = seed_from_season2_csv(args.input, args.data_dir)
             print("seed:", json.dumps(stats))
         paths = generate_report(args.data_dir, args.out_dir)
         _print_summary(args.out_dir, paths)

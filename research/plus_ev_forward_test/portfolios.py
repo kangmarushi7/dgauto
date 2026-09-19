@@ -1,40 +1,36 @@
 """Fixed forward-test portfolios — hypotheses only, never re-tuned."""
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
-# Fixed hypotheses. Do NOT optimize or combine.
+# Fixed paper portfolios for the current test.
+# Do NOT optimize or combine.
 PORTFOLIOS: dict[str, dict[str, Any]] = {
-    "A_O3_5": {
-        "id": "A_O3_5",
-        "label": "Portfolio A — Over 3.5",
-        "hypothesis": "H1: Over 3.5 is profitable/repeatable",
-        "description": "Every qualifying O3.5 signal. No odds/league filter.",
+    "P1_ODDS_2_10_2_50": {
+        "id": "P1_ODDS_2_10_2_50",
+        "label": "Portfolio 1 — Odds 2.10–2.50",
+        "hypothesis": "Qualifying bets priced 2.10–2.50 are repeatable",
+        "description": "Every qualifying +EV signal with bet-time odds in [2.10, 2.50]. No market restriction.",
     },
-    "B_O2_5": {
-        "id": "B_O2_5",
-        "label": "Portfolio B — Over 2.5",
-        "hypothesis": "H2: Over 2.5 is profitable/repeatable",
-        "description": "Every qualifying O2.5 signal. No odds/league filter.",
+    "P2_DC_X2": {
+        "id": "P2_DC_X2",
+        "label": "Portfolio 2 — DC X2",
+        "hypothesis": "Qualifying Double Chance X2 is repeatable",
+        "description": "Every qualifying DC X2 signal. No additional optimization.",
     },
-    "C_SERIE_A": {
-        "id": "C_SERIE_A",
-        "label": "Portfolio C — Serie A",
-        "hypothesis": "H3: Serie A has better model performance",
-        "description": "Every qualifying signal in Serie A. No market/odds filter.",
+    "P3_O3_5": {
+        "id": "P3_O3_5",
+        "label": "Portfolio 3 — Over 3.5 (benchmark)",
+        "hypothesis": "Qualifying Over 3.5 is a useful benchmark/control",
+        "description": "Every qualifying O3.5 signal. Benchmark/control.",
     },
-    "D_ODDS_2_10_2_50": {
-        "id": "D_ODDS_2_10_2_50",
-        "label": "Portfolio D — Odds 2.10–2.50",
-        "hypothesis": "H4: Odds 2.10–2.50 have better model performance",
-        "description": "Every qualifying signal with bet-time odds in [2.10, 2.50]. No market filter.",
+    "P4_O2_5": {
+        "id": "P4_O2_5",
+        "label": "Portfolio 4 — Over 2.5 (benchmark)",
+        "hypothesis": "Qualifying Over 2.5 is a useful benchmark/control",
+        "description": "Every qualifying O2.5 signal. Benchmark/control.",
     },
 }
-
-
-def _is_serie_a(league: str) -> bool:
-    name = (league or "").strip().lower()
-    return name in {"serie a", "italy serie a", "serie a (italy)"} or name.startswith("serie a")
 
 
 def portfolio_membership(signal: dict[str, Any]) -> list[str]:
@@ -42,18 +38,17 @@ def portfolio_membership(signal: dict[str, Any]) -> list[str]:
     ids: list[str] = []
     bt = str(signal.get("bet_type") or signal.get("market_key") or "").lower()
     market = str(signal.get("market") or "").lower()
-    league = str(signal.get("league") or signal.get("league_name") or "")
     try:
         odds = float(signal.get("odds_at_signal") or signal.get("odds") or 0)
     except (TypeError, ValueError):
         odds = 0.0
 
-    if bt == "over3.5" or "over 3.5" in market:
-        ids.append("A_O3_5")
-    if bt == "over2.5" or "over 2.5" in market:
-        ids.append("B_O2_5")
-    if _is_serie_a(league):
-        ids.append("C_SERIE_A")
     if 2.10 <= odds <= 2.50:
-        ids.append("D_ODDS_2_10_2_50")
+        ids.append("P1_ODDS_2_10_2_50")
+    if bt == "dc_x2" or "dc x2" in market or market.strip() == "dc x2":
+        ids.append("P2_DC_X2")
+    if bt == "over3.5" or "over 3.5" in market:
+        ids.append("P3_O3_5")
+    if bt == "over2.5" or "over 2.5" in market:
+        ids.append("P4_O2_5")
     return ids

@@ -7,14 +7,14 @@ This module does **not** modify production +EV filters, Arahus, staking, sync, o
 
 ## Purpose
 
-Prospectively (and retrospectively for Season 2 seed) evaluate four **fixed** hypotheses independently:
+Prospectively (and retrospectively for existing +EV log data) evaluate four **fixed** paper portfolios independently:
 
-| Portfolio | Hypothesis |
-|-----------|------------|
-| A — O3.5 | H1 Over 3.5 repeatable |
-| B — O2.5 | H2 Over 2.5 repeatable |
-| C — Serie A | H3 Serie A model performance |
-| D — Odds 2.10–2.50 | H4 Odds band model performance |
+| Portfolio | Rule |
+|-----------|------|
+| 1 — Odds 2.10–2.50 | Every qualifying bet with odds in [2.10, 2.50]. No market restriction. |
+| 2 — DC X2 | Every qualifying Double Chance X2. No extra optimization. |
+| 3 — Over 3.5 | Every qualifying O3.5 (benchmark/control). |
+| 4 — Over 2.5 | Every qualifying O2.5 (benchmark/control). |
 
 Do **not** combine filters. Do **not** retune after seeing results.
 
@@ -22,23 +22,23 @@ Do **not** combine filters. Do **not** retune after seeing results.
 
 ```bash
 pip install -r research/plus_ev_forward_test/requirements.txt
+# Also need app DB deps for --from-db via Postgres:
+#   pip install sqlalchemy 'psycopg[binary]'
 
-# Seed Season 2 historical ledger (CLV/fair market unavailable on seed)
-python3 -m research.plus_ev_forward_test.run seed-season2 \
-  --input /path/to/plus_ev_bet_log_season2.csv
+# From VPS (preferred): Postgres DATABASE_URL, else live app HTTP API
+export DATABASE_URL='postgresql://...'           # Railway/VPS Postgres
+# OR when app is up and DATABASE_URL unavailable here:
+export APP_BASE_URL='https://dgauto-production.up.railway.app'
 
-# Generate report
-python3 -m research.plus_ev_forward_test.run report
+python3 -m research.plus_ev_forward_test.run run-all --from-db --season 2
 
-# Or one-shot seed + report
+# Force one path:
+python3 -m research.plus_ev_forward_test.run seed-db --season 2 --prefer db
+python3 -m research.plus_ev_forward_test.run seed-db --season 2 --prefer api
+
+# From Season 2 CSV export (fallback when VPS unreachable)
 python3 -m research.plus_ev_forward_test.run run-all \
   --input /path/to/plus_ev_bet_log_season2.csv
-
-# Live forward collection (requires app state available; never places bets)
-python3 -m research.plus_ev_forward_test.run collect
-python3 -m research.plus_ev_forward_test.run snapshot-closing
-python3 -m research.plus_ev_forward_test.run settle
-python3 -m research.plus_ev_forward_test.run report
 ```
 
 ## Suggested external cron (research only)

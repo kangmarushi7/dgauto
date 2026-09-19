@@ -5,10 +5,10 @@
 These rules are frozen. Do **not** change after viewing Season 3 outcomes.
 
 1. Four independent portfolios only:
-   - A: all qualifying Over 3.5
-   - B: all qualifying Over 2.5
-   - C: all qualifying Serie A
-   - D: all qualifying odds in [2.10, 2.50]
+   - P1: odds in [2.10, 2.50] (all markets)
+   - P2: Double Chance X2
+   - P3: Over 3.5 (benchmark)
+   - P4: Over 2.5 (benchmark)
 2. Flat 1-unit stakes.
 3. No EV-threshold search, no odds-band retuning, no league mining, no market combinations.
 4. CLV only when closing odds captured; never fabricate.
