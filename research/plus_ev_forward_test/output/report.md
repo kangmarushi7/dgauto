@@ -4,6 +4,8 @@ _Generated: 2026-09-19T05:13:18.761388+00:00_
 
 **research_only = true** — no real bets placed by this module.
 
+**Data source:** Season 2 +EV bet-log CSV export from production (same rows as VPS `log_type=ev`). Live `DATABASE_URL` and `https://dgauto-production.up.railway.app` were unavailable here (no Postgres secret; app HTTP 502). Re-run: `python3 -m research.plus_ev_forward_test.run run-all --from-db --season 2` once DB/API is reachable.
+
 CLV requires closing_odds. Historical Season 2 seed rows have null closing odds. Live forward collector captures latest pre-kickoff odds going forward.
 
 Total signals in ledger: **769**
