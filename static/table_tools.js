@@ -144,7 +144,11 @@
     return table?.dataset.csvExport === "1";
   }
 
-  function csvColumnIndexes(table) {
+  function excelExportEnabled(table) {
+    return table?.dataset.excelExport === "1";
+  }
+
+  function exportColumnIndexes(table) {
     const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
     const indexes = [];
     headers.forEach((th, idx) => {
@@ -155,7 +159,12 @@
     return indexes;
   }
 
-  function csvHeaderLabel(th) {
+  /** @deprecated use exportColumnIndexes */
+  function csvColumnIndexes(table) {
+    return exportColumnIndexes(table);
+  }
+
+  function exportHeaderLabel(th) {
     const label =
       th?.dataset.filterLabel ||
       th?.querySelector(".th-label")?.textContent ||
@@ -164,53 +173,282 @@
     return String(label).trim();
   }
 
+  function csvHeaderLabel(th) {
+    return exportHeaderLabel(th);
+  }
+
   function csvEscape(value) {
     const text = String(value ?? "");
     if (!/[",\n]/.test(text)) return text;
     return `"${text.replace(/"/g, '""')}"`;
   }
 
-  function csvCellText(cell) {
+  function exportCellText(cell) {
     return String(cell?.textContent || "")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  function csvFilename(table) {
-    const custom = String(table?.dataset.csvFilename || "").trim();
-    if (custom) return `${custom}.csv`;
-    const pathSlug = String(window.location?.pathname || "table")
+  function csvCellText(cell) {
+    return exportCellText(cell);
+  }
+
+  function pathExportSlug() {
+    return String(window.location?.pathname || "table")
       .replace(/^\/+|\/+$/g, "")
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-+|-+$/g, "")
       .toLowerCase();
-    return `${pathSlug || "table"}-export.csv`;
   }
 
-  function exportTableCsv(table) {
+  function csvFilename(table) {
+    const custom = String(table?.dataset.csvFilename || "").trim();
+    if (custom) return `${custom}.csv`;
+    return `${pathExportSlug() || "table"}-export.csv`;
+  }
+
+  function excelFilename(table) {
+    const custom = String(
+      table?.dataset.excelFilename || table?.dataset.csvFilename || ""
+    ).trim();
+    if (custom) return `${custom}.xlsx`;
+    return `${pathExportSlug() || "table"}-export.xlsx`;
+  }
+
+  function collectVisibleExportMatrix(table) {
     const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
-    const colIndexes = csvColumnIndexes(table);
-    if (!headers.length || !colIndexes.length) return;
+    const colIndexes = exportColumnIndexes(table);
+    if (!headers.length || !colIndexes.length) return null;
 
-    const lines = [];
-    const headerRow = colIndexes.map((idx) => csvEscape(csvHeaderLabel(headers[idx])));
-    lines.push(headerRow.join(","));
-
+    const matrix = [colIndexes.map((idx) => exportHeaderLabel(headers[idx]))];
     const rows = dataRows(table).filter((row) => row.style.display !== "none");
     for (const row of rows) {
-      const cells = colIndexes.map((idx) => csvEscape(csvCellText(row.cells[idx])));
-      lines.push(cells.join(","));
+      matrix.push(colIndexes.map((idx) => exportCellText(row.cells[idx])));
     }
+    return matrix;
+  }
 
-    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = csvFilename(table);
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function exportTableCsv(table) {
+    const matrix = collectVisibleExportMatrix(table);
+    if (!matrix) return;
+    const lines = matrix.map((row) => row.map(csvEscape).join(","));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    downloadBlob(blob, csvFilename(table));
+  }
+
+  function xmlEscape(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function crc32Table() {
+    if (crc32Table._t) return crc32Table._t;
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i += 1) {
+      let c = i;
+      for (let k = 0; k < 8; k += 1) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      table[i] = c >>> 0;
+    }
+    crc32Table._t = table;
+    return table;
+  }
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    const table = crc32Table();
+    for (let i = 0; i < bytes.length; i += 1) {
+      crc = table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function u16(n) {
+    const b = new Uint8Array(2);
+    new DataView(b.buffer).setUint16(0, n, true);
+    return b;
+  }
+
+  function u32(n) {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, n, true);
+    return b;
+  }
+
+  function concatBytes(parts) {
+    const total = parts.reduce((sum, p) => sum + p.length, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
+    }
+    return out;
+  }
+
+  function encodeUtf8(text) {
+    return new TextEncoder().encode(text);
+  }
+
+  /** Build a ZIP archive using STORE (no compression) — valid for .xlsx. */
+  function zipStore(files) {
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+
+    for (const file of files) {
+      const nameBytes = encodeUtf8(file.name);
+      const data = file.data;
+      const crc = crc32(data);
+      const localHeader = concatBytes([
+        u32(0x04034b50),
+        u16(20),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(nameBytes.length),
+        u16(0),
+        nameBytes,
+      ]);
+      localParts.push(localHeader, data);
+
+      const centralHeader = concatBytes([
+        u32(0x02014b50),
+        u16(20),
+        u16(20),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(nameBytes.length),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(0),
+        u32(offset),
+        nameBytes,
+      ]);
+      centralParts.push(centralHeader);
+      offset += localHeader.length + data.length;
+    }
+
+    const centralDir = concatBytes(centralParts);
+    const end = concatBytes([
+      u32(0x06054b50),
+      u16(0),
+      u16(0),
+      u16(files.length),
+      u16(files.length),
+      u32(centralDir.length),
+      u32(offset),
+      u16(0),
+    ]);
+    return concatBytes([...localParts, centralDir, end]);
+  }
+
+  function colName(index1Based) {
+    let n = index1Based;
+    let name = "";
+    while (n > 0) {
+      const rem = (n - 1) % 26;
+      name = String.fromCharCode(65 + rem) + name;
+      n = Math.floor((n - 1) / 26);
+    }
+    return name;
+  }
+
+  function buildSheetXml(matrix) {
+    const rowCount = matrix.length;
+    const colCount = matrix.reduce((max, row) => Math.max(max, row.length), 0);
+    const lastCol = colName(Math.max(colCount, 1));
+    const lastRow = Math.max(rowCount, 1);
+    const rowsXml = matrix
+      .map((row, rIdx) => {
+        const cells = row
+          .map((value, cIdx) => {
+            const ref = `${colName(cIdx + 1)}${rIdx + 1}`;
+            const text = xmlEscape(value);
+            return `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+          })
+          .join("");
+        return `<row r="${rIdx + 1}">${cells}</row>`;
+      })
+      .join("");
+    return (
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+      `<dimension ref="A1:${lastCol}${lastRow}"/>` +
+      `<sheetData>${rowsXml}</sheetData>` +
+      `</worksheet>`
+    );
+  }
+
+  function buildXlsxBytes(matrix) {
+    const sheet = buildSheetXml(matrix);
+    const contentTypes =
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+      `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+      `<Default Extension="xml" ContentType="application/xml"/>` +
+      `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+      `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+      `</Types>`;
+    const rels =
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+      `</Relationships>`;
+    const workbook =
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ` +
+      `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+      `<sheets><sheet name="Log" sheetId="1" r:id="rId1"/></sheets>` +
+      `</workbook>`;
+    const workbookRels =
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+      `</Relationships>`;
+    return zipStore([
+      { name: "[Content_Types].xml", data: encodeUtf8(contentTypes) },
+      { name: "_rels/.rels", data: encodeUtf8(rels) },
+      { name: "xl/workbook.xml", data: encodeUtf8(workbook) },
+      { name: "xl/_rels/workbook.xml.rels", data: encodeUtf8(workbookRels) },
+      { name: "xl/worksheets/sheet1.xml", data: encodeUtf8(sheet) },
+    ]);
+  }
+
+  function exportTableExcel(table) {
+    const matrix = collectVisibleExportMatrix(table);
+    if (!matrix) return;
+    const bytes = buildXlsxBytes(matrix);
+    const blob = new Blob([bytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    downloadBlob(blob, excelFilename(table));
   }
 
   function buildExportCsvBtn(table) {
@@ -221,6 +459,19 @@
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       exportTableCsv(table);
+      closeFilterMenu(table);
+    });
+    return btn;
+  }
+
+  function buildExportExcelBtn(table) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "excel-filter-btn";
+    btn.textContent = "Export Excel";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportTableExcel(table);
       closeFilterMenu(table);
     });
     return btn;
@@ -578,6 +829,9 @@
     if (csvExportEnabled(table)) {
       actions.appendChild(buildExportCsvBtn(table));
     }
+    if (excelExportEnabled(table)) {
+      actions.appendChild(buildExportExcelBtn(table));
+    }
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "excel-filter-btn";
@@ -765,6 +1019,9 @@
     if (csvExportEnabled(table)) {
       actions.appendChild(buildExportCsvBtn(table));
     }
+    if (excelExportEnabled(table)) {
+      actions.appendChild(buildExportExcelBtn(table));
+    }
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "excel-filter-btn";
@@ -857,21 +1114,39 @@
     });
   }
 
-  function attachCsvExportToolbar(table) {
-    if (!csvExportEnabled(table)) return;
-    if (table.dataset.csvToolbarAttached === "1") return;
-    table.dataset.csvToolbarAttached = "1";
+  function attachExportToolbar(table) {
+    const wantCsv = csvExportEnabled(table);
+    const wantExcel = excelExportEnabled(table);
+    if (!wantCsv && !wantExcel) return;
+    if (table.dataset.exportToolbarAttached === "1") return;
+    table.dataset.exportToolbarAttached = "1";
 
     const bar = document.createElement("div");
-    bar.className = "table-tools table-csv-export";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn-secondary";
-    btn.textContent = "Export CSV";
-    btn.setAttribute("aria-label", "Download visible rows as CSV");
-    btn.addEventListener("click", () => exportTableCsv(table));
-    bar.appendChild(btn);
+    bar.className = "table-tools table-export-bar";
+    if (wantCsv) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-secondary";
+      btn.textContent = "Export CSV";
+      btn.setAttribute("aria-label", "Download visible rows as CSV");
+      btn.addEventListener("click", () => exportTableCsv(table));
+      bar.appendChild(btn);
+    }
+    if (wantExcel) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-secondary";
+      btn.textContent = "Export Excel";
+      btn.setAttribute("aria-label", "Download visible rows as Excel workbook");
+      btn.addEventListener("click", () => exportTableExcel(table));
+      bar.appendChild(btn);
+    }
     table.parentNode.insertBefore(bar, table);
+  }
+
+  /** @deprecated use attachExportToolbar */
+  function attachCsvExportToolbar(table) {
+    attachExportToolbar(table);
   }
 
   function enhanceWithColumnFilters(table) {
@@ -886,7 +1161,7 @@
       menuOutsideHandler: null,
     };
     buildColumnHeaders(table);
-    attachCsvExportToolbar(table);
+    attachExportToolbar(table);
   }
 
   function enhanceWithSearchFilter(table) {
@@ -967,5 +1242,6 @@
     reapply,
     closeFilterMenu,
     exportTableCsv,
+    exportTableExcel,
   };
 })();

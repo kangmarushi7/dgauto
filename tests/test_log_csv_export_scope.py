@@ -1,4 +1,4 @@
-"""Regression checks for Logs-tab CSV export scope."""
+"""Regression checks for Logs-tab CSV / Excel export scope."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,18 +31,37 @@ class LogCsvExportScopeTests(unittest.TestCase):
                 html = (TEMPLATES_DIR / name).read_text(encoding="utf-8")
                 self.assertIn('data-csv-export="1"', html)
 
-    def test_arahus_logs_remain_unchanged(self):
+    def test_arahus_logs_do_not_enable_csv_export(self):
         for name in ARAHUS_TEMPLATES:
             with self.subTest(template=name):
                 html = (TEMPLATES_DIR / name).read_text(encoding="utf-8")
                 self.assertNotIn('data-csv-export="1"', html)
 
+    def test_arahus_logs_enable_excel_export(self):
+        expected = {
+            "arahus_bet_log.html": 'data-excel-filename="arahus-log"',
+            "arahus_v2_bet_log.html": 'data-excel-filename="arahus-v2-log"',
+        }
+        for name, filename_attr in expected.items():
+            with self.subTest(template=name):
+                html = (TEMPLATES_DIR / name).read_text(encoding="utf-8")
+                self.assertIn('data-excel-export="1"', html)
+                self.assertIn(filename_attr, html)
+
     def test_table_tools_has_csv_export_menu_support(self):
         script = (STATIC_DIR / "table_tools.js").read_text(encoding="utf-8")
         self.assertIn('btn.textContent = "Export CSV"', script)
-        self.assertIn("exportTableCsv(table);", script)
-        self.assertIn("table?.dataset.csvExport === \"1\"", script)
-        self.assertIn("attachCsvExportToolbar(table)", script)
+        self.assertIn("exportTableCsv(table)", script)
+        self.assertIn('table?.dataset.csvExport === "1"', script)
+        self.assertIn("attachExportToolbar(table)", script)
+
+    def test_table_tools_has_excel_export_support(self):
+        script = (STATIC_DIR / "table_tools.js").read_text(encoding="utf-8")
+        self.assertIn('btn.textContent = "Export Excel"', script)
+        self.assertIn("exportTableExcel(table)", script)
+        self.assertIn('table?.dataset.excelExport === "1"', script)
+        self.assertIn("buildXlsxBytes", script)
+        self.assertIn("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", script)
 
 
 if __name__ == "__main__":
