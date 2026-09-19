@@ -806,6 +806,12 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Arahus v2 report-log auto-resolve failed")
             result["report_log"] = {"error": str(exc)}
+    if log_type == "arahus_live_v1":
+        try:
+            result["decision_log"] = auto_resolve_arahus_live_v1_decision_log()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Arahus Live V1 decision-log auto-resolve failed")
+            result["decision_log"] = {"error": str(exc)}
     return result
 
 
@@ -1108,4 +1114,103 @@ def auto_resolve_arahus_v2_report_log() -> dict[str, Any]:
         "skipped_unresolved": skipped_unresolved,
         "skipped_already": skipped_already,
         "flat_stake": FLAT_STAKE,
+    }
+
+
+def auto_resolve_arahus_live_v1_decision_log() -> dict[str, Any]:
+    """Settle unresolved Arahus Live V1 decision-log rows (BET and SKIP)."""
+    from app.db import list_arahus_live_v1_decision_log, update_arahus_live_v1_decision_log_result
+
+    open_rows = list_arahus_live_v1_decision_log(unresolved_only=True)
+    sources = _settle_sources()
+    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    if use_flashscore and open_rows:
+        try:
+            fixture_dates = [
+                _parse_entry_date(r.get("kickoff_timestamp") or r.get("match_date"))
+                for r in open_rows
+            ]
+            flashscore_refresh_for_dates(fixture_dates, force=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Flashscore refresh for arahus_live_v1 decision-log failed: %s", exc)
+
+    resolved = 0
+    skipped_not_found = 0
+    skipped_not_final = 0
+    skipped_unresolved = 0
+    skipped_already = 0
+    started = time.monotonic()
+
+    date_cache: dict[str, list[dict[str, Any]]] = {}
+    team_id_cache: dict[str, int | None] = {}
+    h2h_cache: dict[str, list[dict[str, Any]]] = {}
+    team_recent_cache: dict[str, list[dict[str, Any]]] = {}
+
+    for row in open_rows:
+        if time.monotonic() - started > MAX_RUNTIME_SEC:
+            break
+        if row.get("resolved_at"):
+            skipped_already += 1
+            continue
+        seed = {
+            "fixture_date": row.get("kickoff_timestamp") or row.get("match_date"),
+            "fixture": row.get("fixture")
+            or f"{row.get('home_team')} vs {row.get('away_team')}",
+            "league_name": row.get("league"),
+            "bet_type": row.get("bet_type") or "arahus_o25",
+            "team_name": row.get("team_name") or "",
+            "odds": row.get("entry_odds") if row.get("entry_odds") is not None else row.get("odds"),
+            "units": row.get("stake") if row.get("stake") is not None else row.get("units") or 1.0,
+            "log_type": "arahus_live_v1",
+        }
+        kickoff = _parse_entry_date(seed.get("fixture_date"))
+        if kickoff is not None:
+            kick_naive = kickoff.replace(tzinfo=None) if kickoff.tzinfo else kickoff
+            age_sec = (datetime.utcnow() - kick_naive).total_seconds()
+            if age_sec < 95 * 60:
+                skipped_not_final += 1
+                continue
+
+        event, source = _find_settlement_event(
+            seed,
+            date_cache,
+            team_id_cache,
+            h2h_cache,
+            team_recent_cache,
+        )
+        if not event:
+            skipped_not_found += 1
+            continue
+        if source == "flashscore":
+            is_final = str(event.get("strStatus") or "").upper() == "FT"
+            if not is_final:
+                skipped_not_final += 1
+                continue
+
+        hit = _resolve_result(seed, event)
+        if hit not in {"won", "lost", "push"}:
+            skipped_unresolved += 1
+            continue
+
+        odds = seed.get("odds")
+        units = float(seed.get("units") or 1.0)
+        pnl = _hypothetical_pnl(hit, odds if odds is not None else 0, units)
+        flat = _hypothetical_pnl(hit, odds if odds is not None else 0, 1.0)
+        updated = update_arahus_live_v1_decision_log_result(
+            int(row["id"]),
+            result=_decision_result_letter(hit),
+            pnl=pnl,
+            flat_1u_pnl=flat,
+            resolved_at=_now_iso(),
+        )
+        if updated and updated.get("resolved_at"):
+            resolved += 1
+
+    return {
+        "open_checked": len(open_rows),
+        "resolved": resolved,
+        "skipped_not_found": skipped_not_found,
+        "skipped_not_final": skipped_not_final,
+        "skipped_unresolved": skipped_unresolved,
+        "skipped_already": skipped_already,
     }

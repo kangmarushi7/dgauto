@@ -70,6 +70,12 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
         flatten_picks as flatten_v2_picks,
         sync_arahus_v2_bets,
     )
+    from app.arahus_live_v1_engine import (
+        ENABLED as LIVE_V1_ENABLED,
+        build_arahus_live_v1_slate,
+        flatten_picks as flatten_live_v1_picks,
+        sync_arahus_live_v1_bets,
+    )
 
     summary["main"] = _safe("main", lambda: sync_recommended_bets(matches))
     summary["lm"] = _safe("lm", lambda: sync_lm_bets(build_lm_strat_picks(matches)))
@@ -92,6 +98,20 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
             lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
         )(build_arahus_v2_slate(state)),
     )
+    if LIVE_V1_ENABLED:
+        summary["arahus_live_v1"] = _safe(
+            "arahus_live_v1",
+            lambda: (
+                lambda cards: sync_arahus_live_v1_bets(flatten_live_v1_picks(cards), cards=cards)
+            )(build_arahus_live_v1_slate(state)),
+        )
+    else:
+        summary["arahus_live_v1"] = {
+            "ok": True,
+            "skipped": True,
+            "inserted": 0,
+            "reason": "ARAHUS_LIVE_V1_ENABLED=false",
+        }
 
     if AUTO_SYNC_CS:
         from app.correct_score_strat import build_correct_score_picks, sync_correct_score_bets
@@ -162,6 +182,11 @@ def resync_todays_bets(
         flatten_picks as flatten_v2_picks,
         sync_arahus_v2_bets,
     )
+    from app.arahus_live_v1_engine import (
+        build_arahus_live_v1_slate,
+        flatten_picks as flatten_live_v1_picks,
+        sync_arahus_live_v1_bets,
+    )
 
     jobs: dict[str, Callable[[], dict[str, Any]]] = {
         "main": lambda: sync_recommended_bets(matches),
@@ -173,6 +198,9 @@ def resync_todays_bets(
         "arahus_v2": lambda: (
             lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
         )(build_arahus_v2_slate(state)),
+        "arahus_live_v1": lambda: (
+            lambda cards: sync_arahus_live_v1_bets(flatten_live_v1_picks(cards), cards=cards)
+        )(build_arahus_live_v1_slate(state)),
     }
 
     from app.correct_score_strat import build_correct_score_picks, sync_correct_score_bets
