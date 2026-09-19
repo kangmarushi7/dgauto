@@ -1,0 +1,1208 @@
+{
+  "generated_at": "2026-09-19T04:47:09.144142+00:00",
+  "quality": {
+    "source_path": "/home/ubuntu/.cursor/projects/workspace/uploads/plus_ev_bet_log_season2_39ab.csv",
+    "schema": {
+      "raw_columns": [
+        "id",
+        "created_at",
+        "fixture_date",
+        "fixture",
+        "league_name",
+        "bet_type",
+        "category",
+        "market",
+        "team_name",
+        "qualifier_pct",
+        "odds",
+        "units",
+        "status",
+        "pnl_units",
+        "resolved_at"
+      ],
+      "resolved_mapping": {
+        "id": "id",
+        "created_at": "created_at",
+        "fixture_date": "fixture_date",
+        "fixture": "fixture",
+        "league": "league_name",
+        "bet_type": "bet_type",
+        "category": "category",
+        "market": "market",
+        "team": "team_name",
+        "ev_raw": "qualifier_pct",
+        "odds": "odds",
+        "units": "units",
+        "status": "status",
+        "pnl": "pnl_units",
+        "resolved_at": "resolved_at",
+        "closing_odds": null,
+        "opening_odds": null,
+        "fixture_id": null,
+        "bookmaker": null,
+        "model_prob": null,
+        "opposite_odds": null
+      }
+    },
+    "total_rows": 1900,
+    "settled": 1755,
+    "wins": 980,
+    "losses": 766,
+    "pushes": 9,
+    "open": 145,
+    "duplicate_ids": 0,
+    "has_closing_odds": false,
+    "has_opening_odds": false,
+    "has_opposite_odds": false,
+    "has_fixture_id": false,
+    "fixture_date_range": [
+      "2026-07-03 17:00:00+00:00",
+      "2026-09-20 03:15:00+00:00"
+    ],
+    "clv_status": "CLV cannot currently be measured from this dataset."
+  },
+  "baseline_all_settled": {
+    "bets": 1755,
+    "wins": 980,
+    "losses": 766,
+    "pushes": 9,
+    "win_rate_ex_push": 0.561282932416953,
+    "average_odds": 1.7818347578347578,
+    "total_pnl": -91.24999999999997,
+    "roi": -0.05199430199430198,
+    "max_drawdown": -95.83000000000025,
+    "profit_factor": 0.8808746736292428,
+    "pnl_std": 0.8840082538630275,
+    "sharpe_like": -2.4639846204506584
+  },
+  "fair_market": {
+    "rows": 1900,
+    "fair_market_available_n": 0,
+    "fair_market_available_pct": 0.0,
+    "statement": "Fair market probability unavailable for this dataset: opposite-side / full-book prices are not present. Raw 1/odds is retained as bookmaker-implied probability only and is NOT treated as margin-free fair probability."
+  },
+  "clv": {
+    "status": "CLV cannot currently be measured from this dataset.",
+    "analysis": "CLV cannot currently be measured from this dataset."
+  },
+  "calibration_metrics_oos": {
+    "raw": {
+      "n": 680,
+      "brier": 0.25723542473293,
+      "log_loss": 0.7132206021931008,
+      "ece": 0.12202160926813715,
+      "calibration_slope": 0.6218294172453657,
+      "calibration_intercept": -0.2870520443148022
+    },
+    "platt": {
+      "n": 680,
+      "brier": 0.2440078184335753,
+      "log_loss": 0.6809568857446843,
+      "ece": 0.0438721240839549,
+      "calibration_slope": 0.8371725106460367,
+      "calibration_intercept": -0.13322607160156005
+    },
+    "isotonic": {
+      "n": 680,
+      "brier": 0.2442330990749389,
+      "log_loss": 0.6818773129798696,
+      "ece": 0.04313878070185193,
+      "calibration_slope": 0.5969808623726267,
+      "calibration_intercept": -0.06469792949434071
+    }
+  },
+  "probability_bins": {
+    "raw": [
+      {
+        "bin": "0.50\u20130.55",
+        "n": 51,
+        "mean_predicted": 0.5275813664493855,
+        "actual_win_rate": 0.35294117647058826,
+        "calibration_error": -0.1746401899787972,
+        "total_pnl": -10.59,
+        "roi": -0.2076470588235294
+      },
+      {
+        "bin": "0.55\u20130.60",
+        "n": 99,
+        "mean_predicted": 0.5769362718862736,
+        "actual_win_rate": 0.5555555555555556,
+        "calibration_error": -0.02138071633071803,
+        "total_pnl": 10.260000000000003,
+        "roi": 0.10363636363636367
+      },
+      {
+        "bin": "0.60\u20130.65",
+        "n": 138,
+        "mean_predicted": 0.6245895057689064,
+        "actual_win_rate": 0.5652173913043478,
+        "calibration_error": -0.05937211446455859,
+        "total_pnl": 0.41999999999999993,
+        "roi": 0.0030434782608695647
+      },
+      {
+        "bin": "0.65\u20130.70",
+        "n": 121,
+        "mean_predicted": 0.6763084302210294,
+        "actual_win_rate": 0.49586776859504134,
+        "calibration_error": -0.18044066162598804,
+        "total_pnl": -23.79,
+        "roi": -0.19661157024793388
+      },
+      {
+        "bin": "0.70\u20130.75",
+        "n": 87,
+        "mean_predicted": 0.7243834968091132,
+        "actual_win_rate": 0.4827586206896552,
+        "calibration_error": -0.241624876119458,
+        "total_pnl": -23.34,
+        "roi": -0.26827586206896553
+      },
+      {
+        "bin": "0.75\u20130.80",
+        "n": 49,
+        "mean_predicted": 0.7717007923204297,
+        "actual_win_rate": 0.7346938775510204,
+        "calibration_error": -0.037006914769409205,
+        "total_pnl": 1.1600000000000001,
+        "roi": 0.023673469387755105
+      },
+      {
+        "bin": "0.80\u20130.85",
+        "n": 40,
+        "mean_predicted": 0.8261173326283707,
+        "actual_win_rate": 0.7,
+        "calibration_error": -0.12611733262837077,
+        "total_pnl": -4.109999999999999,
+        "roi": -0.10274999999999998
+      },
+      {
+        "bin": "0.85\u20130.90",
+        "n": 27,
+        "mean_predicted": 0.8757023972843586,
+        "actual_win_rate": 0.6296296296296297,
+        "calibration_error": -0.24607276765472896,
+        "total_pnl": -6.400000000000001,
+        "roi": -0.23703703703703707
+      },
+      {
+        "bin": "0.90\u20130.95",
+        "n": 10,
+        "mean_predicted": 0.919948008369061,
+        "actual_win_rate": 0.8,
+        "calibration_error": -0.11994800836906094,
+        "total_pnl": -1.0,
+        "roi": -0.1
+      },
+      {
+        "bin": "0.95\u20131.01",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      }
+    ],
+    "platt": [
+      {
+        "bin": "0.50\u20130.55",
+        "n": 133,
+        "mean_predicted": 0.5278632331965399,
+        "actual_win_rate": 0.5488721804511278,
+        "calibration_error": 0.021008947254587906,
+        "total_pnl": 5.840000000000001,
+        "roi": 0.04390977443609023
+      },
+      {
+        "bin": "0.55\u20130.60",
+        "n": 147,
+        "mean_predicted": 0.574114040235279,
+        "actual_win_rate": 0.5238095238095238,
+        "calibration_error": -0.050304516425755175,
+        "total_pnl": -14.989999999999998,
+        "roi": -0.10197278911564625
+      },
+      {
+        "bin": "0.60\u20130.65",
+        "n": 124,
+        "mean_predicted": 0.623701959415954,
+        "actual_win_rate": 0.47580645161290325,
+        "calibration_error": -0.14789550780305072,
+        "total_pnl": -31.309999999999995,
+        "roi": -0.25249999999999995
+      },
+      {
+        "bin": "0.65\u20130.70",
+        "n": 72,
+        "mean_predicted": 0.6719979002073219,
+        "actual_win_rate": 0.7361111111111112,
+        "calibration_error": 0.0641132109037893,
+        "total_pnl": 2.25,
+        "roi": 0.03125
+      },
+      {
+        "bin": "0.70\u20130.75",
+        "n": 46,
+        "mean_predicted": 0.7234226296518114,
+        "actual_win_rate": 0.6304347826086957,
+        "calibration_error": -0.09298784704311569,
+        "total_pnl": -8.77,
+        "roi": -0.19065217391304348
+      },
+      {
+        "bin": "0.75\u20130.80",
+        "n": 28,
+        "mean_predicted": 0.7657697137525769,
+        "actual_win_rate": 0.75,
+        "calibration_error": -0.015769713752576853,
+        "total_pnl": -3.580000000000001,
+        "roi": -0.1278571428571429
+      },
+      {
+        "bin": "0.80\u20130.85",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.85\u20130.90",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.90\u20130.95",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.95\u20131.01",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      }
+    ],
+    "isotonic": [
+      {
+        "bin": "0.50\u20130.55",
+        "n": 352,
+        "mean_predicted": 0.5297490371846793,
+        "actual_win_rate": 0.5284090909090909,
+        "calibration_error": -0.0013399462755883107,
+        "total_pnl": -15.059999999999999,
+        "roi": -0.042784090909090904
+      },
+      {
+        "bin": "0.55\u20130.60",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.60\u20130.65",
+        "n": 49,
+        "mean_predicted": 0.6192630898513252,
+        "actual_win_rate": 0.4897959183673469,
+        "calibration_error": -0.12946717148397824,
+        "total_pnl": -11.82,
+        "roi": -0.24122448979591837
+      },
+      {
+        "bin": "0.65\u20130.70",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.70\u20130.75",
+        "n": 67,
+        "mean_predicted": 0.7093023255813956,
+        "actual_win_rate": 0.5671641791044776,
+        "calibration_error": -0.14213814647691803,
+        "total_pnl": -10.38,
+        "roi": -0.15492537313432836
+      },
+      {
+        "bin": "0.75\u20130.80",
+        "n": 96,
+        "mean_predicted": 0.7732530120481927,
+        "actual_win_rate": 0.6666666666666666,
+        "calibration_error": -0.10658634538152612,
+        "total_pnl": -11.26,
+        "roi": -0.11729166666666667
+      },
+      {
+        "bin": "0.80\u20130.85",
+        "n": 10,
+        "mean_predicted": 0.8249915966386554,
+        "actual_win_rate": 0.8,
+        "calibration_error": -0.024991596638655356,
+        "total_pnl": -0.4600000000000004,
+        "roi": -0.04600000000000004
+      },
+      {
+        "bin": "0.85\u20130.90",
+        "n": 8,
+        "mean_predicted": 0.8571428571428571,
+        "actual_win_rate": 0.75,
+        "calibration_error": -0.1071428571428571,
+        "total_pnl": -1.1000000000000005,
+        "roi": -0.13750000000000007
+      },
+      {
+        "bin": "0.90\u20130.95",
+        "n": 0,
+        "mean_predicted": NaN,
+        "actual_win_rate": NaN,
+        "calibration_error": NaN,
+        "total_pnl": 0.0,
+        "roi": NaN
+      },
+      {
+        "bin": "0.95\u20131.01",
+        "n": 4,
+        "mean_predicted": 0.999999,
+        "actual_win_rate": 1.0,
+        "calibration_error": 1.0000000000287557e-06,
+        "total_pnl": 0.41000000000000036,
+        "roi": 0.10250000000000009
+      }
+    ]
+  },
+  "oos_baseline": {
+    "bets": 680,
+    "wins": 363,
+    "losses": 317,
+    "pushes": 0,
+    "win_rate_ex_push": 0.5338235294117647,
+    "average_odds": 1.7873529411764708,
+    "total_pnl": -63.05,
+    "roi": -0.09272058823529411,
+    "max_drawdown": -66.01000000000002,
+    "profit_factor": 0.8011041009463722,
+    "pnl_std": 0.8916109321682585,
+    "sharpe_like": -2.7117849726914907
+  },
+  "oos_months": [
+    "2026-09"
+  ],
+  "oos_roi_bootstrap": {
+    "mean": -0.09351629411764704,
+    "ci_low": -0.15739779411764707,
+    "ci_high": -0.027552941176470613
+  },
+  "edge_buckets_proxy": [
+    {
+      "edge_bucket": "<0%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 453,
+      "avg_edge": -0.03838168652282933,
+      "win_rate_ex_push": 0.58719646799117,
+      "total_pnl": -31.039999999999996,
+      "roi": -0.06852097130242825,
+      "roi_ci_low": -0.14208112582781457,
+      "roi_ci_high": 0.005762693156732889,
+      "clv": null
+    },
+    {
+      "edge_bucket": "0\u20131%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 50,
+      "avg_edge": 0.0048750972180175755,
+      "win_rate_ex_push": 0.52,
+      "total_pnl": -1.9800000000000009,
+      "roi": -0.03960000000000002,
+      "roi_ci_low": -0.31501000000000007,
+      "roi_ci_high": 0.21901999999999985,
+      "clv": null
+    },
+    {
+      "edge_bucket": "1\u20132%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 32,
+      "avg_edge": 0.013998958337480584,
+      "win_rate_ex_push": 0.46875,
+      "total_pnl": -2.96,
+      "roi": -0.0925,
+      "roi_ci_low": -0.43540625,
+      "roi_ci_high": 0.2572031249999999,
+      "clv": null
+    },
+    {
+      "edge_bucket": "2\u20133%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 36,
+      "avg_edge": 0.02393199803793728,
+      "win_rate_ex_push": 0.5,
+      "total_pnl": -2.8099999999999996,
+      "roi": -0.07805555555555554,
+      "roi_ci_low": -0.39083333333333337,
+      "roi_ci_high": 0.21780555555555536,
+      "clv": null
+    },
+    {
+      "edge_bucket": "3\u20135%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 37,
+      "avg_edge": 0.03896246861136994,
+      "win_rate_ex_push": 0.43243243243243246,
+      "total_pnl": -2.91,
+      "roi": -0.07864864864864865,
+      "roi_ci_low": -0.42783783783783785,
+      "roi_ci_high": 0.2792229729729728,
+      "clv": null
+    },
+    {
+      "edge_bucket": "5\u201310%",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 55,
+      "avg_edge": 0.07310231226148468,
+      "win_rate_ex_push": 0.32727272727272727,
+      "total_pnl": -14.799999999999999,
+      "roi": -0.26909090909090905,
+      "roi_ci_low": -0.5243954545454546,
+      "roi_ci_high": 0.012931818181818053,
+      "clv": null
+    },
+    {
+      "edge_bucket": "10%+",
+      "edge_definition": "platt_minus_raw_implied_PROXY",
+      "n": 17,
+      "avg_edge": 0.12918534778126953,
+      "win_rate_ex_push": 0.23529411764705882,
+      "total_pnl": -6.550000000000001,
+      "roi": -0.38529411764705884,
+      "roi_ci_low": -0.8529411764705882,
+      "roi_ci_high": 0.18529411764705883,
+      "clv": null
+    }
+  ],
+  "edge_relationship_proxy": {
+    "spearman_edge_mid_vs_roi": -0.8571428571428573,
+    "buckets": [
+      {
+        "edge_bucket": "<0%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 453,
+        "avg_edge": -0.03838168652282933,
+        "win_rate_ex_push": 0.58719646799117,
+        "total_pnl": -31.039999999999996,
+        "roi": -0.06852097130242825,
+        "roi_ci_low": -0.14208112582781457,
+        "roi_ci_high": 0.005762693156732889,
+        "clv": null
+      },
+      {
+        "edge_bucket": "0\u20131%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 50,
+        "avg_edge": 0.0048750972180175755,
+        "win_rate_ex_push": 0.52,
+        "total_pnl": -1.9800000000000009,
+        "roi": -0.03960000000000002,
+        "roi_ci_low": -0.31501000000000007,
+        "roi_ci_high": 0.21901999999999985,
+        "clv": null
+      },
+      {
+        "edge_bucket": "1\u20132%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 32,
+        "avg_edge": 0.013998958337480584,
+        "win_rate_ex_push": 0.46875,
+        "total_pnl": -2.96,
+        "roi": -0.0925,
+        "roi_ci_low": -0.43540625,
+        "roi_ci_high": 0.2572031249999999,
+        "clv": null
+      },
+      {
+        "edge_bucket": "2\u20133%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 36,
+        "avg_edge": 0.02393199803793728,
+        "win_rate_ex_push": 0.5,
+        "total_pnl": -2.8099999999999996,
+        "roi": -0.07805555555555554,
+        "roi_ci_low": -0.39083333333333337,
+        "roi_ci_high": 0.21780555555555536,
+        "clv": null
+      },
+      {
+        "edge_bucket": "3\u20135%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 37,
+        "avg_edge": 0.03896246861136994,
+        "win_rate_ex_push": 0.43243243243243246,
+        "total_pnl": -2.91,
+        "roi": -0.07864864864864865,
+        "roi_ci_low": -0.42783783783783785,
+        "roi_ci_high": 0.2792229729729728,
+        "clv": null
+      },
+      {
+        "edge_bucket": "5\u201310%",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 55,
+        "avg_edge": 0.07310231226148468,
+        "win_rate_ex_push": 0.32727272727272727,
+        "total_pnl": -14.799999999999999,
+        "roi": -0.26909090909090905,
+        "roi_ci_low": -0.5243954545454546,
+        "roi_ci_high": 0.012931818181818053,
+        "clv": null
+      },
+      {
+        "edge_bucket": "10%+",
+        "edge_definition": "platt_minus_raw_implied_PROXY",
+        "n": 17,
+        "avg_edge": 0.12918534778126953,
+        "win_rate_ex_push": 0.23529411764705882,
+        "total_pnl": -6.550000000000001,
+        "roi": -0.38529411764705884,
+        "roi_ci_low": -0.8529411764705882,
+        "roi_ci_high": 0.18529411764705883,
+        "clv": null
+      }
+    ]
+  },
+  "markets_oos": [
+    {
+      "market": "Over 2.5",
+      "n": 144,
+      "win_rate_ex_push": 0.5833333333333334,
+      "avg_odds": 1.6259027777777777,
+      "total_pnl": -8.07,
+      "roi": -0.05604166666666667,
+      "avg_edge": -0.019120293738964046,
+      "avg_platt_prob": 0.6049367536957573,
+      "avg_raw_prob": 0.6848698215734623,
+      "clv": null
+    },
+    {
+      "market": "BTTS",
+      "n": 140,
+      "win_rate_ex_push": 0.55,
+      "avg_odds": 1.6830714285714286,
+      "total_pnl": -8.799999999999999,
+      "roi": -0.06285714285714285,
+      "avg_edge": -0.020355830043359852,
+      "avg_platt_prob": 0.5817364321673116,
+      "avg_raw_prob": 0.656924859080336,
+      "clv": null
+    },
+    {
+      "market": "Moneyline",
+      "n": 99,
+      "win_rate_ex_push": 0.42424242424242425,
+      "avg_odds": 2.3379797979797976,
+      "total_pnl": -7.35,
+      "roi": -0.07424242424242423,
+      "avg_edge": 0.016692365123381788,
+      "avg_platt_prob": 0.46365786461909825,
+      "avg_raw_prob": 0.5214935688194509,
+      "clv": null
+    },
+    {
+      "market": "Team Over 1.5",
+      "n": 69,
+      "win_rate_ex_push": 0.4492753623188406,
+      "avg_odds": 1.8559420289855078,
+      "total_pnl": -13.619999999999997,
+      "roi": -0.19739130434782606,
+      "avg_edge": 0.007366825398071157,
+      "avg_platt_prob": 0.559750652893491,
+      "avg_raw_prob": 0.6317224227443496,
+      "clv": null
+    },
+    {
+      "market": "Over 1.5",
+      "n": 64,
+      "win_rate_ex_push": 0.71875,
+      "avg_odds": 1.24453125,
+      "total_pnl": -6.67,
+      "roi": -0.10421875,
+      "avg_edge": -0.07714215813004066,
+      "avg_platt_prob": 0.729970986498484,
+      "avg_raw_prob": 0.845265034535484,
+      "clv": null
+    },
+    {
+      "market": "Over 3.5",
+      "n": 52,
+      "win_rate_ex_push": 0.4423076923076923,
+      "avg_odds": 2.0557692307692306,
+      "total_pnl": -6.52,
+      "roi": -0.12538461538461537,
+      "avg_edge": 0.017673866192155906,
+      "avg_platt_prob": 0.5149428809593715,
+      "avg_raw_prob": 0.5802091828166984,
+      "clv": null
+    },
+    {
+      "market": "Double Chance 1X",
+      "n": 51,
+      "win_rate_ex_push": 0.5686274509803921,
+      "avg_odds": 1.6033333333333335,
+      "total_pnl": -8.079999999999998,
+      "roi": -0.15843137254901957,
+      "avg_edge": -0.019276121378995686,
+      "avg_platt_prob": 0.6290793170114275,
+      "avg_raw_prob": 0.7149715982309903,
+      "clv": null
+    },
+    {
+      "market": "Double Chance X2",
+      "n": 40,
+      "win_rate_ex_push": 0.6,
+      "avg_odds": 1.6915,
+      "total_pnl": 0.8699999999999994,
+      "roi": 0.021749999999999985,
+      "avg_edge": -0.008877869666970609,
+      "avg_platt_prob": 0.5901636208395699,
+      "avg_raw_prob": 0.6669722114834562,
+      "clv": null
+    },
+    {
+      "market": "Under 2.5",
+      "n": 17,
+      "win_rate_ex_push": 0.35294117647058826,
+      "avg_odds": 1.903529411764706,
+      "total_pnl": -5.140000000000001,
+      "roi": -0.3023529411764706,
+      "avg_edge": 0.025912993893815534,
+      "avg_platt_prob": 0.5570036663135864,
+      "avg_raw_prob": 0.6275664288485265,
+      "clv": null
+    },
+    {
+      "market": "Draw",
+      "n": 4,
+      "win_rate_ex_push": 0.25,
+      "avg_odds": 4.445,
+      "total_pnl": 0.33000000000000007,
+      "roi": 0.08250000000000002,
+      "avg_edge": 0.045693862862743635,
+      "avg_platt_prob": 0.27507560506203776,
+      "avg_raw_prob": 0.2890292192795657,
+      "clv": null
+    }
+  ],
+  "odds_oos": [
+    {
+      "odds_band": "1.00\u20131.30",
+      "n": 59,
+      "roi": -0.11830508474576272,
+      "avg_edge": -0.08337997265642992,
+      "calibration_error_platt": -0.015923596205175465,
+      "avg_odds": 1.2098305084745764,
+      "total_pnl": -6.98,
+      "clv": null
+    },
+    {
+      "odds_band": "1.30\u20131.50",
+      "n": 97,
+      "roi": -0.11134020618556702,
+      "avg_edge": -0.04519096819451715,
+      "calibration_error_platt": -0.03417031042407957,
+      "avg_odds": 1.39360824742268,
+      "total_pnl": -10.8,
+      "clv": null
+    },
+    {
+      "odds_band": "1.50\u20131.70",
+      "n": 169,
+      "roi": -0.14130177514792897,
+      "avg_edge": -0.024818154856907852,
+      "calibration_error_platt": -0.0667626623063209,
+      "avg_odds": 1.5897633136094673,
+      "total_pnl": -23.879999999999995,
+      "clv": null
+    },
+    {
+      "odds_band": "1.70\u20131.90",
+      "n": 134,
+      "roi": -0.03880597014925372,
+      "avg_edge": -0.01002822371968944,
+      "calibration_error_platt": -0.01113214489236063,
+      "avg_odds": 1.768507462686567,
+      "total_pnl": -5.199999999999999,
+      "clv": null
+    },
+    {
+      "odds_band": "1.90\u20132.10",
+      "n": 93,
+      "roi": -0.09666666666666669,
+      "avg_edge": 0.015878545142372615,
+      "calibration_error_platt": -0.0642901102043838,
+      "avg_odds": 1.958924731182795,
+      "total_pnl": -8.990000000000002,
+      "clv": null
+    },
+    {
+      "odds_band": "2.10\u20132.50",
+      "n": 78,
+      "roi": 0.11410256410256413,
+      "avg_edge": 0.022063760692509392,
+      "calibration_error_platt": 0.028200254035833767,
+      "avg_odds": 2.2284615384615383,
+      "total_pnl": 8.900000000000002,
+      "clv": null
+    },
+    {
+      "odds_band": "2.50\u20133.00",
+      "n": 35,
+      "roi": -0.33228571428571424,
+      "avg_edge": 0.054672538188495545,
+      "calibration_error_platt": -0.18044514840659232,
+      "avg_odds": 2.6159999999999997,
+      "total_pnl": -11.629999999999999,
+      "clv": null
+    },
+    {
+      "odds_band": "3.00+",
+      "n": 15,
+      "roi": -0.29800000000000004,
+      "avg_edge": 0.10363563130052371,
+      "calibration_error_platt": -0.180632941070686,
+      "avg_odds": 3.708666666666667,
+      "total_pnl": -4.470000000000001,
+      "clv": null
+    }
+  ],
+  "leagues_oos": [
+    {
+      "league": "Major League Soccer",
+      "n": 87,
+      "win_rate_ex_push": 0.4367816091954023,
+      "roi": -0.2840229885057471,
+      "total_pnl": -24.709999999999997,
+      "avg_odds": 1.7603448275862064,
+      "avg_edge": -0.008202480638568889,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Serie A",
+      "n": 52,
+      "win_rate_ex_push": 0.6923076923076923,
+      "roi": 0.20461538461538462,
+      "total_pnl": 10.64,
+      "avg_odds": 1.776346153846154,
+      "avg_edge": -0.010147309446047942,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Eerste Divisie",
+      "n": 46,
+      "win_rate_ex_push": 0.5217391304347826,
+      "roi": -0.13499999999999998,
+      "total_pnl": -6.209999999999999,
+      "avg_odds": 1.761739130434782,
+      "avg_edge": -0.010877893442468816,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Super League",
+      "n": 45,
+      "win_rate_ex_push": 0.6666666666666666,
+      "roi": 0.12733333333333333,
+      "total_pnl": 5.7299999999999995,
+      "avg_odds": 1.774444444444444,
+      "avg_edge": -0.009646024684588476,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Eredivisie",
+      "n": 43,
+      "win_rate_ex_push": 0.6976744186046512,
+      "roi": 0.1453488372093023,
+      "total_pnl": 6.249999999999999,
+      "avg_odds": 1.66953488372093,
+      "avg_edge": -0.02214997807549547,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Championship",
+      "n": 41,
+      "win_rate_ex_push": 0.5365853658536586,
+      "roi": -0.03951219512195122,
+      "total_pnl": -1.62,
+      "avg_odds": 1.9453658536585368,
+      "avg_edge": -0.002564710954723205,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Allsvenskan",
+      "n": 41,
+      "win_rate_ex_push": 0.36585365853658536,
+      "roi": -0.40292682926829276,
+      "total_pnl": -16.520000000000003,
+      "avg_odds": 1.7714634146341466,
+      "avg_edge": -0.009579061507433602,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "Jupiler Pro League",
+      "n": 30,
+      "win_rate_ex_push": 0.5666666666666667,
+      "roi": 0.0036666666666666627,
+      "total_pnl": 0.10999999999999988,
+      "avg_odds": 1.9616666666666662,
+      "avg_edge": -0.010730067398161494,
+      "sample_flag": "sufficient",
+      "clv": null
+    },
+    {
+      "league": "2. Bundesliga",
+      "n": 28,
+      "win_rate_ex_push": 0.35714285714285715,
+      "roi": -0.3564285714285714,
+      "total_pnl": -9.979999999999999,
+      "avg_odds": 1.8403571428571426,
+      "avg_edge": -0.013187555821216427,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Pro League",
+      "n": 26,
+      "win_rate_ex_push": 0.38461538461538464,
+      "roi": -0.40499999999999997,
+      "total_pnl": -10.53,
+      "avg_odds": 1.5976923076923077,
+      "avg_edge": -0.01927715103034911,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Superliga",
+      "n": 23,
+      "win_rate_ex_push": 0.4782608695652174,
+      "roi": -0.18347826086956517,
+      "total_pnl": -4.219999999999999,
+      "avg_odds": 1.7469565217391307,
+      "avg_edge": -0.011242167588554374,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "S\u00fcper Lig",
+      "n": 22,
+      "win_rate_ex_push": 0.3181818181818182,
+      "roi": -0.5045454545454545,
+      "total_pnl": -11.1,
+      "avg_odds": 1.8131818181818178,
+      "avg_edge": -0.005480527732278626,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Bundesliga",
+      "n": 21,
+      "win_rate_ex_push": 0.42857142857142855,
+      "roi": -0.3080952380952381,
+      "total_pnl": -6.47,
+      "avg_odds": 1.7547619047619052,
+      "avg_edge": -0.020582523620014687,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Primeira Liga",
+      "n": 21,
+      "win_rate_ex_push": 0.5238095238095238,
+      "roi": 0.00047619047619046605,
+      "total_pnl": 0.009999999999999787,
+      "avg_odds": 1.9652380952380955,
+      "avg_edge": -0.002115607528823243,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Liga MX",
+      "n": 21,
+      "win_rate_ex_push": 0.6666666666666666,
+      "roi": 0.20047619047619042,
+      "total_pnl": 4.209999999999999,
+      "avg_odds": 1.9123809523809525,
+      "avg_edge": 0.001039070315901373,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Premiership",
+      "n": 17,
+      "win_rate_ex_push": 0.47058823529411764,
+      "roi": -0.21000000000000002,
+      "total_pnl": -3.5700000000000003,
+      "avg_odds": 1.7129411764705884,
+      "avg_edge": -0.019390687090812105,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Eliteserien",
+      "n": 16,
+      "win_rate_ex_push": 0.625,
+      "roi": 0.053750000000000006,
+      "total_pnl": 0.8600000000000001,
+      "avg_odds": 1.6712500000000001,
+      "avg_edge": -0.023528028260482024,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Ligue 1",
+      "n": 14,
+      "win_rate_ex_push": 0.7142857142857143,
+      "roi": 0.20285714285714285,
+      "total_pnl": 2.84,
+      "avg_odds": 1.725714285714286,
+      "avg_edge": -0.03577810053311185,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "UEFA Europa League",
+      "n": 13,
+      "win_rate_ex_push": 0.38461538461538464,
+      "roi": -0.413076923076923,
+      "total_pnl": -5.369999999999999,
+      "avg_odds": 1.6930769230769231,
+      "avg_edge": -0.028774713480601836,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "La Liga",
+      "n": 12,
+      "win_rate_ex_push": 0.6666666666666666,
+      "roi": 0.23083333333333333,
+      "total_pnl": 2.77,
+      "avg_odds": 1.8466666666666667,
+      "avg_edge": -0.015612102959276683,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "League Cup",
+      "n": 12,
+      "win_rate_ex_push": 0.6666666666666666,
+      "roi": 0.14583333333333334,
+      "total_pnl": 1.7500000000000002,
+      "avg_odds": 1.8133333333333335,
+      "avg_edge": -0.00687726928488748,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "UEFA Champions League",
+      "n": 12,
+      "win_rate_ex_push": 0.75,
+      "roi": 0.1975,
+      "total_pnl": 2.37,
+      "avg_odds": 1.6316666666666668,
+      "avg_edge": -0.026388941516835032,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Premier League",
+      "n": 10,
+      "win_rate_ex_push": 0.6,
+      "roi": 0.01399999999999999,
+      "total_pnl": 0.1399999999999999,
+      "avg_odds": 2.011,
+      "avg_edge": -0.004770837678558054,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Leagues Cup",
+      "n": 9,
+      "win_rate_ex_push": 0.4444444444444444,
+      "roi": -0.26333333333333336,
+      "total_pnl": -2.37,
+      "avg_odds": 1.74,
+      "avg_edge": -0.01967326213127657,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Copa Do Brasil",
+      "n": 6,
+      "win_rate_ex_push": 0.6666666666666666,
+      "roi": 0.3266666666666668,
+      "total_pnl": 1.9600000000000009,
+      "avg_odds": 1.9233333333333336,
+      "avg_edge": 0.0006754232929012394,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "CONMEBOL Sudamericana",
+      "n": 4,
+      "win_rate_ex_push": 1.0,
+      "roi": 0.8,
+      "total_pnl": 3.2,
+      "avg_odds": 1.8,
+      "avg_edge": -0.016922399032586938,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "US Open Cup",
+      "n": 4,
+      "win_rate_ex_push": 0.5,
+      "roi": -0.1375,
+      "total_pnl": -0.55,
+      "avg_odds": 1.9875,
+      "avg_edge": 0.013277741239783675,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "Coppa Italia",
+      "n": 3,
+      "win_rate_ex_push": 0.0,
+      "roi": -1.0,
+      "total_pnl": -3.0,
+      "avg_odds": 1.74,
+      "avg_edge": -0.0220968695550105,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    },
+    {
+      "league": "DFB Pokal",
+      "n": 1,
+      "win_rate_ex_push": 1.0,
+      "roi": 0.33000000000000007,
+      "total_pnl": 0.33000000000000007,
+      "avg_odds": 1.33,
+      "avg_edge": -0.05364699791965222,
+      "sample_flag": "insufficient_n",
+      "clv": null
+    }
+  ],
+  "monthly_oos": [
+    {
+      "month": "2026-09",
+      "n": 680,
+      "roi": -0.09272058823529411,
+      "win_rate_ex_push": 0.5338235294117647,
+      "avg_edge": -0.012022413400723167,
+      "total_pnl": -63.05,
+      "clv": null
+    }
+  ],
+  "threshold_sensitivity_proxy": [
+    {
+      "rule": "all OOS bets (no edge filter)",
+      "threshold": NaN,
+      "n": 680,
+      "roi": -0.09272058823529411,
+      "total_pnl": -63.05,
+      "win_rate_ex_push": 0.5338235294117647,
+      "avg_odds": 1.7873529411764708,
+      "max_drawdown": -66.01000000000002,
+      "roi_ci_low": -0.15715661764705882,
+      "roi_ci_high": -0.02731985294117648
+    },
+    {
+      "rule": "model_edge_vs_raw_implied_platt > 1%",
+      "threshold": 0.01,
+      "n": 177,
+      "roi": -0.16966101694915256,
+      "total_pnl": -30.03,
+      "win_rate_ex_push": 0.4011299435028249,
+      "avg_odds": 2.218587570621469,
+      "max_drawdown": -30.209999999999994,
+      "roi_ci_low": -0.31977683615819213,
+      "roi_ci_high": -0.017159604519774073
+    },
+    {
+      "rule": "model_edge_vs_raw_implied_platt > 2%",
+      "threshold": 0.02,
+      "n": 145,
+      "roi": -0.1866896551724138,
+      "total_pnl": -27.07,
+      "win_rate_ex_push": 0.38620689655172413,
+      "avg_odds": 2.2575862068965518,
+      "max_drawdown": -27.71999999999999,
+      "roi_ci_low": -0.3738689655172414,
+      "roi_ci_high": -0.0003448275862072285
+    },
+    {
+      "rule": "model_edge_vs_raw_implied_platt > 3%",
+      "threshold": 0.03,
+      "n": 109,
+      "roi": -0.22256880733944953,
+      "total_pnl": -24.259999999999998,
+      "win_rate_ex_push": 0.3486238532110092,
+      "avg_odds": 2.3550458715596334,
+      "max_drawdown": -24.909999999999997,
+      "roi_ci_low": -0.43233027522935785,
+      "roi_ci_high": -0.007229357798165223
+    },
+    {
+      "rule": "model_edge_vs_raw_implied_platt > 5%",
+      "threshold": 0.05,
+      "n": 72,
+      "roi": -0.2965277777777777,
+      "total_pnl": -21.349999999999998,
+      "win_rate_ex_push": 0.3055555555555556,
+      "avg_odds": 2.5033333333333334,
+      "max_drawdown": -21.729999999999997,
+      "roi_ci_low": -0.5315381944444444,
+      "roi_ci_high": -0.039579861111111114
+    }
+  ],
+  "future_validation": {
+    "status": "unavailable",
+    "message": "No --future CSV provided or file missing. True future-season validation not run."
+  },
+  "conclusions": {
+    "1. Are the model probabilities calibrated after walk-forward Platt/isotonic calibration?": "Improved but not perfect. OOS ECE raw=0.122, Platt=0.044, isotonic=0.043. Platt slope=0.837 (1.0 = ideal).",
+    "2. Does calibrated probability predict outcomes better than the raw model?": "Yes on proper scoring rules OOS: Brier raw=0.2572 vs Platt=0.2440, isotonic=0.2442.",
+    "3. Does calibrated probability beat fair market probability?": "Fair market probability unavailable for this dataset: opposite-side / full-book prices are not present. Raw 1/odds is retained as bookmaker-implied probability only and is NOT treated as margin-free fair probability. Therefore this question cannot be answered with margin-free fair prices on Season 2. Proxy edge vs raw implied is reported separately and must not be equated with beating the fair market.",
+    "4. Does positive calibrated edge correspond to positive realized ROI?": "Using proxy edge vs raw implied: inspect edge-bucket table. No robust positive mapping established.",
+    "5. Does increasing calibrated edge correspond to increasing realized ROI?": "Spearman(proxy edge bucket mid vs ROI)=-0.8571428571428573. No \u2014 higher proxy edge buckets had worse OOS ROI (inverted).",
+    "6. Is there positive CLV?": "CLV cannot currently be measured from this dataset.",
+    "7. Does positive CLV correspond to future profitability?": "Not applicable \u2014 CLV unavailable.",
+    "8. Which markets show persistent evidence of model-vs-market disagreement?": "See OOS market table (descriptive). Do not treat top ROI markets as selected strategies. Without fair prices, 'disagreement with market' is not rigorously measurable.",
+    "9. Which odds ranges show persistent evidence?": "See OOS odds table (descriptive, fixed bands). Prior 2.10\u20132.50 result is hypothesis only \u2014 not optimized here.",
+    "10. Are league effects robust or merely historical variance?": "OOS league ROIs with N\u226530 are hypotheses only; without Season 3 confirmation treat as historical variance.",
+    "11. Does any fixed edge threshold show positive OOS performance?": "Predefined proxy-edge thresholds 1%/2%/3%/5% were all negative OOS (no positive threshold). Not a deployable rule set.",
+    "12. Does a completely untouched future season confirm the edge?": "No \u2014 Season 3/future season dataset unavailable. See future_validation_protocol.md.",
+    "13. What is the strongest evidence FOR a genuine betting edge?": "Walk-forward calibration improves probability scores (lower Brier/ECE). That supports better uncertainty estimates, not a betting edge.",
+    "14. What is the strongest evidence AGAINST a genuine betting edge?": "OOS flat-1u ROI=-0.0927 with bootstrap 95% CI [-0.1574, -0.0276]; proxy edge\u2192ROI Spearman negative; fair-market edge & CLV unmeasurable.",
+    "15. What must happen before we should consider changing production?": "1) Collect opposite-side/closing odds for fair market + CLV. 2) Run frozen methodology on untouched Season 3 once. 3) Require non-inverted edge\u2192ROI and preferably positive CLV with adequate N. 4) Do not change production filters based on Season 2 mining."
+  }
+}
