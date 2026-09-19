@@ -1,0 +1,3 @@
+# Research-only deps (also covered by app / other research modules)
+numpy>=1.24
+pandas>=2.0

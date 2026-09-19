@@ -1,0 +1,1154 @@
+{
+  "generated_at": "2026-09-19T21:05:32.168431+00:00",
+  "report_date": "2026-09-19",
+  "data_source": "/home/ubuntu/.cursor/projects/workspace/uploads/arahus-log_e332.csv",
+  "research_only": true,
+  "can_place_real_bet": false,
+  "frozen_config": {
+    "candidate_id": "arahus_oos_candidate_v1",
+    "label": "Arahus OOS Candidate v1 \u2014 O2.5 odds 1.30\u20131.49",
+    "market": "over_2_5",
+    "odds_min": 1.3,
+    "odds_max": 1.49,
+    "selected_leagues": null,
+    "btts": false,
+    "over_3_5": false,
+    "confidence_min": null,
+    "confidence_max": null,
+    "primary_stake_mode": "logged_units",
+    "normalized_stake": 1.0,
+    "development_start": "2026-07-01",
+    "development_end": "2026-08-31",
+    "oos_start": "2026-09-01",
+    "random_seed": 42,
+    "bootstrap_n": 2000,
+    "notes": [
+      "Validation only \u2014 do not optimize odds/leagues/confidence from OOS.",
+      "League whitelist undefined in repo; no league filter applied.",
+      "Push PnL = 0; push stake included in total staked (Arahus convention)."
+    ],
+    "league_whitelist_status": {
+      "defined_in_repo": false,
+      "selected_leagues": null,
+      "ambiguity": "No CURRENT_ARAHUS_SELECTED_LEAGUE_WHITELIST (or equivalent) exists. Arahus v1/v2 do not gate picks by league. Flashscore league aliases in app/flashscore_client.py are settlement matching only, not a pick whitelist. Do not invent a league list from OOS results.",
+      "sources_checked": [
+        "app/arahus_engine.py",
+        "app/arahus_v2_engine.py",
+        "app/flashscore_client.py (settlement aliases only)",
+        "rules.json",
+        "research/"
+      ]
+    }
+  },
+  "league_whitelist_status": {
+    "defined_in_repo": false,
+    "selected_leagues": null,
+    "ambiguity": "No CURRENT_ARAHUS_SELECTED_LEAGUE_WHITELIST (or equivalent) exists. Arahus v1/v2 do not gate picks by league. Flashscore league aliases in app/flashscore_client.py are settlement matching only, not a pick whitelist. Do not invent a league list from OOS results.",
+    "sources_checked": [
+      "app/arahus_engine.py",
+      "app/arahus_v2_engine.py",
+      "app/flashscore_client.py (settlement aliases only)",
+      "rules.json",
+      "research/"
+    ]
+  },
+  "periods": {
+    "development": "2026-07-01 \u2192 2026-08-31",
+    "oos": "2026-09-01 \u2192 2026-09-19",
+    "oos_end_observed": "2026-09-19"
+  },
+  "integrity": {
+    "n_rows": 339,
+    "issues": [
+      {
+        "type": "missing_odds",
+        "count": 5,
+        "action": "excluded_from_candidate"
+      },
+      {
+        "type": "open_or_missing_result",
+        "count": 6,
+        "action": "excluded_from_settled_roi"
+      },
+      {
+        "type": "no_created_at_in_excel_export",
+        "count": 339,
+        "action": "cannot verify bet-after-kickoff; fixture_date used as chronological key"
+      },
+      {
+        "type": "no_closing_odds_in_dataset",
+        "count": 339,
+        "action": "CLV unavailable"
+      }
+    ],
+    "market_raw_counts": {
+      "Over 2.5": 288,
+      "BTTS Yes": 43,
+      "Over 3.5": 8
+    },
+    "market_normalized_counts": {
+      "over_2_5": 288,
+      "btts_yes": 43,
+      "over_3_5": 8
+    },
+    "status_counts": {
+      "lost": 93,
+      "won": 237,
+      "push": 3,
+      "open": 6
+    },
+    "league_counts": {
+      "Super League": 33,
+      "Major League Soccer": 58,
+      "Allsvenskan": 17,
+      "Eliteserien": 14,
+      "Superliga": 14,
+      "UEFA Europa League": 11,
+      "Premiership": 3,
+      "Super Cup": 4,
+      "Liga MX": 2,
+      "Leagues Cup": 19,
+      "UEFA Champions League": 14,
+      "Jupiler Pro League": 3,
+      "2. Bundesliga": 13,
+      "Eredivisie": 36,
+      "Pro League": 12,
+      "Eerste Divisie": 38,
+      "League Cup": 3,
+      "King's Cup": 1,
+      "UEFA Europa Conference League": 5,
+      "Ligue 1": 6,
+      "S\u00fcper Lig": 3,
+      "Premier League": 4,
+      "La Liga": 5,
+      "Bundesliga": 16,
+      "DFB Pokal": 1,
+      "Canadian Championship": 1,
+      "US Open Cup": 1,
+      "Campeones Cup": 2
+    },
+    "dedupe_rule_in_app": "UniqueConstraint(log_type, fixture_date, fixture, bet_type, team_name) on bet_entries \u2014 see app/db.py"
+  },
+  "reconciliation": {
+    "existing_style_summary": {
+      "bets": 339,
+      "won": 237,
+      "lost": 93,
+      "push": 3,
+      "open": 6,
+      "pnl_logged_sum": 15.468
+    },
+    "calculated": {
+      "settled_bets": 333,
+      "won": 237,
+      "lost": 93,
+      "push": 3,
+      "pnl_recomputed_from_odds_units": 15.458,
+      "pnl_logged_sum": 15.468
+    },
+    "match_logged_vs_recomputed": true,
+    "delta": 0.01
+  },
+  "missing_odds_o25_count": 4,
+  "oos_reject_reason_counts": {
+    "market_rejected:btts_yes": 16,
+    "odds_out_of_band:1.12": 1,
+    "missing_odds": 2,
+    "odds_out_of_band:1.6": 6,
+    "odds_out_of_band:1.5": 12,
+    "market_rejected:over_3_5": 6,
+    "odds_out_of_band:1.28": 4,
+    "odds_out_of_band:1.57": 6,
+    "odds_out_of_band:1.22": 1,
+    "odds_out_of_band:1.7": 1,
+    "odds_out_of_band:1.25": 3,
+    "odds_out_of_band:1.53": 8,
+    "odds_out_of_band:1.62": 2,
+    "odds_out_of_band:1.17": 1,
+    "odds_out_of_band:1.67": 2,
+    "odds_out_of_band:1.8": 1
+  },
+  "main_result_logged_stake": {
+    "n": 62,
+    "n_with_pnl": 62,
+    "won": 47,
+    "lost": 14,
+    "push": 1,
+    "win_pct": 0.7704918032786885,
+    "avg_odds": 1.4048387096774195,
+    "median_odds": 1.4,
+    "staked": 54.5,
+    "pnl": 4.231,
+    "roi": 0.07763302752293577,
+    "avg_pnl_per_bet": 0.06824193548387096,
+    "max_dd_units": 2.89,
+    "max_dd_pct": 2.2727272727272725,
+    "longest_losing_streak": 2,
+    "longest_winning_streak": 11,
+    "worst_single_loss": -1.5,
+    "best_single_win": 0.54,
+    "std_per_bet_return": 0.5284046724667725,
+    "volatility_per_bet": 0.5284046724667725,
+    "sharpe_like_per_bet": 0.12914710834272988,
+    "sharpe_like_note": "mean(pnl)/std(pnl); not annualized; not a financial Sharpe",
+    "profit_factor": 1.345387755102041,
+    "bootstrap_roi_portfolio": {
+      "mean": 0.07813914037977449,
+      "ci_low": -0.07752222222222221,
+      "ci_high": 0.22320616736014795,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_pnl_per_bet": {
+      "mean": 0.06824193548387096,
+      "ci_low": -0.06769274193548386,
+      "ci_high": 0.1961653225806451,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_return_per_unit_staked": {
+      "mean": 0.08034408602150539,
+      "ci_low": -0.07091881720430107,
+      "ci_high": 0.2229142473118279,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "sample_label": "larger sample",
+    "stake_mode": "logged_units",
+    "push_accounting": "PnL=0; stake included in total staked"
+  },
+  "main_result_flat_1u": {
+    "n": 62,
+    "n_with_pnl": 62,
+    "won": 47,
+    "lost": 14,
+    "push": 1,
+    "win_pct": 0.7704918032786885,
+    "avg_odds": 1.4048387096774195,
+    "median_odds": 1.4,
+    "staked": 62.0,
+    "pnl": 4.9799999999999995,
+    "roi": 0.08032258064516128,
+    "avg_pnl_per_bet": 0.08032258064516132,
+    "max_dd_units": 3.52,
+    "max_dd_pct": 3.0303030303030303,
+    "longest_losing_streak": 2,
+    "longest_winning_streak": 11,
+    "worst_single_loss": -1.0,
+    "best_single_win": 0.48,
+    "std_per_bet_return": 0.5923666557898003,
+    "volatility_per_bet": 0.5923666557898003,
+    "sharpe_like_per_bet": 0.13559605332286556,
+    "sharpe_like_note": "mean(pnl)/std(pnl); not annualized; not a financial Sharpe",
+    "profit_factor": 1.3557142857142856,
+    "bootstrap_roi_portfolio": {
+      "mean": 0.0806058064516129,
+      "ci_low": -0.07097177419354839,
+      "ci_high": 0.2229032258064516,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_pnl_per_bet": {
+      "mean": 0.08032258064516132,
+      "ci_low": -0.07097177419354836,
+      "ci_high": 0.22290322580645155,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_return_per_unit_staked": {
+      "mean": 0.08032258064516132,
+      "ci_low": -0.07097177419354836,
+      "ci_high": 0.22290322580645155,
+      "n": 62,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "sample_label": "larger sample",
+    "stake_mode": "flat_1u",
+    "push_accounting": "PnL=0; stake included in total staked"
+  },
+  "main_result_equity_curve": [
+    0.33,
+    -0.42,
+    0.07500000000000001,
+    0.405,
+    0.7050000000000001,
+    1.0050000000000001,
+    1.3350000000000002,
+    1.6650000000000003,
+    1.9950000000000003,
+    2.3550000000000004,
+    2.6550000000000002,
+    1.9050000000000002,
+    1.9050000000000002,
+    0.9050000000000002,
+    0.15500000000000025,
+    0.5150000000000002,
+    -0.23499999999999976,
+    0.09500000000000025,
+    0.42500000000000027,
+    0.7550000000000003,
+    1.0850000000000004,
+    1.3850000000000005,
+    1.7450000000000006,
+    2.0750000000000006,
+    2.4050000000000007,
+    2.6750000000000007,
+    2.9750000000000005,
+    3.3350000000000004,
+    2.3350000000000004,
+    2.6350000000000002,
+    2.995,
+    2.245,
+    2.545,
+    3.085,
+    2.335,
+    2.635,
+    1.6349999999999998,
+    1.8829999999999998,
+    2.1529999999999996,
+    2.5129999999999995,
+    2.8729999999999993,
+    3.4129999999999994,
+    3.8129999999999993,
+    4.142999999999999,
+    2.642999999999999,
+    1.892999999999999,
+    2.1929999999999987,
+    2.6729999999999987,
+    3.1529999999999987,
+    3.400999999999999,
+    3.730999999999999,
+    4.090999999999999,
+    3.3409999999999993,
+    2.3409999999999993,
+    2.700999999999999,
+    3.060999999999999,
+    3.600999999999999,
+    3.930999999999999,
+    4.2909999999999995,
+    3.5409999999999995,
+    3.9009999999999994,
+    4.230999999999999
+  ],
+  "development_candidate_context_only": {
+    "n": 100,
+    "n_with_pnl": 100,
+    "won": 84,
+    "lost": 16,
+    "push": 0,
+    "win_pct": 0.84,
+    "avg_odds": 1.4113,
+    "median_odds": 1.44,
+    "staked": 91.0,
+    "pnl": 17.948,
+    "roi": 0.19723076923076924,
+    "avg_pnl_per_bet": 0.17947999999999997,
+    "max_dd_units": 2.839999999999998,
+    "max_dd_pct": 3.67741935483871,
+    "longest_losing_streak": 2,
+    "longest_winning_streak": 20,
+    "worst_single_loss": -1.0,
+    "best_single_win": 0.72,
+    "std_per_bet_return": 0.4597990004426725,
+    "volatility_per_bet": 0.4597990004426725,
+    "sharpe_like_per_bet": 0.390344476232452,
+    "sharpe_like_note": "mean(pnl)/std(pnl); not annualized; not a financial Sharpe",
+    "profit_factor": 2.3294814814814817,
+    "bootstrap_roi_portfolio": {
+      "mean": 0.19622284257292158,
+      "ci_low": 0.09179457584830339,
+      "ci_high": 0.2888266180566934,
+      "n": 100,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_pnl_per_bet": {
+      "mean": 0.17947999999999997,
+      "ci_low": 0.08277625000000001,
+      "ci_high": 0.26469324999999994,
+      "n": 100,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "bootstrap_mean_return_per_unit_staked": {
+      "mean": 0.18450666666666668,
+      "ci_low": 0.07419066666666664,
+      "ci_high": 0.2829141666666666,
+      "n": 100,
+      "n_boot": 2000,
+      "seed": 42
+    },
+    "sample_label": "larger sample",
+    "stake_mode": "logged_units",
+    "push_accounting": "PnL=0; stake included in total staked"
+  },
+  "baseline_comparison": [
+    {
+      "strategy": "All Arahus O2.5",
+      "id": "A",
+      "n": 107,
+      "win_pct": 0.6981132075471698,
+      "avg_odds": 1.4389523809523808,
+      "staked": 92.75,
+      "pnl": -0.5009999999999999,
+      "roi": -0.005401617250673853,
+      "max_dd_units": 3.609
+    },
+    {
+      "strategy": "O2.5 + selected leagues + odds 1.30\u20131.49",
+      "id": "B",
+      "note": "Identical to C \u2014 league whitelist undefined in repo",
+      "n": 62,
+      "win_pct": 0.7704918032786885,
+      "avg_odds": 1.4048387096774195,
+      "staked": 54.5,
+      "pnl": 4.231,
+      "roi": 0.07763302752293577,
+      "max_dd_units": 2.89
+    },
+    {
+      "strategy": "O2.5 + odds 1.30\u20131.49 (no league filter)",
+      "id": "C",
+      "n": 62,
+      "win_pct": 0.7704918032786885,
+      "avg_odds": 1.4048387096774195,
+      "staked": 54.5,
+      "pnl": 4.231,
+      "roi": 0.07763302752293577,
+      "max_dd_units": 2.89
+    }
+  ],
+  "league_breakdown_oos_candidate": [
+    {
+      "league": "Super League",
+      "bets": 12,
+      "w_l_p": "10-2-0",
+      "win_pct": 0.8333333333333334,
+      "avg_odds": 1.4058333333333335,
+      "staked": 10.75,
+      "pnl": 2.103,
+      "roi": 0.1956279069767442,
+      "max_dd": 1.0050000000000001,
+      "sample_label": "small sample"
+    },
+    {
+      "league": "Eerste Divisie",
+      "bets": 10,
+      "w_l_p": "7-3-0",
+      "win_pct": 0.7,
+      "avg_odds": 1.392,
+      "staked": 9.0,
+      "pnl": -0.9400000000000001,
+      "roi": -0.10444444444444445,
+      "max_dd": 3.25,
+      "sample_label": "small sample"
+    },
+    {
+      "league": "Eredivisie",
+      "bets": 10,
+      "w_l_p": "9-1-0",
+      "win_pct": 0.9,
+      "avg_odds": 1.394,
+      "staked": 8.75,
+      "pnl": 2.0,
+      "roi": 0.22857142857142856,
+      "max_dd": 1.0,
+      "sample_label": "small sample"
+    },
+    {
+      "league": "Major League Soccer",
+      "bets": 10,
+      "w_l_p": "7-2-1",
+      "win_pct": 0.7777777777777778,
+      "avg_odds": 1.4000000000000001,
+      "staked": 8.5,
+      "pnl": 0.6499999999999999,
+      "roi": 0.07647058823529411,
+      "max_dd": 1.75,
+      "sample_label": "small sample"
+    },
+    {
+      "league": "Bundesliga",
+      "bets": 6,
+      "w_l_p": "5-1-0",
+      "win_pct": 0.8333333333333334,
+      "avg_odds": 1.406666666666667,
+      "staked": 5.25,
+      "pnl": 1.05,
+      "roi": 0.2,
+      "max_dd": 0.75,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "2. Bundesliga",
+      "bets": 4,
+      "w_l_p": "3-1-0",
+      "win_pct": 0.75,
+      "avg_odds": 1.41,
+      "staked": 4.5,
+      "pnl": 0.6900000000000001,
+      "roi": 0.15333333333333335,
+      "max_dd": 0.75,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "Pro League",
+      "bets": 2,
+      "w_l_p": "1-1-0",
+      "win_pct": 0.5,
+      "avg_odds": 1.42,
+      "staked": 1.5,
+      "pnl": -0.42,
+      "roi": -0.27999999999999997,
+      "max_dd": 0.75,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "UEFA Champions League",
+      "bets": 2,
+      "w_l_p": "1-1-0",
+      "win_pct": 0.5,
+      "avg_odds": 1.44,
+      "staked": 1.75,
+      "pnl": -0.6699999999999999,
+      "roi": -0.38285714285714284,
+      "max_dd": 1.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "Eliteserien",
+      "bets": 1,
+      "w_l_p": "0-1-0",
+      "win_pct": 0.0,
+      "avg_odds": 1.44,
+      "staked": 0.75,
+      "pnl": -0.75,
+      "roi": -1.0,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "La Liga",
+      "bets": 1,
+      "w_l_p": "1-0-0",
+      "win_pct": 1.0,
+      "avg_odds": 1.33,
+      "staked": 0.75,
+      "pnl": 0.248,
+      "roi": 0.33066666666666666,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "League Cup",
+      "bets": 1,
+      "w_l_p": "1-0-0",
+      "win_pct": 1.0,
+      "avg_odds": 1.48,
+      "staked": 0.75,
+      "pnl": 0.36,
+      "roi": 0.48,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "Ligue 1",
+      "bets": 1,
+      "w_l_p": "1-0-0",
+      "win_pct": 1.0,
+      "avg_odds": 1.44,
+      "staked": 0.75,
+      "pnl": 0.33,
+      "roi": 0.44,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "Superliga",
+      "bets": 1,
+      "w_l_p": "0-1-0",
+      "win_pct": 0.0,
+      "avg_odds": 1.44,
+      "staked": 0.75,
+      "pnl": -0.75,
+      "roi": -1.0,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    },
+    {
+      "league": "S\u00fcper Lig",
+      "bets": 1,
+      "w_l_p": "1-0-0",
+      "win_pct": 1.0,
+      "avg_odds": 1.44,
+      "staked": 0.75,
+      "pnl": 0.33,
+      "roi": 0.44,
+      "max_dd": 0.0,
+      "sample_label": "very small sample"
+    }
+  ],
+  "non_selected_leagues": {
+    "applicable": false,
+    "reason": "No CURRENT_ARAHUS_SELECTED_LEAGUE_WHITELIST (or equivalent) exists. Arahus v1/v2 do not gate picks by league. Flashscore league aliases in app/flashscore_client.py are settlement matching only, not a pick whitelist. Do not invent a league list from OOS results.",
+    "note": "All leagues in O2.5+odds band are included; see league_breakdown for volume."
+  },
+  "odds_band_breakdown_oos": [
+    {
+      "band": "1.30\u20131.34",
+      "bets": 9,
+      "w_l_p": "7-2-0",
+      "win_pct": 0.7777777777777778,
+      "pnl": -0.279,
+      "roi": -0.029368421052631582
+    },
+    {
+      "band": "1.35\u20131.39",
+      "bets": 12,
+      "w_l_p": "11-1-0",
+      "win_pct": 0.9166666666666666,
+      "pnl": 3.3200000000000003,
+      "roi": 0.25538461538461543
+    },
+    {
+      "band": "1.40\u20131.44",
+      "bets": 32,
+      "w_l_p": "21-10-1",
+      "win_pct": 0.6774193548387096,
+      "pnl": -1.1799999999999997,
+      "roi": -0.047676767676767665
+    },
+    {
+      "band": "1.45\u20131.49",
+      "bets": 9,
+      "w_l_p": "8-1-0",
+      "win_pct": 0.8888888888888888,
+      "pnl": 2.37,
+      "roi": 0.32689655172413795
+    }
+  ],
+  "confidence_band_breakdown_oos": [
+    {
+      "band": "60\u201364",
+      "bets": 16,
+      "w_l_p": "12-4-0",
+      "win_pct": 0.75,
+      "pnl": 1.02,
+      "roi": 0.085
+    },
+    {
+      "band": "65\u201369",
+      "bets": 31,
+      "w_l_p": "22-8-1",
+      "win_pct": 0.7333333333333333,
+      "pnl": 0.22600000000000003,
+      "roi": 0.009040000000000001
+    },
+    {
+      "band": "70\u201374",
+      "bets": 4,
+      "w_l_p": "4-0-0",
+      "win_pct": 1.0,
+      "pnl": 1.6,
+      "roi": 0.4
+    },
+    {
+      "band": "75\u201379",
+      "bets": 7,
+      "w_l_p": "6-1-0",
+      "win_pct": 0.8571428571428571,
+      "pnl": 1.31,
+      "roi": 0.17466666666666666
+    },
+    {
+      "band": "80+",
+      "bets": 4,
+      "w_l_p": "3-1-0",
+      "win_pct": 0.75,
+      "pnl": 0.07500000000000007,
+      "roi": 0.012500000000000011
+    }
+  ],
+  "weekly_oos": [
+    {
+      "week": "2026-W36",
+      "bets": 21,
+      "win_pct": 0.75,
+      "pnl": 1.085,
+      "roi": 0.062
+    },
+    {
+      "week": "2026-W37",
+      "bets": 25,
+      "win_pct": 0.76,
+      "pnl": 0.808,
+      "roi": 0.034752688172043016
+    },
+    {
+      "week": "2026-W38",
+      "bets": 16,
+      "win_pct": 0.8125,
+      "pnl": 2.338,
+      "roi": 0.17003636363636365
+    }
+  ],
+  "rolling_25": [
+    {
+      "end_index": 25,
+      "end_date": "2026-09-10",
+      "window": 25,
+      "roi": 0.11452380952380954,
+      "cumulative_pnl": 2.4050000000000002,
+      "win_pct": 0.7916666666666666
+    },
+    {
+      "end_index": 26,
+      "end_date": "2026-09-10",
+      "window": 25,
+      "roi": 0.1130120481927711,
+      "cumulative_pnl": 2.345,
+      "win_pct": 0.7916666666666666
+    },
+    {
+      "end_index": 27,
+      "end_date": "2026-09-10",
+      "window": 25,
+      "roi": 0.1636144578313253,
+      "cumulative_pnl": 3.395,
+      "win_pct": 0.8333333333333334
+    },
+    {
+      "end_index": 28,
+      "end_date": "2026-09-10",
+      "window": 25,
+      "roi": 0.16098765432098766,
+      "cumulative_pnl": 3.2600000000000002,
+      "win_pct": 0.8333333333333334
+    },
+    {
+      "end_index": 29,
+      "end_date": "2026-09-10",
+      "window": 25,
+      "roi": 0.09414634146341465,
+      "cumulative_pnl": 1.9300000000000002,
+      "win_pct": 0.7916666666666666
+    },
+    {
+      "end_index": 30,
+      "end_date": "2026-09-11",
+      "window": 25,
+      "roi": 0.09301204819277109,
+      "cumulative_pnl": 1.9300000000000002,
+      "win_pct": 0.7916666666666666
+    },
+    {
+      "end_index": 31,
+      "end_date": "2026-09-11",
+      "window": 25,
+      "roi": 0.09590361445783133,
+      "cumulative_pnl": 1.99,
+      "win_pct": 0.7916666666666666
+    },
+    {
+      "end_index": 32,
+      "end_date": "2026-09-11",
+      "window": 25,
+      "roi": 0.04385542168674699,
+      "cumulative_pnl": 0.91,
+      "win_pct": 0.75
+    },
+    {
+      "end_index": 33,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": 0.042409638554216866,
+      "cumulative_pnl": 0.88,
+      "win_pct": 0.75
+    },
+    {
+      "end_index": 34,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": 0.050697674418604656,
+      "cumulative_pnl": 1.09,
+      "win_pct": 0.75
+    },
+    {
+      "end_index": 35,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": -0.0009411764705882335,
+      "cumulative_pnl": -0.019999999999999962,
+      "win_pct": 0.7083333333333334
+    },
+    {
+      "end_index": 36,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": -0.0009523809523809505,
+      "cumulative_pnl": -0.019999999999999962,
+      "win_pct": 0.7083333333333334
+    },
+    {
+      "end_index": 37,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": -0.012705882352941174,
+      "cumulative_pnl": -0.26999999999999996,
+      "win_pct": 0.7083333333333334
+    },
+    {
+      "end_index": 38,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": -0.0010352941176470572,
+      "cumulative_pnl": -0.021999999999999964,
+      "win_pct": 0.72
+    },
+    {
+      "end_index": 39,
+      "end_date": "2026-09-12",
+      "window": 25,
+      "roi": 0.05942857142857143,
+      "cumulative_pnl": 1.248,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 40,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.11096470588235295,
+      "cumulative_pnl": 2.358,
+      "win_pct": 0.8
+    },
+    {
+      "end_index": 41,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.10967441860465117,
+      "cumulative_pnl": 2.358,
+      "win_pct": 0.8
+    },
+    {
+      "end_index": 42,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.1639550561797753,
+      "cumulative_pnl": 3.648,
+      "win_pct": 0.84
+    },
+    {
+      "end_index": 43,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.16524444444444444,
+      "cumulative_pnl": 3.718,
+      "win_pct": 0.84
+    },
+    {
+      "end_index": 44,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.16524444444444444,
+      "cumulative_pnl": 3.718,
+      "win_pct": 0.84
+    },
+    {
+      "end_index": 45,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.08120430107526883,
+      "cumulative_pnl": 1.8880000000000001,
+      "win_pct": 0.8
+    },
+    {
+      "end_index": 46,
+      "end_date": "2026-09-13",
+      "window": 25,
+      "roi": 0.034752688172043016,
+      "cumulative_pnl": 0.808,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 47,
+      "end_date": "2026-09-14",
+      "window": 25,
+      "roi": 0.035130434782608695,
+      "cumulative_pnl": 0.808,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 48,
+      "end_date": "2026-09-14",
+      "window": 25,
+      "roi": 0.04034782608695652,
+      "cumulative_pnl": 0.928,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 49,
+      "end_date": "2026-09-15",
+      "window": 25,
+      "roi": 0.046365591397849466,
+      "cumulative_pnl": 1.078,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 50,
+      "end_date": "2026-09-16",
+      "window": 25,
+      "roi": 0.04283870967741935,
+      "cumulative_pnl": 0.996,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 51,
+      "end_date": "2026-09-16",
+      "window": 25,
+      "roi": 0.04541935483870968,
+      "cumulative_pnl": 1.056,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 52,
+      "end_date": "2026-09-17",
+      "window": 25,
+      "roi": 0.048,
+      "cumulative_pnl": 1.116,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 53,
+      "end_date": "2026-09-18",
+      "window": 25,
+      "roi": 0.00026086956521739155,
+      "cumulative_pnl": 0.006000000000000005,
+      "win_pct": 0.72
+    },
+    {
+      "end_index": 54,
+      "end_date": "2026-09-18",
+      "window": 25,
+      "roi": 0.00026086956521739155,
+      "cumulative_pnl": 0.006000000000000005,
+      "win_pct": 0.72
+    },
+    {
+      "end_index": 55,
+      "end_date": "2026-09-18",
+      "window": 25,
+      "roi": 0.002901098901098901,
+      "cumulative_pnl": 0.066,
+      "win_pct": 0.72
+    },
+    {
+      "end_index": 56,
+      "end_date": "2026-09-18",
+      "window": 25,
+      "roi": 0.002901098901098901,
+      "cumulative_pnl": 0.066,
+      "win_pct": 0.72
+    },
+    {
+      "end_index": 57,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.05770212765957447,
+      "cumulative_pnl": 1.356,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 58,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.05897872340425533,
+      "cumulative_pnl": 1.3860000000000001,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 59,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.05243478260869565,
+      "cumulative_pnl": 1.206,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 60,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.05243478260869565,
+      "cumulative_pnl": 1.206,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 61,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.05504347826086957,
+      "cumulative_pnl": 1.266,
+      "win_pct": 0.76
+    },
+    {
+      "end_index": 62,
+      "end_date": "2026-09-19",
+      "window": 25,
+      "roi": 0.11410989010989012,
+      "cumulative_pnl": 2.596,
+      "win_pct": 0.8
+    }
+  ],
+  "rolling_50": [
+    {
+      "end_index": 50,
+      "end_date": "2026-09-16",
+      "window": 50,
+      "roi": 0.0768587570621469,
+      "cumulative_pnl": 3.4010000000000002,
+      "win_pct": 0.7755102040816326
+    },
+    {
+      "end_index": 51,
+      "end_date": "2026-09-16",
+      "window": 50,
+      "roi": 0.07729545454545456,
+      "cumulative_pnl": 3.4010000000000002,
+      "win_pct": 0.7755102040816326
+    },
+    {
+      "end_index": 52,
+      "end_date": "2026-09-17",
+      "window": 50,
+      "roi": 0.10252272727272728,
+      "cumulative_pnl": 4.511,
+      "win_pct": 0.7959183673469388
+    },
+    {
+      "end_index": 53,
+      "end_date": "2026-09-18",
+      "window": 50,
+      "roi": 0.07551445086705202,
+      "cumulative_pnl": 3.266,
+      "win_pct": 0.7755102040816326
+    },
+    {
+      "end_index": 54,
+      "end_date": "2026-09-18",
+      "window": 50,
+      "roi": 0.04450574712643678,
+      "cumulative_pnl": 1.936,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 55,
+      "end_date": "2026-09-18",
+      "window": 50,
+      "roi": 0.04588505747126437,
+      "cumulative_pnl": 1.996,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 56,
+      "end_date": "2026-09-18",
+      "window": 50,
+      "roi": 0.04726436781609195,
+      "cumulative_pnl": 2.056,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 57,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.0512090395480226,
+      "cumulative_pnl": 2.266,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 58,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.0512090395480226,
+      "cumulative_pnl": 2.266,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 59,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.05159550561797754,
+      "cumulative_pnl": 2.2960000000000003,
+      "win_pct": 0.7551020408163265
+    },
+    {
+      "end_index": 60,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.026802259887005648,
+      "cumulative_pnl": 1.186,
+      "win_pct": 0.7346938775510204
+    },
+    {
+      "end_index": 61,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.02831818181818182,
+      "cumulative_pnl": 1.246,
+      "win_pct": 0.7346938775510204
+    },
+    {
+      "end_index": 62,
+      "end_date": "2026-09-19",
+      "window": 50,
+      "roi": 0.05286363636363636,
+      "cumulative_pnl": 2.326,
+      "win_pct": 0.7551020408163265
+    }
+  ],
+  "clv": {
+    "available": false,
+    "message": "CLV unavailable in current dataset.",
+    "n_with_closing_odds": 0
+  },
+  "leakage_audit": {
+    "oos_used_for_league_selection": false,
+    "oos_used_for_odds_band_selection": false,
+    "oos_used_for_confidence_threshold": false,
+    "oos_used_for_staking_changes": false,
+    "future_closing_odds_used_for_qualification": false,
+    "settled_outcomes_used_for_qualification": false,
+    "qualification_fields": [
+      "market",
+      "odds",
+      "league_name (pass-through; no whitelist)"
+    ],
+    "evaluation_fields": [
+      "status",
+      "pnl_units",
+      "units"
+    ],
+    "chronological_key": "fixture_date (Excel export lacks created_at)",
+    "residual_limitations": [
+      "Excel export has no created_at \u2014 cannot prove bet was placed before kickoff.",
+      "No closing odds \u2014 CLV not measurable.",
+      "Multiple markets per fixture historically in v1 log; candidate keeps O2.5 only.",
+      "League whitelist absent \u2014 cannot test league-filter value-add until defined."
+    ],
+    "config_frozen_before_oos": true,
+    "frozen_config_id": "arahus_oos_candidate_v1",
+    "verdict": "No intentional look-ahead into OOS for parameter selection. Configuration was fixed prior to September evaluation. Qualification does not use status/pnl/closing odds."
+  },
+  "future_sample_size": {
+    "target_se": 0.05,
+    "assumed_std": 0.5284046724667725,
+    "n_required": 112,
+    "note": "N \u2248 (\u03c3/SE)^2 for mean per-bet return; not a power calculation for ROI>0"
+  },
+  "n_raw": 339,
+  "n_oos_candidate_settled": 62
+}
