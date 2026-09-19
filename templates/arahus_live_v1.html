@@ -13,15 +13,12 @@
       {% set nav_current = "arahus-live-v1" %}
       {% include "includes/app_nav.html" %}
 
-      <h1>Arahus Live Candidate V1</h1>
+      <h1>Arahus Live V1</h1>
       <p class="subtitle">
-        Frozen forward-validation candidate:
-        <strong>Over 2.5 only</strong>,
-        odds <strong>1.30–1.49</strong> inclusive,
-        <strong>all leagues</strong>,
-        confidence informational only (not a gate),
-        existing Arahus stake ladder.
-        Isolated from Arahus v1 / v2.
+        Filtered <strong>Arahus Engine V1 picks</strong> only (not a separate scorer):
+        keep V1 confidence &amp; stake,
+        then require <strong>Over 2.5</strong> with odds <strong>1.30–1.49</strong>.
+        Isolated log from Arahus v1 / v2.
       </p>
 
       <div class="actions">
@@ -44,8 +41,9 @@
       <section class="recommendation-card">
         <h2>Frozen rules</h2>
         <p class="hit-note">
-          Qualification = Over 2.5 AND 1.30 ≤ odds ≤ 1.49. No league whitelist. No confidence threshold.
-          No BTTS / O3.5. Stake uses the existing Arahus v1 ladder (0.75 / 1.0 / 1.5).
+          Source = Arahus Engine V1 picks only. Live V1 gate = Over 2.5 AND 1.30 ≤ odds ≤ 1.49.
+          No extra league whitelist or confidence gate. BTTS / O3.5 V1 picks are excluded.
+          Stake preserved from the V1 pick (0.75 / 1.0 / 1.5).
           OOS reference (validation only, not a guarantee): Sep 1–19 2026 · N=62 · +4.231u · +7.76% ROI.
         </p>
       </section>

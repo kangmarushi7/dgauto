@@ -719,7 +719,7 @@ async def arahus_v2_bet_log_page(request: Request, season: int | None = Query(de
 
 @app.get("/arahus-live-v1")
 async def arahus_live_v1_engine_page(request: Request):
-    """Arahus Live Candidate V1 — frozen O2.5 odds 1.30–1.49, all leagues, no conf gate."""
+    """Arahus Live V1 — filter on Arahus Engine V1 picks (O2.5, odds 1.30–1.49)."""
     data = read_latest()
     cards = await run_in_threadpool(build_arahus_live_v1_slate, data)
     picks = flatten_arahus_live_v1_picks(cards)

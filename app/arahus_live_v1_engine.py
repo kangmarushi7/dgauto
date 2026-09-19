@@ -1,17 +1,21 @@
-"""Arahus Live Candidate V1 — frozen forward-validation filter.
+"""Arahus Live Candidate V1 — filter on Arahus Engine V1 picks only.
 
-Isolated from Arahus v1 (multi-market) and Arahus v2 (conf/edge gates).
+Does NOT generate a parallel candidate set. Flow:
+
+1. Build the normal Arahus Engine V1 slate / picks.
+2. Keep each V1 pick's confidence, stake, model fields unchanged.
+3. Qualify for Live V1 iff:
+       market == Over 2.5 AND odds is not None AND 1.30 <= odds <= 1.49
+4. Sync qualifying V1 picks into isolated log_type=arahus_live_v1.
 
 Frozen rules (do NOT change from OOS outcomes):
+- Source: Arahus Engine V1 picks only
 - Market: Over 2.5 ONLY
 - Odds: 1.30 <= odds <= 1.49 inclusive (no rounding)
-- League: unrestricted (no whitelist)
-- Confidence: calculated and logged; NOT a qualification gate
-- BTTS / O3.5 / other markets: excluded
-- Stake: existing Arahus v1 ladder (0.75 / 1.0 / 1.5) — no new money management
-
-Qualification is exactly:
-    market == Over 2.5 AND odds is not None AND 1.30 <= odds <= 1.49
+- League: unrestricted (no additional whitelist)
+- Confidence: NOT an additional Live V1 gate (V1 already applied its own gates to become a pick)
+- BTTS / O3.5 / other V1 markets: excluded from Live V1
+- Stake: preserve V1 pick units (existing Arahus ladder)
 """
 from __future__ import annotations
 
@@ -22,11 +26,10 @@ from typing import Any
 
 from app.bet_log import compute_bet_stats
 from app.arahus_engine import (
-    _clamp,
-    build_fixture_profile,
-    project_match,
+    DECISION_PICKED,
+    build_arahus_slate,
+    flatten_picks as flatten_arahus_v1_picks,
 )
-from app.arahus_v2_engine import _overs_signals
 from app.db import (
     insert_arahus_live_v1_decision_log,
     insert_bets,
@@ -34,28 +37,26 @@ from app.db import (
     list_bets,
     resolve_bet_entry,
 )
-from app.dg_feeds import lookup_extra_for_fixture
-from app.fixture_detail import find_raw_fixture
-from app.fixture_math import edge as calc_edge
-from app.fixture_math import expected_value_pct, implied_prob, num
 
 LOG_TYPE = "arahus_live_v1"
 ENGINE_VERSION = "arahus-live-v1"
 STRATEGY_LABEL = "Arahus Live V1"
+SOURCE_ENGINE = "arahus-1"
 
 # Single configuration object — do not scatter magic numbers.
 ARAHUS_LIVE_V1: dict[str, Any] = {
     "strategy_version": ENGINE_VERSION,
     "label": STRATEGY_LABEL,
+    "source": "arahus_engine_v1_picks",
     "market": "Over 2.5",
     "bet_type": "arahus_o25",
     "odds_min": float(os.getenv("ARAHUS_LIVE_V1_ODDS_MIN", "1.30")),
     "odds_max": float(os.getenv("ARAHUS_LIVE_V1_ODDS_MAX", "1.49")),
     "league_whitelist": None,  # unrestricted — do NOT invent leagues
-    "confidence_min": None,  # informational only
+    "confidence_min": None,  # no additional Live V1 confidence gate
     "btts": False,
     "over_3_5": False,
-    "stake_mode": "arahus_v1_ladder",
+    "stake_mode": "preserve_arahus_v1_pick_units",
 }
 
 # Safety: auto-sync / scheduler inclusion. Manual UI sync still allowed when false.
@@ -77,6 +78,7 @@ REJECT_MISSING_ODDS = "missing_odds"
 REJECT_ODDS_BELOW = "odds_below_min"
 REJECT_ODDS_ABOVE = "odds_above_max"
 REJECT_INVALID_ODDS = "invalid_odds"
+REJECT_NOT_V1_PICK = "not_arahus_v1_pick"
 QUALIFIED = "qualified"
 
 
@@ -89,6 +91,7 @@ def engine_config_snapshot() -> dict[str, Any]:
         **ARAHUS_LIVE_V1,
         "enabled_auto_sync": ENABLED,
         "engine_version": ENGINE_VERSION,
+        "source_engine": SOURCE_ENGINE,
         "oos_reference": {
             "period": "2026-09-01 → 2026-09-19",
             "n": 62,
@@ -99,16 +102,6 @@ def engine_config_snapshot() -> dict[str, Any]:
     }
 
 
-def stake_units_arahus_v1_ladder(confidence: float, edge: float | None) -> float:
-    """Existing Arahus v1 stake sizing (not a qualification gate)."""
-    units = 1.0
-    if confidence >= 78 and (edge or 0) >= 5:
-        units = 1.5
-    elif confidence < 68:
-        units = 0.75
-    return float(units)
-
-
 def qualifies_for_arahus_live_v1(
     *,
     market: str | None = None,
@@ -116,7 +109,8 @@ def qualifies_for_arahus_live_v1(
     odds: float | None,
 ) -> tuple[bool, str]:
     """
-    Exact frozen gate. Confidence and league are intentionally ignored.
+    Exact frozen Live V1 gate applied to an existing Arahus V1 pick.
+    Confidence and league are intentionally ignored here.
     Odds are compared without rounding.
     """
     label = str(market or "").strip().lower()
@@ -124,7 +118,7 @@ def qualifies_for_arahus_live_v1(
     is_o25 = (
         bt == "arahus_o25"
         or label in {"over 2.5", "o2.5", "over2.5"}
-        or (label == ARAHUS_LIVE_V1["market"].lower())
+        or label == ARAHUS_LIVE_V1["market"].lower()
     )
     if not is_o25:
         return False, REJECT_MARKET
@@ -143,132 +137,115 @@ def qualifies_for_arahus_live_v1(
     return True, QUALIFIED
 
 
-def _build_o25_decision(
-    profile: dict[str, Any],
-    proj: dict[str, Any],
-    *,
-    signal_timestamp: str,
-) -> dict[str, Any]:
-    odds_raw = (profile.get("odds") or {}).get("over_2_5")
-    odds = num(odds_raw) if odds_raw is not None else None
-    model_pct = proj.get("over_2_5_pct")
-    signals = _overs_signals(profile, proj, for_o35=False)
-    confidence = round(sum(float(s.get("weight") or 0) for s in signals), 1)
-    confidence = _clamp(confidence, 0.0, 100.0)
-    if model_pct is None:
-        # Still allow odds-only qualification; confidence stays from signals (may be 0).
-        model_pct_f = None
-        edge_val = None
-        ev_val = None
-    else:
-        model_pct_f = float(model_pct)
-        edge_val = calc_edge(model_pct_f, odds)
-        ev_val = expected_value_pct(model_pct_f, odds)
+def filter_v1_pick_for_live_v1(pick: dict[str, Any], *, signal_timestamp: str) -> dict[str, Any]:
+    """Annotate one Arahus V1 pick with Live V1 qualification (does not invent picks)."""
+    market_label = pick.get("market_label") or BET_LABELS.get(str(pick.get("bet_type") or ""), "")
+    odds = pick.get("odds")
+    try:
+        odds_f = float(odds) if odds is not None else None
+    except (TypeError, ValueError):
+        odds_f = None
 
     ok, reason = qualifies_for_arahus_live_v1(
-        market="Over 2.5",
-        bet_type="arahus_o25",
-        odds=odds,
+        market=str(market_label or ""),
+        bet_type=str(pick.get("bet_type") or ""),
+        odds=odds_f,
     )
-    units = stake_units_arahus_v1_ladder(confidence, edge_val) if ok else None
-    return {
-        "strategy_version": ENGINE_VERSION,
-        "bet_type": "arahus_o25",
-        "market_label": "Over 2.5",
-        "market": "Over 2.5",
-        "team_name": "",
-        "model_pct": round(model_pct_f, 1) if model_pct_f is not None else None,
-        "odds": odds,
-        "entry_odds": odds,
-        "implied_pct": implied_prob(odds),
-        "edge": edge_val,
-        "ev": ev_val,
-        "confidence": confidence,
-        "signals": signals,
-        "signal_summary": " · ".join(s["detail"] for s in signals[:4]),
-        "qualification_result": bool(ok),
-        "rejection_reason": None if ok else reason,
-        "decision": "BET" if ok else "SKIP",
-        "skip_reason": QUALIFIED if ok else reason,
-        "units": units,
-        "stake": units,
-        "status": "picked" if ok else "skipped",
-        "signal_timestamp": signal_timestamp,
-        "closing_odds": None,
-        "closing_timestamp": None,
-        "clv": None,
-        "odds_source": "datagaffer",
-        "bookmaker": "datagaffer",
-        "league_whitelist_applied": False,
-        "confidence_gate_applied": False,
-    }
+    units = pick.get("units")
+    if ok and units is None:
+        units = 1.0
 
-
-def evaluate_fixture_live_v1(
-    raw: dict[str, Any],
-    match: dict[str, Any] | None,
-    extra: dict[str, Any],
-) -> dict[str, Any]:
-    signal_timestamp = _now_iso()
-    profile = build_fixture_profile(raw, match, extra)
-    proj = project_match(profile)
-    decision = _build_o25_decision(profile, proj, signal_timestamp=signal_timestamp)
-    for key in (
-        "fixture_id",
-        "fixture",
-        "fixture_date",
-        "league_name",
-        "home_team",
-        "away_team",
-    ):
-        decision[key] = profile.get(key)
-    decision["kickoff_timestamp"] = profile.get("fixture_date")
-    decision["archetype"] = proj.get("archetype")
-
-    picks = [decision] if decision.get("qualification_result") else []
-    return {
-        "fixture_id": profile.get("fixture_id"),
-        "fixture": profile.get("fixture"),
-        "fixture_date": profile.get("fixture_date"),
-        "league_name": profile.get("league_name"),
-        "home_team": profile.get("home_team"),
-        "away_team": profile.get("away_team"),
-        "projections": proj,
-        "profile": profile,
-        "decisions": [decision],
-        "picks": picks,
-        "has_picks": bool(picks),
-        "top_confidence": picks[0]["confidence"] if picks else 0,
-        "engine_version": ENGINE_VERSION,
-        "signal_timestamp": signal_timestamp,
-    }
+    row = dict(pick)
+    row.update(
+        {
+            "strategy_version": ENGINE_VERSION,
+            "source_engine": SOURCE_ENGINE,
+            "market_label": market_label or "Over 2.5",
+            "market": market_label or "Over 2.5",
+            "entry_odds": odds_f,
+            "odds": odds_f,
+            "qualification_result": bool(ok),
+            "rejection_reason": None if ok else reason,
+            "decision": "BET" if ok else "SKIP",
+            "skip_reason": QUALIFIED if ok else reason,
+            "units": float(units) if ok and units is not None else None,
+            "stake": float(units) if ok and units is not None else None,
+            "status": "picked" if ok else "skipped",
+            "signal_timestamp": signal_timestamp,
+            "kickoff_timestamp": pick.get("fixture_date"),
+            "closing_odds": None,
+            "closing_timestamp": None,
+            "clv": None,
+            "odds_source": "datagaffer",
+            "bookmaker": "datagaffer",
+            "league_whitelist_applied": False,
+            "confidence_gate_applied": False,
+            "from_arahus_v1_pick": True,
+        }
+    )
+    return row
 
 
 def build_arahus_live_v1_slate(state: dict[str, Any]) -> list[dict[str, Any]]:
-    fixtures_by_id = state.get("fixtures_by_id") or {}
-    indexes = state.get("dg_extra_indexes") or {}
-    matches_by_id = {
-        str(m.get("fixture_id")): m for m in (state.get("matches") or []) if m.get("fixture_id")
-    }
-    ids = [str(m.get("fixture_id")) for m in (state.get("matches") or []) if m.get("fixture_id")]
-    if not ids:
-        ids = list(fixtures_by_id.keys())
+    """
+    Build Live V1 cards from the Arahus Engine V1 slate.
 
-    cards: list[dict[str, Any]] = []
-    for fid in ids:
-        raw = find_raw_fixture(fixtures_by_id, fid)
-        if not raw:
-            continue
-        match = matches_by_id.get(str(fid))
-        extra = lookup_extra_for_fixture(raw, indexes, include_player_sims=False) if indexes else {}
-        try:
-            cards.append(evaluate_fixture_live_v1(raw, match, extra))
-        except Exception:
-            continue
-    cards.sort(
+    Only V1 picks (status=picked / card.picks) are candidates. Live V1 never
+    invents O2.5 rows that V1 did not already select.
+    """
+    signal_timestamp = _now_iso()
+    v1_cards = build_arahus_slate(state)
+    live_cards: list[dict[str, Any]] = []
+
+    for card in v1_cards:
+        v1_picks = list(card.get("picks") or [])
+        # Safety: if picks missing, fall back to decisions marked picked
+        if not v1_picks:
+            v1_picks = [
+                d
+                for d in (card.get("decisions") or [])
+                if d.get("status") == DECISION_PICKED
+            ]
+
+        decisions: list[dict[str, Any]] = []
+        live_picks: list[dict[str, Any]] = []
+        for pick in v1_picks:
+            annotated = filter_v1_pick_for_live_v1(pick, signal_timestamp=signal_timestamp)
+            annotated.setdefault("fixture_id", card.get("fixture_id"))
+            annotated.setdefault("fixture", card.get("fixture"))
+            annotated.setdefault("fixture_date", card.get("fixture_date"))
+            annotated.setdefault("league_name", card.get("league_name"))
+            annotated.setdefault("home_team", card.get("home_team"))
+            annotated.setdefault("away_team", card.get("away_team"))
+            decisions.append(annotated)
+            if annotated.get("qualification_result"):
+                live_picks.append(annotated)
+
+        live_cards.append(
+            {
+                "fixture_id": card.get("fixture_id"),
+                "fixture": card.get("fixture"),
+                "fixture_date": card.get("fixture_date"),
+                "league_name": card.get("league_name"),
+                "home_team": card.get("home_team"),
+                "away_team": card.get("away_team"),
+                "projections": card.get("projections"),
+                "profile": card.get("profile"),
+                "arahus_v1_picks": v1_picks,
+                "decisions": decisions,
+                "picks": live_picks,
+                "has_picks": bool(live_picks),
+                "top_confidence": live_picks[0].get("confidence") if live_picks else 0,
+                "engine_version": ENGINE_VERSION,
+                "source_engine": SOURCE_ENGINE,
+                "signal_timestamp": signal_timestamp,
+            }
+        )
+
+    live_cards.sort(
         key=lambda c: (str(c.get("fixture_date") or "9999"), str(c.get("fixture") or ""))
     )
-    return cards
+    return live_cards
 
 
 def flatten_picks(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -307,26 +284,31 @@ def build_decision_rows_from_cards(cards: list[dict[str, Any]]) -> list[dict[str
             rows.append(
                 {
                     "strategy_version": ENGINE_VERSION,
-                    "fixture_id": str(card.get("fixture_id") or "") or None,
-                    "signal_timestamp": d.get("signal_timestamp") or card.get("signal_timestamp") or _now_iso(),
+                    "fixture_id": str(card.get("fixture_id") or d.get("fixture_id") or "") or None,
+                    "signal_timestamp": d.get("signal_timestamp")
+                    or card.get("signal_timestamp")
+                    or _now_iso(),
                     "kickoff_timestamp": d.get("kickoff_timestamp") or card.get("fixture_date"),
                     "synced_at": _now_iso(),
                     "match_date": card.get("fixture_date"),
-                    "league": card.get("league_name") or "",
-                    "home_team": card.get("home_team") or "",
-                    "away_team": card.get("away_team") or "",
-                    "fixture": card.get("fixture") or "",
+                    "league": card.get("league_name") or d.get("league_name") or "",
+                    "home_team": card.get("home_team") or d.get("home_team") or "",
+                    "away_team": card.get("away_team") or d.get("away_team") or "",
+                    "fixture": card.get("fixture") or d.get("fixture") or "",
                     "bet_type": d.get("bet_type") or "arahus_o25",
-                    "market": d.get("market_label") or "Over 2.5",
+                    "market": d.get("market_label") or d.get("market") or "Over 2.5",
                     "team_name": d.get("team_name") or "",
                     "confidence": d.get("confidence"),
-                    "entry_odds": d.get("entry_odds") if d.get("entry_odds") is not None else d.get("odds"),
+                    "entry_odds": d.get("entry_odds")
+                    if d.get("entry_odds") is not None
+                    else d.get("odds"),
                     "odds": d.get("odds"),
                     "odds_source": d.get("odds_source") or "datagaffer",
                     "bookmaker": d.get("bookmaker") or "datagaffer",
                     "qualification_result": bool(d.get("qualification_result")),
                     "rejection_reason": d.get("rejection_reason"),
-                    "decision": d.get("decision") or ("BET" if d.get("qualification_result") else "SKIP"),
+                    "decision": d.get("decision")
+                    or ("BET" if d.get("qualification_result") else "SKIP"),
                     "stake": d.get("stake"),
                     "units": d.get("units"),
                     "model_pct": d.get("model_pct"),
@@ -359,22 +341,18 @@ def sync_arahus_live_v1_bets(
     cards: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
-    Insert qualifying bets into isolated log_type=arahus_live_v1.
+    Insert Live V1-qualified Arahus V1 picks into log_type=arahus_live_v1.
 
     Dedup: insert_bets skips rows with the same
     (fixture_date, fixture, bet_type, team_name) within this log_type.
-    A later scan with odds still in-band does NOT create a duplicate bet.
-    A fixture that was out-of-band and later enters the band can insert once
-    (no prior key). Odds changes inside the band do not create a second row.
     """
     candidates: list[dict[str, Any]] = []
     for p in picks:
+        if not p.get("qualification_result", True):
+            continue
         units = p.get("units")
         if units is None:
-            units = stake_units_arahus_v1_ladder(
-                float(p.get("confidence") or 0),
-                p.get("edge"),
-            )
+            units = 1.0
         candidates.append(
             {
                 "id": str(uuid.uuid4()),
@@ -401,6 +379,8 @@ def sync_arahus_live_v1_bets(
         "decision_log_total": len(list_arahus_live_v1_decision_log()),
         "enabled_auto_sync": ENABLED,
         "engine_version": ENGINE_VERSION,
+        "source_engine": SOURCE_ENGINE,
+        "v1_picks_evaluated": sum(len(c.get("decisions") or []) for c in (cards or [])),
     }
 
 
@@ -434,8 +414,8 @@ def enrich_arahus_live_v1_entries(entries: list[dict[str, Any]]) -> list[dict[st
             "market_label": BET_LABELS.get(str(e.get("bet_type") or ""), e.get("bet_type")),
             "confidence_fmt": f"{float(conf):.0f}" if conf is not None else "—",
             "strategy_version": ENGINE_VERSION,
+            "source_engine": SOURCE_ENGINE,
         }
-        # Research helper: flat 1u PnL without changing execution stake
         status = str(e.get("status") or "").lower()
         odds = e.get("odds")
         if status in {"won", "lost", "push"} and odds is not None:
@@ -468,7 +448,6 @@ def _max_drawdown_units(entries: list[dict[str, Any]]) -> float:
 def arahus_live_v1_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
     stats = compute_bet_stats(entries)
     open_n = sum(1 for e in entries if str(e.get("status") or "").lower() == "open")
-    decided = int(stats.get("won") or 0) + int(stats.get("lost") or 0)
     staked = round(
         sum(float(e.get("units") or 0) for e in entries if e.get("status") in {"won", "lost", "push"}),
         3,
@@ -488,6 +467,7 @@ def arahus_live_v1_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "roi": roi,
         "max_drawdown": _max_drawdown_units(entries),
         "engine_version": ENGINE_VERSION,
+        "source_engine": SOURCE_ENGINE,
         "config": engine_config_snapshot(),
         "by_type": {
             "arahus_o25": {
@@ -497,3 +477,8 @@ def arahus_live_v1_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
             }
         },
     }
+
+
+# Re-export for callers / tests that previously imported flatten from live module
+# while still needing access to raw V1 flatten for diagnostics.
+flatten_arahus_v1_picks_for_debug = flatten_arahus_v1_picks

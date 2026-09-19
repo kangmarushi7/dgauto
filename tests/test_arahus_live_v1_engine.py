@@ -1,10 +1,11 @@
-"""Tests for Arahus Live Candidate V1 — frozen O2.5 / odds band filter."""
+"""Tests for Arahus Live V1 — filtered Arahus Engine V1 picks only."""
 from __future__ import annotations
 
 import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 class ArahusLiveV1QualifyTests(unittest.TestCase):
@@ -72,7 +73,6 @@ class ArahusLiveV1QualifyTests(unittest.TestCase):
                 self.assertEqual(reason, expect_reason)
 
     def test_any_league_allowed(self):
-        # No whitelist in config
         self.assertIsNone(self.live.ARAHUS_LIVE_V1["league_whitelist"])
         for league in ("Eerste Divisie", "MLS", "Unknown Cup", "Super League"):
             ok, _ = self.live.qualifies_for_arahus_live_v1(
@@ -80,25 +80,177 @@ class ArahusLiveV1QualifyTests(unittest.TestCase):
             )
             self.assertTrue(ok, league)
 
-    def test_confidence_not_a_gate(self):
-        low = self.live._build_o25_decision(
+    def test_confidence_not_an_additional_gate(self):
+        """V1 already gated confidence; Live V1 does not re-gate."""
+        annotated = self.live.filter_v1_pick_for_live_v1(
             {
-                "odds": {"over_2_5": 1.40},
-                "fixture_id": "1",
+                "bet_type": "arahus_o25",
+                "market_label": "Over 2.5",
+                "odds": 1.40,
+                "confidence": 55.0,
+                "units": 0.75,
                 "fixture": "A vs B",
-                "fixture_date": "2026-09-10T12:00:00+00:00",
                 "league_name": "Test League",
-                "home_team": "A",
-                "away_team": "B",
-                "indexes": {},
-                "highlights": [],
             },
-            {"over_2_5_pct": 55.0, "pace": 50, "nec": 50, "luck": 0.2},
             signal_timestamp="2026-09-10T10:00:00+00:00",
         )
-        # Even with low signal weights / confidence, odds band alone qualifies
-        self.assertTrue(low["qualification_result"])
-        self.assertLess(low["confidence"], 66)
+        self.assertTrue(annotated["qualification_result"])
+        self.assertFalse(annotated["confidence_gate_applied"])
+        self.assertEqual(annotated["confidence"], 55.0)
+        self.assertAlmostEqual(float(annotated["units"]), 0.75, places=2)
+
+    def test_preserves_v1_stake_ladder(self):
+        for units in (0.75, 1.0, 1.5):
+            with self.subTest(units=units):
+                annotated = self.live.filter_v1_pick_for_live_v1(
+                    {
+                        "bet_type": "arahus_o25",
+                        "market_label": "Over 2.5",
+                        "odds": 1.35,
+                        "confidence": 80,
+                        "units": units,
+                    },
+                    signal_timestamp="2026-09-10T10:00:00+00:00",
+                )
+                self.assertTrue(annotated["qualification_result"])
+                self.assertAlmostEqual(float(annotated["units"]), units, places=2)
+                self.assertAlmostEqual(float(annotated["stake"]), units, places=2)
+
+    def test_source_is_arahus_v1_picks(self):
+        self.assertEqual(self.live.ARAHUS_LIVE_V1["source"], "arahus_engine_v1_picks")
+        self.assertEqual(self.live.SOURCE_ENGINE, "arahus-1")
+
+
+class ArahusLiveV1SlateSourceTests(unittest.TestCase):
+    """Live V1 must only emit bets that were Arahus Engine V1 picks."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        db_path = Path(cls._tmpdir.name) / "arahus_live_v1_slate.db"
+        os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
+        import importlib
+        import app.db as db_mod
+        import app.arahus_live_v1_engine as live
+
+        importlib.reload(db_mod)
+        importlib.reload(live)
+        db_mod.init_db()
+        cls.db = db_mod
+        cls.live = live
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            cls.db.engine.dispose()
+        except Exception:
+            pass
+        cls._tmpdir.cleanup()
+
+    def test_only_v1_picks_become_live_v1_candidates(self):
+        """Non-pick O2.5 rows on a fixture must never become Live V1 bets."""
+        v1_cards = [
+            {
+                "fixture_id": "fx-a",
+                "fixture": "Alpha vs Beta",
+                "fixture_date": "2026-09-10T18:00:00+00:00",
+                "league_name": "Test League",
+                "home_team": "Alpha",
+                "away_team": "Beta",
+                "projections": {},
+                "profile": {},
+                # V1 only picked BTTS — O2.5 at 1.40 was NOT a V1 pick
+                "picks": [
+                    {
+                        "bet_type": "arahus_btts",
+                        "market_label": "BTTS Yes",
+                        "odds": 1.40,
+                        "confidence": 70,
+                        "units": 1.0,
+                        "status": "picked",
+                    }
+                ],
+                "decisions": [
+                    {
+                        "bet_type": "arahus_o25",
+                        "market_label": "Over 2.5",
+                        "odds": 1.40,
+                        "confidence": 50,
+                        "status": "skipped_low_confidence",
+                    },
+                    {
+                        "bet_type": "arahus_btts",
+                        "market_label": "BTTS Yes",
+                        "odds": 1.40,
+                        "confidence": 70,
+                        "units": 1.0,
+                        "status": "picked",
+                    },
+                ],
+            },
+            {
+                "fixture_id": "fx-b",
+                "fixture": "Gamma vs Delta",
+                "fixture_date": "2026-09-11T18:00:00+00:00",
+                "league_name": "Another League",
+                "home_team": "Gamma",
+                "away_team": "Delta",
+                "projections": {},
+                "profile": {},
+                "picks": [
+                    {
+                        "bet_type": "arahus_o25",
+                        "market_label": "Over 2.5",
+                        "odds": 1.42,
+                        "confidence": 72,
+                        "units": 1.0,
+                        "status": "picked",
+                    }
+                ],
+                "decisions": [],
+            },
+        ]
+        with patch.object(self.live, "build_arahus_slate", return_value=v1_cards):
+            cards = self.live.build_arahus_live_v1_slate({})
+        picks = self.live.flatten_picks(cards)
+        self.assertEqual(len(picks), 1)
+        self.assertEqual(picks[0]["fixture"], "Gamma vs Delta")
+        self.assertEqual(picks[0]["bet_type"], "arahus_o25")
+        self.assertTrue(picks[0]["from_arahus_v1_pick"])
+        self.assertEqual(picks[0]["source_engine"], "arahus-1")
+        # Alpha card evaluated only the BTTS V1 pick → rejected for market
+        alpha = next(c for c in cards if c["fixture_id"] == "fx-a")
+        self.assertEqual(len(alpha["arahus_v1_picks"]), 1)
+        self.assertEqual(len(alpha["decisions"]), 1)
+        self.assertFalse(alpha["decisions"][0]["qualification_result"])
+        self.assertEqual(alpha["decisions"][0]["rejection_reason"], self.live.REJECT_MARKET)
+        self.assertFalse(alpha["has_picks"])
+
+    def test_empty_v1_picks_yields_no_live_v1(self):
+        v1_cards = [
+            {
+                "fixture_id": "fx-empty",
+                "fixture": "No vs Pick",
+                "fixture_date": "2026-09-12T18:00:00+00:00",
+                "league_name": "L",
+                "home_team": "No",
+                "away_team": "Pick",
+                "picks": [],
+                "decisions": [
+                    {
+                        "bet_type": "arahus_o25",
+                        "market_label": "Over 2.5",
+                        "odds": 1.40,
+                        "confidence": 40,
+                        "status": "skipped_low_confidence",
+                    }
+                ],
+            }
+        ]
+        with patch.object(self.live, "build_arahus_slate", return_value=v1_cards):
+            cards = self.live.build_arahus_live_v1_slate({})
+        self.assertEqual(self.live.flatten_picks(cards), [])
+        self.assertEqual(cards[0]["decisions"], [])
 
 
 class ArahusLiveV1SyncTests(unittest.TestCase):
@@ -164,6 +316,7 @@ class ArahusLiveV1SyncTests(unittest.TestCase):
         }
         r1 = self.live.sync_arahus_live_v1_bets([pick], cards=[card])
         self.assertEqual(r1["inserted"], 1)
+        self.assertEqual(r1["source_engine"], "arahus-1")
         r2 = self.live.sync_arahus_live_v1_bets(
             [{**pick, "odds": 1.45, "entry_odds": 1.45}], cards=[card]
         )
