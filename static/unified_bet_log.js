@@ -21,6 +21,7 @@
   const calApply = document.getElementById("calApply");
   const calClear = document.getElementById("calClear");
   const presetBtns = Array.from(document.querySelectorAll("[data-preset]"));
+  const exportCsvBtn = document.getElementById("exportCsv");
 
   let state = window.INITIAL_BET_LOG || { entries: [], strategies: [], page: 1, pages: 1 };
   let sortKey = "time";
@@ -350,6 +351,17 @@
   }
 
   async function reload(page) {
+    const params = filterQueryParams();
+    params.set("page", String(page || 1));
+    params.set("page_size", String(state.page_size || 50));
+    const res = await fetch(`/api/bets/log?${params.toString()}`);
+    state = await res.json();
+    if (state.date_from) filter.from = state.date_from;
+    if (state.date_to) filter.to = state.date_to;
+    render();
+  }
+
+  function filterQueryParams() {
     const params = new URLSearchParams();
     if (strategyFilter.value) params.set("strategy", strategyFilter.value);
     if (resultFilter.value) params.set("result", resultFilter.value);
@@ -363,13 +375,12 @@
     } else {
       params.set("days", "30");
     }
-    params.set("page", String(page || 1));
-    params.set("page_size", String(state.page_size || 50));
-    const res = await fetch(`/api/bets/log?${params.toString()}`);
-    state = await res.json();
-    if (state.date_from) filter.from = state.date_from;
-    if (state.date_to) filter.to = state.date_to;
-    render();
+    return params;
+  }
+
+  function exportCsv() {
+    if (!exportCsvBtn) return;
+    window.location.assign(`/api/bets/log/export?${filterQueryParams().toString()}`);
   }
 
   function applyDraft(e) {
@@ -482,4 +493,5 @@
   resultFilter.addEventListener("change", () => reload(1));
   prevPage.addEventListener("click", () => reload(Math.max(1, (state.page || 1) - 1)));
   nextPage.addEventListener("click", () => reload((state.page || 1) + 1));
+  if (exportCsvBtn) exportCsvBtn.addEventListener("click", exportCsv);
 })();

@@ -50,6 +50,28 @@
   color: var(--muted, var(--dg-muted));
 }
 
+.bets-export-btn {
+  align-self: flex-end;
+  margin-left: auto;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--line, #e2e9de);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink, #132119);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bets-export-btn:hover:not(:disabled) {
+  border-color: var(--forest, #163c2c);
+  background: #f7fbf8;
+}
+
+.bets-export-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .bets-toolbar select,
 .bets-range__trigger {
   min-width: 10rem;

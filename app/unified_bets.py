@@ -306,6 +306,7 @@ def bet_log_entries(
     date_to: str | date | None = None,
     page: int = 1,
     page_size: int = 50,
+    export: bool = False,
 ) -> dict[str, Any]:
     """All bets (open + settled), sorted by fixture kickoff, with filters + pagination.
 
@@ -315,6 +316,7 @@ def bet_log_entries(
     A single-day view is ``date_from == date_to``.
 
     ``result`` may be won/lost/push or status open/pending/settled.
+    When ``export`` is True, pagination is skipped and every matching row is returned.
     """
     rows = collect_unified_bets()
 
@@ -378,13 +380,19 @@ def bet_log_entries(
         all_time=all_time,
     )
 
-    page = max(1, int(page or 1))
-    page_size = max(1, min(200, int(page_size or 50)))
     total = len(rows)
-    pages = max(1, (total + page_size - 1) // page_size) if total else 1
-    page = min(page, pages)
-    start = (page - 1) * page_size
-    page_rows = rows[start : start + page_size]
+    if export:
+        page = 1
+        page_size = total or 1
+        pages = 1
+        page_rows = rows
+    else:
+        page = max(1, int(page or 1))
+        page_size = max(1, min(200, int(page_size or 50)))
+        pages = max(1, (total + page_size - 1) // page_size) if total else 1
+        page = min(page, pages)
+        start = (page - 1) * page_size
+        page_rows = rows[start : start + page_size]
 
     return {
         "entries": page_rows,

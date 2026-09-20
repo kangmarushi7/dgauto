@@ -133,11 +133,13 @@ from app.bet_log_export import (
     CS_LEG_FIELDS,
     PROP_BET_FIELDS,
     STANDARD_BET_FIELDS,
+    UNIFIED_BET_FIELDS,
     cs_basket_rows,
     cs_leg_rows,
     dicts_to_csv,
     prop_bet_rows,
     standard_bet_rows,
+    unified_bet_rows,
 )
 from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context, sort_by_fixture_date
 
@@ -426,6 +428,46 @@ async def api_bets_log(
         page_size=page_size,
     )
     return JSONResponse(payload)
+
+
+@app.get("/api/bets/log/export")
+async def api_bets_log_export(
+    strategy: str | None = Query(default=None),
+    result: str | None = Query(default=None),
+    days: int | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+):
+    """CSV of the unified Bet Log using the same filters as the page (all matching rows)."""
+    has_dates = bool((date_from or "").strip() or (date_to or "").strip())
+    if has_dates:
+        days_arg = None
+    elif days is None:
+        days_arg = 30
+    else:
+        days_arg = None if days <= 0 else days
+    payload = await run_in_threadpool(
+        bet_log_entries,
+        strategy=strategy,
+        result=result,
+        days=days_arg,
+        date_from=date_from,
+        date_to=date_to,
+        export=True,
+    )
+    rows = unified_bet_rows(payload.get("entries") or [])
+    content = dicts_to_csv(rows, UNIFIED_BET_FIELDS)
+    parts = ["bet_log"]
+    if strategy:
+        parts.append(strategy)
+    if result:
+        parts.append(result)
+    if payload.get("date_from") and payload.get("date_to"):
+        parts.append(f"{payload['date_from']}_{payload['date_to']}")
+    elif days_arg is None and not has_dates:
+        parts.append("all")
+    filename = "_".join(parts) + ".csv"
+    return _csv_attachment(content, filename)
 
 
 @app.get("/legacy/scenarios")

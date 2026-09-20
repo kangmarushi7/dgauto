@@ -26,6 +26,25 @@ STANDARD_BET_FIELDS = [
     "resolved_at",
 ]
 
+UNIFIED_BET_FIELDS = [
+    "date",
+    "time",
+    "fixture",
+    "league",
+    "strategy",
+    "strategy_label",
+    "market",
+    "stake_units",
+    "stake_inr",
+    "odds",
+    "status",
+    "result",
+    "pnl_units",
+    "pnl_inr",
+    "id",
+]
+
+
 PROP_BET_FIELDS = [
     "id",
     "created_at",
@@ -197,6 +216,35 @@ def prop_bet_rows(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         for e in entries
     ]
+
+
+def unified_bet_rows(entries: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten unified Bet Log rows for spreadsheet export."""
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        result = entry.get("result")
+        if not result:
+            result = entry.get("status")
+        out.append(
+            {
+                "date": entry.get("date_label"),
+                "time": entry.get("time_label"),
+                "fixture": entry.get("fixture"),
+                "league": entry.get("league"),
+                "strategy": entry.get("strategy_short") or entry.get("strategy"),
+                "strategy_label": entry.get("strategy_label"),
+                "market": entry.get("market"),
+                "stake_units": entry.get("stake_units"),
+                "stake_inr": entry.get("stake_inr"),
+                "odds": entry.get("odds"),
+                "status": entry.get("status"),
+                "result": result,
+                "pnl_units": entry.get("pnl_units"),
+                "pnl_inr": entry.get("pnl_inr"),
+                "id": entry.get("id"),
+            }
+        )
+    return out
 
 
 EnrichFn = Callable[[list[dict[str, Any]]], list[dict[str, Any]]]
