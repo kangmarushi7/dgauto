@@ -621,8 +621,14 @@ def _event_from_flashscore(entry: dict[str, Any]) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
         return None
+    when = _parse_entry_date(entry.get("fixture_date"))
     try:
-        match = flashscore_find_match(home, away, league=str(entry.get("league_name") or "") or None)
+        match = flashscore_find_match(
+            home,
+            away,
+            league=str(entry.get("league_name") or "") or None,
+            when=when,
+        )
     except Exception as exc:  # noqa: BLE001 — soft-fail; try next source
         logger.warning("Flashscore lookup failed for %s vs %s: %s", home, away, exc)
         return None

@@ -104,7 +104,9 @@ class FuzzyMatchTests(unittest.TestCase):
         client._by_day[0] = _CacheBucket(matches=self.matches, fetched_at=1e18)
         client._merge()
         client._merged_at = 1e18
-        found = client.find_match("Hammarby", "Kalmar", league="Allsvenskan")
+        found = client.find_match(
+            "Hammarby", "Kalmar", league="Allsvenskan", confirm_summary=False
+        )
         self.assertIsNotNone(found)
         assert found is not None
         self.assertEqual(found.id, "matchA")
@@ -220,12 +222,54 @@ class FuzzyMatchTests(unittest.TestCase):
         client._by_day[0] = _CacheBucket(matches=self.matches, fetched_at=1e18)
         client._merge()
         client._merged_at = 1e18
-        payload = client.score_for_fixture("Tijuana", "Tigres", league="Liga MX")
+        payload = client.score_for_fixture(
+            "Tijuana", "Tigres", league="Liga MX", confirm_summary=False
+        )
         self.assertIsNotNone(payload)
         assert payload is not None
         self.assertEqual(payload["home_goals"], 1)
         self.assertEqual(payload["away_goals"], 3)
         self.assertTrue(payload["is_finished"])
+
+
+class RankAndSummaryTests(unittest.TestCase):
+    def setUp(self):
+        self.matches = parse_feed(FOOTBALL_FEED, sport=SPORT_FOOTBALL)
+
+    def test_rank_prefers_kickoff_proximity(self):
+        from datetime import datetime, timezone
+
+        from app.flashscore_client import rank_match_football
+
+        ham = next(m for m in self.matches if m.id == "matchA")
+        # Kickoff AD=1720800000 → 2024-07-12
+        near = datetime(2024, 7, 12, 15, 0, tzinfo=timezone.utc)
+        far = datetime(2024, 7, 20, 15, 0, tzinfo=timezone.utc)
+        near_r = rank_match_football("Hammarby", "Kalmar", ham, league="Allsvenskan", when=near)
+        far_r = rank_match_football("Hammarby", "Kalmar", ham, league="Allsvenskan", when=far)
+        self.assertTrue(near_r["accept"])
+        self.assertGreater(near_r["time_score"], far_r["time_score"])
+        self.assertGreater(near_r["score"], far_r["score"])
+
+    def test_summary_rows_extract_scores(self):
+        from app.flashscore_client import parse_summary_rows, scores_from_summary_rows
+
+        raw = (
+            "AC÷FT¬IG÷2¬IH÷1~"
+            "IB÷23¬IK÷Goal¬INX÷1¬IOX÷0~"
+            "IB÷67¬IK÷Goal¬INX÷2¬IOX÷1~"
+        )
+        rows = parse_summary_rows(raw)
+        h, a, finished = scores_from_summary_rows(rows)
+        self.assertEqual(h, 2)
+        self.assertEqual(a, 1)
+        self.assertTrue(finished)
+
+    def test_name_similarity_aliases(self):
+        from app.flashscore_client import name_similarity
+
+        self.assertGreaterEqual(name_similarity("NYCFC", "New York City"), 0.75)
+        self.assertGreaterEqual(name_similarity("LAFC", "Los Angeles FC"), 0.75)
 
 
 class EventShapeTests(unittest.TestCase):

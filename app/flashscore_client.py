@@ -230,6 +230,16 @@ def feed_url(sport: int, day_offset: int = 0) -> str:
     return f"https://global.flashscore.ninja/2/x/feed/f_{sport}_{day_offset}_3_en_1"
 
 
+def match_summary_url(match_id: str) -> str:
+    """Authoritative per-match summary / incidents (`df_sui_1_{id}`)."""
+    mid = str(match_id or "").strip()
+    return f"https://global.flashscore.ninja/2/x/feed/df_sui_1_{mid}"
+
+
+def live_refresh_url(sport: int = SPORT_FOOTBALL) -> str:
+    return f"https://global.flashscore.ninja/2/x/feed/r_{sport}_1"
+
+
 def _safe_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
@@ -400,10 +410,12 @@ def parse_feed(raw: str, *, sport: int = SPORT_FOOTBALL) -> list[Any]:
 
 
 def fetch_feed_raw(sport: int, day_offset: int = 0, *, timeout: float = 25.0) -> str:
-    """HTTP GET ninja feed. Prefer curl_cffi chrome impersonation; fall back to urllib."""
-    url = feed_url(sport, day_offset)
-    headers = _headers()
+    """HTTP GET ninja day feed. Prefer curl_cffi chrome impersonation; fall back to urllib."""
+    return _http_get_text(feed_url(sport, day_offset), timeout=timeout)
 
+
+def _http_get_text(url: str, *, timeout: float = 25.0) -> str:
+    headers = _headers()
     try:
         from curl_cffi import requests as cffi_requests  # type: ignore
 
@@ -416,13 +428,7 @@ def fetch_feed_raw(sport: int, day_offset: int = 0, *, timeout: float = 25.0) ->
         resp.raise_for_status()
         text = resp.text or ""
         if not text.strip():
-            logger.error(
-                "Flashscore feed empty for sport=%s day=%s — X-Fsign may have rotated "
-                "(set FLASHSCORE_FSIGN). url=%s",
-                sport,
-                day_offset,
-                url,
-            )
+            logger.error("Flashscore feed empty — X-Fsign may have rotated. url=%s", url)
         return text
     except Exception as exc:
         logger.warning("curl_cffi fetch failed (%s); falling back to urllib", exc)
@@ -433,17 +439,106 @@ def fetch_feed_raw(sport: int, day_offset: int = 0, *, timeout: float = 25.0) ->
     with urlopen(req, timeout=timeout) as resp:  # noqa: S310 — fixed Flashscore host
         text = resp.read().decode("utf-8", errors="replace")
     if not text.strip():
-        logger.error(
-            "Flashscore feed empty for sport=%s day=%s — X-Fsign may have rotated "
-            "(set FLASHSCORE_FSIGN). url=%s",
-            sport,
-            day_offset,
-            url,
-        )
+        logger.error("Flashscore feed empty — X-Fsign may have rotated. url=%s", url)
     return text
 
 
-# ── Fuzzy matching ──────────────────────────────────────────────────────────
+def parse_summary_rows(raw: str) -> list[dict[str, str]]:
+    """Parse df_sui key/value rows (same separators as day feed)."""
+    rows: list[dict[str, str]] = []
+    if not raw:
+        return rows
+    for row in raw.split(ROW_SEP):
+        if CELL_SEP not in row:
+            continue
+        cells: dict[str, str] = {}
+        for cell in row.split(CELL_SEP):
+            if KV_SEP not in cell:
+                continue
+            key, value = cell.split(KV_SEP, 1)
+            if key:
+                cells[key] = value
+        if cells:
+            rows.append(cells)
+    return rows
+
+
+def scores_from_summary_rows(rows: list[dict[str, str]]) -> tuple[int | None, int | None, bool]:
+    """Extract (home, away, saw_finished_hint) from df_sui rows.
+
+    Prefers last incident score (INX/IOX); falls back to period header IG/IH.
+    """
+    home: int | None = None
+    away: int | None = None
+    finished_hint = False
+    for row in rows:
+        ac = str(row.get("AC") or "").strip().lower()
+        if ac in {"ft", "aet", "pen", "finished", "after pen."} or ac in FOOTBALL_FINISH_AC:
+            finished_hint = True
+        if row.get("IG") not in (None, "") and row.get("IH") not in (None, ""):
+            h = _safe_int(row.get("IG"))
+            a = _safe_int(row.get("IH"))
+            if h is not None and a is not None:
+                home, away = h, a
+        if row.get("INX") not in (None, "") and row.get("IOX") not in (None, ""):
+            h = _safe_int(row.get("INX"))
+            a = _safe_int(row.get("IOX"))
+            if h is not None and a is not None:
+                home, away = h, a
+    return home, away, finished_hint
+
+
+def fetch_match_summary(match_id: str, *, timeout: float = 20.0) -> list[dict[str, str]]:
+    mid = str(match_id or "").strip()
+    if not mid:
+        return []
+    try:
+        raw = _http_get_text(match_summary_url(mid), timeout=timeout)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Flashscore summary fetch failed for %s: %s", mid, exc)
+        return []
+    return parse_summary_rows(raw)
+
+
+def enrich_match_from_summary(match: FlashscoreFootballMatch) -> FlashscoreFootballMatch:
+    """Confirm / override day-feed score from df_sui when available."""
+    rows = fetch_match_summary(match.id)
+    if not rows:
+        return match
+    home, away, finished_hint = scores_from_summary_rows(rows)
+    if home is None or away is None:
+        return match
+    match.home_goals = home
+    match.away_goals = away
+    if finished_hint or match.is_finished:
+        match.is_finished = True
+        match.is_live = False
+        if not match.stage_ab:
+            match.stage_ab = "3"
+        if not match.stage_ac:
+            match.stage_ac = "3"
+    return match
+
+# ── Fuzzy matching (Score API–style continuous scoring + DG aliases) ─────────
+
+# Nickname / book expansions applied after accent strip (order matters).
+_NAME_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\butd\b"), "united"),
+    (re.compile(r"\bman\b(?=\s+united|\s+city)"), "manchester"),
+    (re.compile(r"\bpsg\b"), "paris sg"),
+    (re.compile(r"\batleti\b"), "atletico madrid"),
+    (re.compile(r"\batletico\b"), "atletico"),
+    (re.compile(r"\bspurs\b"), "tottenham"),
+    (re.compile(r"\bwolves\b"), "wolverhampton"),
+    (re.compile(r"\binter\b(?!\s+miami)"), "inter milan"),
+    (re.compile(r"\bbayern\b"), "bayern munich"),
+    (re.compile(r"\bst\b\.?"), "saint"),
+    (re.compile(r"\bcopenhagen\b"), "kobenhavn"),
+)
+
+# Auto-accept threshold for continuous rank (mirrors Score API).
+RANK_AUTO_THRESHOLD = float(os.getenv("FLASHSCORE_RANK_THRESHOLD", "0.55"))
+RANK_SIDE_FLOOR = float(os.getenv("FLASHSCORE_SIDE_FLOOR", "0.35"))
 
 
 def _normalize(text: str) -> str:
@@ -454,8 +549,13 @@ def _normalize(text: str) -> str:
         ("ø", "o"), ("æ", "ae"), ("å", "a"), ("ä", "a"), ("ñ", "n"),
     ):
         lowered = lowered.replace(src, dst)
+    # Drop specialty suffixes: "FC Copenhagen (Corners)"
+    lowered = re.sub(r"\([^)]*\)", " ", lowered)
+    lowered = lowered.replace("'", "").replace("’", "")
     lowered = re.sub(r"[^a-z0-9]+", " ", lowered).strip()
-    return lowered
+    for pat, to in _NAME_REPLACEMENTS:
+        lowered = pat.sub(to, lowered)
+    return re.sub(r"\s+", " ", lowered).strip()
 
 
 def _alias_phrases(text: str) -> set[str]:
@@ -536,6 +636,132 @@ def _tournament_allowed(league: str | None, tournament: str) -> bool:
         return True
     tourney = _normalize(tournament)
     return any(r in tourney for r in required)
+
+
+def name_similarity(query: str, candidate: str) -> float:
+    """Soft name similarity in [0, 1] — Jaccard + containment + alias expansion."""
+    tq, tc = _tokens(query), _tokens(candidate)
+    if not tq or not tc:
+        return 0.0
+    if tq == tc:
+        return 1.0
+    inter = len(tq & tc)
+    union = len(tq | tc)
+    score = inter / union if union else 0.0
+    if tq <= tc or tc <= tq:
+        score = max(score, 0.95)
+    nq, nc = _normalize(query), _normalize(candidate)
+    if nq and nc and (nq in nc or nc in nq):
+        score = max(score, 0.85)
+    if _prefix_overlap(tq, tc):
+        score = max(score, 0.75)
+    return min(1.0, score)
+
+
+def _league_overlap(league_query: str | None, tournament: str) -> float:
+    if not league_query:
+        return 0.0
+    q = {t for t in _normalize(league_query).split() if len(t) >= 2 and t not in _MATCH_STOPWORDS}
+    tset = {t for t in _normalize(tournament).split() if len(t) >= 2 and t not in _MATCH_STOPWORDS}
+    if not q or not tset:
+        # Fall back to LEAGUE_HINTS substring hits.
+        hints = LEAGUE_HINTS.get(_league_key(league_query), ())
+        tourney = _normalize(tournament)
+        if hints and any(h in tourney for h in hints):
+            return 0.85
+        return 0.0
+    hits = sum(1 for tok in q if tok in tset)
+    base = hits / len(q)
+    hints = LEAGUE_HINTS.get(_league_key(league_query), ())
+    tourney = _normalize(tournament)
+    if hints and any(h in tourney for h in hints):
+        base = max(base, 0.9)
+    return min(1.0, base)
+
+
+def _kickoff_proximity(kickoff_ts: int | None, when: datetime | date | None) -> float:
+    if when is None:
+        return 0.5
+    if kickoff_ts is None:
+        return 0.3
+    if isinstance(when, datetime):
+        when_dt = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+    else:
+        when_dt = datetime(when.year, when.month, when.day, 12, 0, tzinfo=timezone.utc)
+    kick = datetime.fromtimestamp(int(kickoff_ts), tz=timezone.utc)
+    delta = abs((kick - when_dt.astimezone(timezone.utc)).total_seconds())
+    day = 86_400.0
+    if delta <= day * 0.5:
+        return 1.0
+    if delta <= day:
+        return 0.85
+    if delta <= day * 2:
+        return 0.55
+    return 0.15
+
+
+def rank_match_football(
+    home: str,
+    away: str,
+    fs: FlashscoreFootballMatch,
+    league: str | None = None,
+    when: datetime | date | None = None,
+) -> dict[str, Any]:
+    """Score API–style weighted rank: teams 78% · league 12% · kickoff 10%.
+
+    ``accept`` requires both sides ≥ RANK_SIDE_FLOOR and overall ≥ RANK_AUTO_THRESHOLD,
+    plus tournament hard-filters / youth rejection.
+    """
+    if not _tournament_allowed(league, fs.tournament):
+        return {
+            "match": fs,
+            "score": 0.0,
+            "home_score": 0.0,
+            "away_score": 0.0,
+            "league_score": 0.0,
+            "time_score": 0.0,
+            "accept": False,
+        }
+
+    home_as_home = name_similarity(home, fs.home)
+    away_as_away = name_similarity(away, fs.away)
+    home_as_away = name_similarity(home, fs.away)
+    away_as_home = name_similarity(away, fs.home)
+
+    oriented_total = home_as_home + away_as_away
+    flipped_total = home_as_away + away_as_home
+    if oriented_total >= flipped_total:
+        home_score, away_score = home_as_home, away_as_away
+        oriented_bonus = 0.05
+    else:
+        home_score, away_score = home_as_away, away_as_home
+        oriented_bonus = -0.15
+
+    league_score = _league_overlap(league, fs.tournament)
+    time_score = _kickoff_proximity(fs.kickoff_ts, when)
+    pair = (home_score + away_score) / 2.0
+    score = pair * 0.78 + league_score * 0.12 + time_score * 0.1 + oriented_bonus
+
+    blob = f"{fs.home} {fs.away} {fs.tournament}"
+    if YOUTH_HINTS.search(blob) and not YOUTH_HINTS.search(f"{home} {away} {league or ''}"):
+        score -= 0.35
+
+    score = max(0.0, min(1.0, score))
+    accept = (
+        home_score >= RANK_SIDE_FLOOR
+        and away_score >= RANK_SIDE_FLOOR
+        and score >= RANK_AUTO_THRESHOLD
+        and match_score_football(home, away, fs, league=league) >= 2
+    )
+    return {
+        "match": fs,
+        "score": score,
+        "home_score": home_score,
+        "away_score": away_score,
+        "league_score": league_score,
+        "time_score": time_score,
+        "accept": accept,
+    }
 
 
 def match_score_football(
@@ -728,23 +954,44 @@ class FlashscoreClient:
         home: str,
         away: str,
         league: str | None = None,
+        when: datetime | date | None = None,
+        *,
+        confirm_summary: bool | None = None,
     ) -> FlashscoreFootballMatch | None:
         if self.sport != SPORT_FOOTBALL:
             return None
         matches = self.ensure_fresh()
-        best: FlashscoreFootballMatch | None = None
-        best_score = -99
+        ranked: list[dict[str, Any]] = []
         for m in matches:
             if not isinstance(m, FlashscoreFootballMatch):
                 continue
-            score = match_score_football(home, away, m, league=league)
-            if score > best_score:
-                best = m
-                best_score = score
-        if best is not None and best_score >= 2:
-            return best
-        return None
-
+            row = rank_match_football(home, away, m, league=league, when=when)
+            if row.get("accept"):
+                ranked.append(row)
+        if not ranked:
+            return None
+        ranked.sort(
+            key=lambda r: (
+                float(r.get("score") or 0),
+                float(r.get("home_score") or 0) + float(r.get("away_score") or 0),
+                float(r.get("time_score") or 0),
+            ),
+            reverse=True,
+        )
+        best = ranked[0]["match"]
+        assert isinstance(best, FlashscoreFootballMatch)
+        do_confirm = (
+            confirm_summary
+            if confirm_summary is not None
+            else os.getenv("FLASHSCORE_SUMMARY_CONFIRM", "true").strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
+        if do_confirm and (best.is_finished or best.is_live or best.home_goals is None):
+            try:
+                best = enrich_match_from_summary(best)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Summary confirm failed for %s: %s", best.id, exc)
+        return best
     def find_tennis_match(self, p1: str, p2: str) -> FlashscoreTennisMatch | None:
         if self.sport != SPORT_TENNIS:
             return None
@@ -767,8 +1014,13 @@ class FlashscoreClient:
         home: str,
         away: str,
         league: str | None = None,
+        when: datetime | date | None = None,
+        *,
+        confirm_summary: bool | None = None,
     ) -> dict[str, Any] | None:
-        m = self.find_match(home, away, league=league)
+        m = self.find_match(
+            home, away, league=league, when=when, confirm_summary=confirm_summary
+        )
         if m is None:
             return None
         return {
@@ -858,16 +1110,39 @@ def ensure_fresh() -> list[Any]:
     return get_football_client().ensure_fresh()
 
 
-def find_match(home: str, away: str, league: str | None = None) -> FlashscoreFootballMatch | None:
-    return get_football_client().find_match(home, away, league=league)
+def find_match(
+    home: str,
+    away: str,
+    league: str | None = None,
+    when: datetime | date | None = None,
+    *,
+    confirm_summary: bool | None = None,
+) -> FlashscoreFootballMatch | None:
+    return get_football_client().find_match(
+        home, away, league=league, when=when, confirm_summary=confirm_summary
+    )
 
 
 def score_for_fixture(
     home: str,
     away: str,
     league: str | None = None,
+    when: datetime | date | None = None,
 ) -> dict[str, Any] | None:
-    return get_football_client().score_for_fixture(home, away, league=league)
+    m = find_match(home, away, league=league, when=when)
+    if m is None:
+        return None
+    return {
+        "home_goals": m.home_goals,
+        "away_goals": m.away_goals,
+        "is_live": m.is_live,
+        "is_finished": m.is_finished,
+        "flashscore_match_id": m.id,
+        "flashscore_url": m.url,
+        "tournament": m.tournament,
+        "home": m.home,
+        "away": m.away,
+    }
 
 
 def score_for_players(p1: str, p2: str) -> dict[str, Any] | None:

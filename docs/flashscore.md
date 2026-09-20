@@ -44,9 +44,26 @@ Flashscore often returns empty bodies beyond ~7–8 days — that is retention, 
 
 ## Matching
 
-Normalize → tokens length ≥ 3 (drop `fc`/`club`/etc.) → **both** home and away must overlap.
-League hints (Sweden/Norway/Mexico/Denmark) rank candidates and reject wrong countries
-(e.g. Romania Superliga when settling Danish Superliga). Youth/reserve/women are penalized.
+1. Normalize (accents, nicknames like `utd`→`united`, strip `(Corners)` suffixes)
+2. Expand static `TEAM_NAME_ALIASES` (NYCFC, LAFC, Ham-Kam, …)
+3. **Both** sides must token-overlap (integer score ≥ 2) — league never replaces a missing side
+4. Continuous rank (Score API style): teams **78%** · league **12%** · kickoff proximity **10%**
+5. Auto-accept when overall ≥ `FLASHSCORE_RANK_THRESHOLD` (0.55) and each side ≥ `FLASHSCORE_SIDE_FLOOR` (0.35)
+6. Youth/reserve/women rows are penalized when the query is senior
+
+`find_match(..., when=fixture_date)` uses kickoff proximity so same-name weekend cards
+rank correctly. Auto-resolve passes each bet’s `fixture_date`.
+
+## Summary confirm (`df_sui`)
+
+After a day-feed match is chosen, settlement optionally fetches:
+
+```
+https://global.flashscore.ninja/2/x/feed/df_sui_1_{matchId}
+```
+
+and overrides goals from incident scores (`INX`/`IOX`) or period headers (`IG`/`IH`).
+Disable with `FLASHSCORE_SUMMARY_CONFIRM=false`.
 
 ## Python API
 
@@ -57,7 +74,11 @@ from app.flashscore_client import (
     score_for_fixture,
     score_for_players,
     finished_winner_for_settlement,
+    enrich_match_from_summary,
 )
+
+m = find_match("Hammarby", "Kalmar", league="Allsvenskan", when=kickoff_dt)
+```
 
 refresh_cache(force=True)
 score_for_fixture("Hammarby", "Kalmar FF", league="Allsvenskan")

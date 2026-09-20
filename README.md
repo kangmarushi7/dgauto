@@ -105,6 +105,10 @@ API_FOOTBALL_KEY=your_key_here
 BET_SETTLE_SOURCE=flashscore,api_football
 FLASHSCORE_FSIGN=SW9D1eZo
 FLASHSCORE_DAY_OFFSETS=-1,0,1,2
+# Score API–style rank + df_sui score confirm (kickoff-aware matching)
+FLASHSCORE_SUMMARY_CONFIRM=true
+FLASHSCORE_RANK_THRESHOLD=0.55
+FLASHSCORE_SIDE_FLOOR=0.35
 ```
 
 See [docs/flashscore.md](docs/flashscore.md) for feed format, field map, and FSIGN rotation notes.
