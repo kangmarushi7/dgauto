@@ -8,9 +8,11 @@ from app.auto_resolve import _compute_pnl, _resolve_result
 from app.correct_score_strat import (
     PRICE_BUFFER,
     _best_basket,
+    correct_score_dashboard,
     dutch_basket,
     group_into_baskets,
     price_fixture_scorelines,
+    scoreline_leg_stats,
 )
 
 
@@ -240,6 +242,104 @@ class BasketGroupingTests(unittest.TestCase):
     def test_separate_fixtures_stay_separate(self):
         entries = [*self.ENTRIES, {**self.ENTRIES[0], "fixture": "C vs D"}]
         self.assertEqual(len(group_into_baskets(entries)), 2)
+
+
+class ScorelineLegStatsTests(unittest.TestCase):
+    ENTRIES = [
+        {
+            "team_name": "2-1",
+            "status": "won",
+            "units": 0.5,
+            "pnl_units": 4.5,
+            "odds": 10.0,
+        },
+        {
+            "team_name": "2-1",
+            "status": "lost",
+            "units": 0.5,
+            "pnl_units": -0.5,
+            "odds": 10.0,
+        },
+        {
+            "team_name": "1-0",
+            "status": "lost",
+            "units": 1.0,
+            "pnl_units": -1.0,
+            "odds": 8.0,
+        },
+        {
+            "team_name": "1-0",
+            "status": "push",
+            "units": 1.0,
+            "pnl_units": 0.0,
+            "odds": 8.0,
+        },
+        {
+            "team_name": "2-1",
+            "status": "open",
+            "units": 0.5,
+            "pnl_units": None,
+            "odds": 10.0,
+        },
+        {
+            "team_name": " 3-0 ",
+            "status": "won",
+            "units": 0.2,
+            "pnl_units": 1.8,
+            "odds": 10.0,
+        },
+        {
+            "team_name": "",
+            "status": "won",
+            "units": 1.0,
+            "pnl_units": 2.0,
+            "odds": 3.0,
+        },
+    ]
+
+    def test_groups_settled_legs_by_scoreline(self):
+        rows = scoreline_leg_stats(self.ENTRIES)
+        by = {r["scoreline"]: r for r in rows}
+        self.assertEqual(set(by), {"2-1", "1-0", "3-0"})
+
+        two_one = by["2-1"]
+        self.assertEqual(two_one["settled"], 2)
+        self.assertEqual(two_one["won"], 1)
+        self.assertEqual(two_one["lost"], 1)
+        self.assertEqual(two_one["push"], 0)
+        self.assertEqual(two_one["win_pct"], 50.0)
+        self.assertEqual(two_one["staked_units"], 1.0)
+        self.assertEqual(two_one["pnl_units"], 4.0)
+        self.assertEqual(two_one["roi_pct"], 400.0)
+        self.assertEqual(two_one["avg_odds"], 10.0)
+
+        one_zero = by["1-0"]
+        self.assertEqual(one_zero["settled"], 2)
+        self.assertEqual(one_zero["won"], 0)
+        self.assertEqual(one_zero["lost"], 1)
+        self.assertEqual(one_zero["push"], 1)
+        self.assertEqual(one_zero["win_pct"], 0.0)
+        self.assertEqual(one_zero["staked_units"], 2.0)
+        self.assertEqual(one_zero["pnl_units"], -1.0)
+        self.assertEqual(one_zero["roi_pct"], -50.0)
+
+    def test_open_legs_ignored(self):
+        rows = scoreline_leg_stats(
+            [{"team_name": "0-0", "status": "open", "units": 1.0, "pnl_units": None, "odds": 5.0}]
+        )
+        self.assertEqual(rows, [])
+
+    def test_empty_input(self):
+        self.assertEqual(scoreline_leg_stats([]), [])
+
+    def test_sort_by_settled_desc_then_scoreline(self):
+        rows = scoreline_leg_stats(self.ENTRIES)
+        self.assertEqual([r["scoreline"] for r in rows], ["1-0", "2-1", "3-0"])
+
+    def test_dashboard_includes_by_scoreline(self):
+        dash = correct_score_dashboard(self.ENTRIES)
+        self.assertIn("by_scoreline", dash)
+        self.assertEqual(len(dash["by_scoreline"]), 3)
 
 
 if __name__ == "__main__":

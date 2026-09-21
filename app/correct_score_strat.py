@@ -518,6 +518,46 @@ def group_into_baskets(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return baskets
 
 
+def scoreline_leg_stats(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Settled leg performance grouped by scoreline (`team_name`)."""
+    settled_statuses = {"won", "lost", "push"}
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        status = str(entry.get("status") or "").strip().lower()
+        if status not in settled_statuses:
+            continue
+        scoreline = str(entry.get("team_name") or "").strip()
+        if not scoreline:
+            continue
+        buckets.setdefault(scoreline, []).append(entry)
+
+    rows: list[dict[str, Any]] = []
+    for scoreline, legs in buckets.items():
+        won = sum(1 for e in legs if str(e.get("status") or "").lower() == "won")
+        lost = sum(1 for e in legs if str(e.get("status") or "").lower() == "lost")
+        push = sum(1 for e in legs if str(e.get("status") or "").lower() == "push")
+        decided = won + lost
+        staked = round(sum(_num(e.get("units")) or 0.0 for e in legs), 3)
+        pnl = round(sum(_num(e.get("pnl_units")) or 0.0 for e in legs), 3)
+        odds_vals = [_num(e.get("odds")) for e in legs if _num(e.get("odds"))]
+        rows.append(
+            {
+                "scoreline": scoreline,
+                "settled": len(legs),
+                "won": won,
+                "lost": lost,
+                "push": push,
+                "win_pct": round(100.0 * won / decided, 1) if decided else 0.0,
+                "staked_units": staked,
+                "pnl_units": pnl,
+                "roi_pct": round(100.0 * pnl / staked, 1) if staked else 0.0,
+                "avg_odds": round(sum(odds_vals) / len(odds_vals), 2) if odds_vals else None,
+            }
+        )
+    rows.sort(key=lambda r: (-r["settled"], r["scoreline"]))
+    return rows
+
+
 def correct_score_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Leg-level stats (shared shape) plus basket-level performance."""
     stats = compute_bet_stats(entries)
@@ -539,6 +579,7 @@ def correct_score_dashboard(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "avg_basket_size": (
             round(sum(b["size"] for b in baskets) / len(baskets), 2) if baskets else 0.0
         ),
+        "by_scoreline": scoreline_leg_stats(entries),
     }
 
 
