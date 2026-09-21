@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Correct Score Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/style.css?v=18" />
     <link rel="stylesheet" href="/static/cs_strat.css?v=1" />
     <script src="/static/table_tools.js?v=8" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body>
     <main class="container">
@@ -29,6 +30,7 @@
         {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
+      {% include "includes/bet_log_date_filter.html" %}
 
       <section class="recommendations">
         <div class="recommendation-card">
@@ -237,7 +239,7 @@
           statusEl.textContent = data.detail || "Resolve failed";
           return;
         }
-        renderAll(data);
+        renderScoped(data);
       }
 
       function renderLegs(entries) {
@@ -294,6 +296,58 @@
         renderLegs(payload.entries || []);
       }
 
+      function csDashboardFromFiltered(baskets, entries, baseDash) {
+        const legDash = BetLogDateFilter.computeDashboard(entries);
+        const basketsList = baskets || [];
+        const baskets_open = basketsList.filter(
+          (b) => String(b.status || "").toLowerCase() === "open"
+        ).length;
+        const baskets_settled = basketsList.length - baskets_open;
+        const baskets_hit = basketsList.filter(
+          (b) => String(b.status || "").toLowerCase() === "won" || b.hit_score
+        ).length;
+        const basket_staked_units = Math.round(
+          basketsList.reduce((s, b) => s + (Number(b.staked_units) || 0), 0) * 1000
+        ) / 1000;
+        const basket_settled = basketsList.filter(
+          (b) => String(b.status || "").toLowerCase() !== "open"
+        );
+        const basket_settled_staked_units = Math.round(
+          basket_settled.reduce((s, b) => s + (Number(b.staked_units) || 0), 0) * 1000
+        ) / 1000;
+        const basket_pnl = Math.round(
+          basketsList.reduce((s, b) => s + (Number(b.pnl_units) || 0), 0) * 1000
+        ) / 1000;
+        const basket_roi_pct =
+          basket_settled_staked_units > 0
+            ? Math.round((basket_pnl / basket_settled_staked_units) * 1000) / 10
+            : 0;
+        const avg_basket_size = basketsList.length
+          ? Math.round(
+              (basketsList.reduce((s, b) => s + ((b.scores || []).length || 0), 0) /
+                basketsList.length) *
+                10
+            ) / 10
+          : 0;
+        const basket_hit_pct = baskets_settled
+          ? Math.round((baskets_hit / baskets_settled) * 1000) / 10
+          : 0;
+        return {
+          ...(baseDash || {}),
+          ...legDash,
+          by_scoreline: [],
+          baskets: basketsList.length,
+          baskets_open,
+          baskets_settled,
+          baskets_hit,
+          basket_hit_pct,
+          basket_staked_units,
+          basket_settled_staked_units,
+          basket_roi_pct,
+          avg_basket_size,
+        };
+      }
+
       syncBtn.addEventListener("click", async () => {
         statusEl.textContent = "Pricing and logging baskets…";
         syncBtn.disabled = true;
@@ -302,7 +356,7 @@
           const raw = await res.text();
           if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
           const data = JSON.parse(raw);
-          renderAll(data);
+          renderScoped(data);
           const r = data.result || {};
           statusEl.textContent =
             `Logged ${r.baskets} baskets (${r.inserted} legs)` +
@@ -328,7 +382,7 @@
             statusEl.textContent = data.result.error;
             return;
           }
-          renderAll(data);
+          renderScoped(data);
           let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open legs`;
           if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
           if (data.result.stopped_early) msg += " — partial run, click again";
@@ -340,7 +394,38 @@
         }
       });
 
-      renderAll({
+      const renderScoped = BetLogDateFilter.attach(renderAll, {
+        countKey: "entries",
+        transform(raw, mode, dateIso) {
+          const getDate = (e) => e.fixture_date;
+          if (mode === "all") {
+            return {
+              dashboard: raw.dashboard || {},
+              baskets: raw.baskets || [],
+              entries: raw.entries || [],
+            };
+          }
+          const entries = BetLogDateFilter.filterEntries(
+            raw.entries || [],
+            mode,
+            dateIso,
+            getDate
+          );
+          const baskets = BetLogDateFilter.filterEntries(
+            raw.baskets || [],
+            mode,
+            dateIso,
+            getDate
+          );
+          return {
+            dashboard: csDashboardFromFiltered(baskets, entries, raw.dashboard),
+            baskets,
+            entries,
+          };
+        },
+      });
+
+      renderScoped({
         dashboard: {{ dashboard | tojson }},
         baskets: {{ baskets | tojson }},
         entries: {{ entries | tojson }},

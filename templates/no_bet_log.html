@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NO Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/style.css?v=18" />
     <script src="/static/table_tools.js?v=8" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body>
     <main class="container">
@@ -24,6 +25,7 @@
         {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
+      {% include "includes/bet_log_date_filter.html" %}
 
       <section class="recommendations">
         <div class="recommendation-card">
@@ -114,8 +116,12 @@
           body: JSON.stringify({ result }),
         });
         const data = await res.json();
-        renderStats(data.dashboard);
-        renderRows(data.entries);
+        render(data);
+      }
+
+      function render(data) {
+        renderStats(data.dashboard || {});
+        renderRows(data.entries || []);
       }
 
       function renderRows(entries) {
@@ -171,8 +177,7 @@
         try {
           const res = await fetch(apiUrl("/api/no-bet-log/sync"), { method: "POST" });
           const data = await res.json();
-          renderStats(data.dashboard);
-          renderRows(data.entries);
+          render(data);
           statusEl.textContent = `Synced ${data.result.inserted} new bets`;
         } finally {
           syncBtn.disabled = false;
@@ -193,8 +198,7 @@
             statusEl.textContent = data.result.error;
             return;
           }
-          renderStats(data.dashboard);
-          renderRows(data.entries);
+          render(data);
           let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
           if (data.result.skipped_not_found) {
             msg += ` (${data.result.skipped_not_found} not found)`;
@@ -210,8 +214,12 @@
         }
       });
 
-      renderStats({{ dashboard | tojson }});
-      renderRows({{ entries | tojson }});
+      const renderScoped = BetLogDateFilter.attach(render);
+      render = renderScoped;
+      renderScoped({
+        entries: {{ entries | tojson }},
+        dashboard: {{ dashboard | tojson }},
+      });
       ensureTableTools();
     </script>
     <script src="/static/resync_today.js?v=1"></script>

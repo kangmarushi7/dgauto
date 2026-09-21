@@ -1,0 +1,16 @@
+{# Shared date scope controls for Logs bet-log pages. Requires bet_log_date_filter.js #}
+<div class="bet-log-date-filter" id="betLogDateFilter" aria-label="Date scope">
+  <span class="bet-log-date-filter__label">View</span>
+  <button type="button" class="btn-secondary bet-log-date-filter__btn is-active" id="betLogDateToday">
+    Today
+  </button>
+  <button type="button" class="btn-secondary bet-log-date-filter__btn" id="betLogDateAll">
+    Show all
+  </button>
+  <label class="bet-log-date-filter__date">
+    <span>Date</span>
+    <input type="date" id="betLogDateInput" aria-label="Pick a day" />
+  </label>
+  <button type="button" class="btn-secondary" id="betLogDateApply">Go</button>
+  <span class="bet-log-date-filter__meta" id="betLogDateMeta" aria-live="polite"></span>
+</div>

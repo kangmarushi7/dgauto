@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prop Bet Log — DG</title>
-    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/style.css?v=18" />
     <link rel="stylesheet" href="/static/prop_model.css?v=3" />
     <script src="/static/table_tools.js?v=8" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body class="pm-body">
     <div class="pm-shell">
@@ -30,6 +31,8 @@
         </div>
         <p class="pm-stats-line" id="stats"></p>
       </section>
+
+      {% include "includes/bet_log_date_filter.html" %}
 
       <section class="pm-panel">
         <div class="pm-panel-head">
@@ -139,8 +142,12 @@
           body: JSON.stringify({ result }),
         });
         const data = await res.json();
-        renderStats(data.dashboard);
-        renderRows(data.entries);
+        render(data);
+      }
+
+      function render(data) {
+        renderStats(data.dashboard || {});
+        renderRows(data.entries || []);
       }
 
       function renderRows(entries) {
@@ -230,16 +237,17 @@
         form.reset();
         form.sport.value = "nba";
         form.stake.value = "1";
-        renderStats(data.dashboard);
-        renderRows(data.entries);
+        render(data);
       });
 
-      const initial = {
+      const renderScoped = BetLogDateFilter.attach(render, {
+        getDate: (e) => e.created_at,
+      });
+      render = renderScoped;
+      renderScoped({
         entries: {{ entries | tojson }},
-        dashboard: {{ dashboard | tojson }}
-      };
-      renderStats(initial.dashboard || {});
-      renderRows(initial.entries || []);
+        dashboard: {{ dashboard | tojson }},
+      });
     </script>
   </body>
 </html>

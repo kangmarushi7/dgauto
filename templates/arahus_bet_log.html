@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arahus Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/style.css?v=18" />
     <link rel="stylesheet" href="/static/arahus.css?v=1" />
     <script src="/static/table_tools.js?v=9" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body>
     <main class="container">
@@ -28,6 +29,7 @@
         <a class="btn-secondary" href="/arahus">Arahus Engine</a>
         <span id="status"></span>
       </div>
+      {% include "includes/bet_log_date_filter.html" %}
 
       <section class="recommendations">
         <div class="recommendation-card">
@@ -123,8 +125,12 @@
           statusEl.textContent = data.detail || "Resolve failed";
           return;
         }
-        renderStats(data.dashboard);
-        renderRows(data.entries);
+        render(data);
+      }
+
+      function render(data) {
+        renderStats(data.dashboard || {});
+        renderRows(data.entries || []);
       }
 
       function renderRows(entries) {
@@ -183,8 +189,7 @@
           const raw = await res.text();
           if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
           const data = JSON.parse(raw);
-          renderStats(data.dashboard);
-          renderRows(data.entries);
+          render(data);
           statusEl.textContent = `Synced ${data.result.inserted} new bets`;
         } catch (err) {
           statusEl.textContent = `Sync failed: ${err.message || err}`;
@@ -205,8 +210,7 @@
             statusEl.textContent = data.result.error;
             return;
           }
-          renderStats(data.dashboard);
-          renderRows(data.entries);
+          render(data);
           let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
           if (data.result.skipped_not_found) msg += ` (${data.result.skipped_not_found} not found)`;
           if (data.result.stopped_early) msg += " — partial run, click again";
@@ -218,8 +222,12 @@
         }
       });
 
-      renderStats({{ dashboard | tojson }});
-      renderRows({{ entries | tojson }});
+      const renderScoped = BetLogDateFilter.attach(render);
+      render = renderScoped;
+      renderScoped({
+        entries: {{ entries | tojson }},
+        dashboard: {{ dashboard | tojson }},
+      });
       if (window.TableTools) window.TableTools.enhanceAll();
     </script>
     <script src="/static/resync_today.js?v=1"></script>

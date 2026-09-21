@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>H2H Bet Log - DG Bet Automation</title>
-    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <link rel="stylesheet" href="/static/style.css?v=18" />
     <script src="/static/table_tools.js?v=8" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body>
     <main class="container">
@@ -25,6 +26,7 @@
         {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
+      {% include "includes/bet_log_date_filter.html" %}
 
       <section class="recommendations">
         <div class="recommendation-card">
@@ -267,7 +269,10 @@
         }
       });
 
-      render({
+      const renderScoped = BetLogDateFilter.attach(render);
+      render = renderScoped;
+
+      renderScoped({
         entries: {{ entries | tojson }},
         dashboard: {{ dashboard | tojson }},
       });
