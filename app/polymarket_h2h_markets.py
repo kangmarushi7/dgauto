@@ -1,11 +1,11 @@
-"""Polymarket prices for H2H Strat markets (Goals + Win/Draw).
+"""Polymarket prices for H2H Strat markets (Goals + Win/Draw + Corners).
 
 Primary event: moneyline (home / draw / away) as Yes/No binaries.
 More-markets sibling ``{primary}-more-markets``: goal totals + BTTS.
+Corners sibling ``{primary}-total-corners``: match-total corners O/U
+(Football Bot style).
 
-Corners / SOT are not listed on Polymarket soccer today — those picks stay unpriced.
-
-No HTML scraping — Gamma for market/token catalog, CLOB for live book tops.
+SOT is not listed on Polymarket soccer today — those picks stay manual.
 """
 from __future__ import annotations
 
@@ -26,17 +26,34 @@ from app.polymarket_exact_score import (
 logger = logging.getLogger(__name__)
 
 MORE_MARKETS_SUFFIX = "-more-markets"
+TOTAL_CORNERS_SUFFIX = "-total-corners"
 
 # H2H bet_types we can price on Polymarket
 PRICEABLE_BET_TYPES = frozenset(
-    {"h2h_home", "h2h_draw", "h2h_away", "h2h_o25", "h2h_o35", "h2h_btts"}
+    {
+        "h2h_home",
+        "h2h_draw",
+        "h2h_away",
+        "h2h_o25",
+        "h2h_o35",
+        "h2h_btts",
+        "h2h_c_o85",
+        "h2h_c_o95",
+        "h2h_c_o105",
+    }
 )
 
 _TOTAL_LINE = {
     "h2h_o25": "2pt5",
     "h2h_o35": "3pt5",
 }
+_CORNER_LINE = {
+    "h2h_c_o85": 8.5,
+    "h2h_c_o95": 9.5,
+    "h2h_c_o105": 10.5,
+}
 _TOTAL_SLUG_RE = re.compile(r"-total-(?P<line>\d+pt\d+)\s*$", re.I)
+_CORNERS_TOTAL_SLUG_RE = re.compile(r"corners-total-(\d+)pt(\d+)", re.I)
 
 
 def more_markets_event_slug(primary_slug: str) -> str:
@@ -48,11 +65,74 @@ def more_markets_event_slug(primary_slug: str) -> str:
     return f"{base}{MORE_MARKETS_SUFFIX}"
 
 
+def total_corners_event_slug(primary_slug: str) -> str:
+    base = normalize_primary_slug(primary_slug or "")
+    for suffix in (MORE_MARKETS_SUFFIX, TOTAL_CORNERS_SUFFIX, "-spreads-totals", "-totals"):
+        if base.endswith(suffix):
+            base = base[: -len(suffix)]
+    if not base:
+        return ""
+    return f"{base}{TOTAL_CORNERS_SUFFIX}"
+
+
 def _markets(event: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not event:
         return []
     raw = event.get("markets") or []
     return [m for m in raw if isinstance(m, dict)]
+
+
+def is_main_match_total_corners_market(market: dict[str, Any]) -> bool:
+    """True for main match-total corners O/U; reject FH/SH / team / odd-even."""
+    slug = _slug(market)
+    q = str(market.get("question") or "").lower()
+    if re.search(
+        r"corners-first-half|corners-second-half|corners-team-|corners-odd-even|first-corner",
+        slug,
+    ):
+        return False
+    if _CORNERS_TOTAL_SLUG_RE.search(slug):
+        return True
+    if re.search(r"1st\s*half|first\s*half|2nd\s*half|second\s*half", q):
+        return False
+    if re.search(r"odd\s*or\s*even|first\s*corner|team\s*to\s*take\s*first", q):
+        return False
+    if re.search(r"\bo\s*/\s*u\s*\d+(?:\.\d+)?\s+total\s+corners\b", q):
+        return True
+    if re.search(r"\bover\s*\d+(?:\.\d+)?\s*corners?\b", q):
+        return True
+    return False
+
+
+def corners_line_from_market(market: dict[str, Any]) -> float | None:
+    slug = str(market.get("slug") or "")
+    m = _CORNERS_TOTAL_SLUG_RE.search(slug)
+    if m:
+        return _safe_float(f"{m.group(1)}.{m.group(2)}")
+    q = str(market.get("question") or "")
+    over = re.search(r"\bover\s*(\d+(?:\.\d+)?)\s*corners?\b", q, re.I)
+    if over:
+        return _safe_float(over.group(1))
+    ou = re.search(r"\bo\s*/\s*u\s*(\d+(?:\.\d+)?)\s+total\s+corners\b", q, re.I) or re.search(
+        r"over\s*/\s*under\s*(\d+(?:\.\d+)?)\s+total\s+corners\b", q, re.I
+    )
+    if ou:
+        return _safe_float(ou.group(1))
+    return None
+
+
+def match_corners_over(markets: list[dict[str, Any]], *, line: float) -> dict[str, Any] | None:
+    """Match-total corners O/U for a specific line (e.g. 9.5)."""
+    want = float(line)
+    for m in markets:
+        if not is_main_match_total_corners_market(m):
+            continue
+        got = corners_line_from_market(m)
+        if got is None:
+            continue
+        if abs(got - want) < 0.01:
+            return m
+    return None
 
 
 def outcome_token_id(market: dict[str, Any], outcome_name: str) -> str | None:
@@ -183,17 +263,19 @@ def resolve_h2h_market(
     bet_type: str,
     primary_markets: list[dict[str, Any]],
     more_markets: list[dict[str, Any]],
+    corners_markets: list[dict[str, Any]] | None = None,
     home: str,
     away: str,
     flipped: bool = False,
 ) -> tuple[dict[str, Any] | None, str, str]:
     """Return (market, outcome_name, event_kind) for a H2H bet_type.
 
-    ``event_kind`` is ``primary`` or ``more`` (for URL selection).
+    ``event_kind`` is ``primary``, ``more``, or ``corners``.
     ``flipped`` is informational — we match moneyline by team name, not seat.
     """
     del flipped  # matching is by team name; DG home/away already correct
     bt = (bet_type or "").strip().lower()
+    corners_markets = corners_markets or []
 
     if bt == "h2h_home":
         return match_moneyline_market(primary_markets, side="home", home=home, away=away), "Yes", "primary"
@@ -206,6 +288,11 @@ def resolve_h2h_market(
         return m, "Over", "more"
     if bt == "h2h_btts":
         return match_btts(more_markets), "Yes", "more"
+    if bt in _CORNER_LINE:
+        m = match_corners_over(corners_markets, line=float(_CORNER_LINE[bt]))
+        if m is None:
+            return None, "", ""
+        return m, "Over", "corners"
     return None, "", ""
 
 
@@ -244,7 +331,7 @@ def price_h2h_fixture(
 
     Returns::
         {
-          error, polymarket_slug, more_markets_slug, polymarket_url,
+          error, polymarket_slug, more_markets_slug, corners_slug, polymarket_url,
           flipped, priced: {bet_type|key: {odds, price, …}}
         }
     """
@@ -254,11 +341,14 @@ def price_h2h_fixture(
 
     primary_slug = normalize_primary_slug(str(event.get("slug") or ""))
     more_slug = more_markets_event_slug(primary_slug)
+    corners_slug = total_corners_event_slug(primary_slug)
     primary_event = fetch_gamma_event_by_slug(primary_slug) or event
     more_event = fetch_gamma_event_by_slug(more_slug) if more_slug else None
+    corners_event = fetch_gamma_event_by_slug(corners_slug) if corners_slug else None
 
     primary_markets = _markets(primary_event)
     more_mkts = _markets(more_event)
+    corners_mkts = _markets(corners_event)
     flipped = bool(event.get("flipped"))
 
     # Resolve markets first so we can batch CLOB fetches.
@@ -271,6 +361,7 @@ def price_h2h_fixture(
             bet_type=bt,
             primary_markets=primary_markets,
             more_markets=more_mkts,
+            corners_markets=corners_mkts,
             home=home,
             away=away,
             flipped=flipped,
@@ -294,7 +385,12 @@ def price_h2h_fixture(
         odds = decimal_odds_from_ask(ask)
         if odds is None:
             continue
-        event_slug = more_slug if kind == "more" and more_slug else primary_slug
+        if kind == "more" and more_slug:
+            event_slug = more_slug
+        elif kind == "corners" and corners_slug:
+            event_slug = corners_slug
+        else:
+            event_slug = primary_slug
         key = _pick_key(pick)
         priced[key] = {
             "bet_type": pick.get("bet_type"),
@@ -305,12 +401,14 @@ def price_h2h_fixture(
             "market_slug": market.get("slug"),
             "polymarket_url": f"https://polymarket.com/event/{event_slug}" if event_slug else None,
             "event_kind": kind,
+            "odds_source": "polymarket",
         }
 
     return {
         "error": "" if priced else "no tradeable H2H markets",
         "polymarket_slug": primary_slug,
         "more_markets_slug": more_slug,
+        "corners_slug": corners_slug,
         "polymarket_url": f"https://polymarket.com/event/{primary_slug}" if primary_slug else None,
         "flipped": flipped,
         "priced": priced,
@@ -377,14 +475,21 @@ def attach_polymarket_odds(
                 pick["polymarket_url"] = row.get("polymarket_url")
                 pick["pm_price"] = row.get("price")
                 pick["pm_price_source"] = row.get("price_source")
+                if row.get("odds_source"):
+                    pick["odds_source"] = row.get("odds_source")
             elif not pick.get("polymarket_url") and result.get("polymarket_url"):
                 # Still surface the event page even when this market isn't listed.
-                if str(pick.get("bet_type") or "") in PRICEABLE_BET_TYPES:
-                    pick["polymarket_url"] = (
-                        f"https://polymarket.com/event/{result['more_markets_slug']}"
-                        if result.get("more_markets_slug")
-                        and str(pick.get("bet_type") or "") in {"h2h_o25", "h2h_o35", "h2h_btts"}
-                        else result.get("polymarket_url")
-                    )
+                bt = str(pick.get("bet_type") or "")
+                if bt in PRICEABLE_BET_TYPES:
+                    if bt in {"h2h_o25", "h2h_o35", "h2h_btts"} and result.get("more_markets_slug"):
+                        pick["polymarket_url"] = (
+                            f"https://polymarket.com/event/{result['more_markets_slug']}"
+                        )
+                    elif bt.startswith("h2h_c_") and result.get("corners_slug"):
+                        pick["polymarket_url"] = (
+                            f"https://polymarket.com/event/{result['corners_slug']}"
+                        )
+                    else:
+                        pick["polymarket_url"] = result.get("polymarket_url")
             out.append(pick)
     return out

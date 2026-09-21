@@ -7,8 +7,12 @@ Rules (match Trends tab defaults):
   - Hit rate >= 75% on the selected market
   - 1 unit stake per logged bet
 
-Goals + Win/Draw odds are fetched from Polymarket (primary + more-markets) when
-pricing is enabled. Corners / SOT stay unpriced until Polymarket lists them.
+Odds:
+  - Goals + Win/Draw + Corners from Polymarket (primary / more-markets / total-corners)
+  - Corners fallback: DataGaffer all_odds when book line matches
+  - SOT: manual odds only (not listed on Polymarket)
+
+Settlement for corners/SOT: DataGaffer daily_accuracy primary, API-Football fallback.
 """
 from __future__ import annotations
 
@@ -168,39 +172,69 @@ def attach_h2h_odds(
     use_clob: bool = True,
     fetch_pm: bool = True,
 ) -> list[dict[str, Any]]:
-    """Polymarket for Goals/ML, DataGaffer all_odds for matching corner lines."""
+    """Polymarket for Goals/ML/Corners; DataGaffer all_odds fills remaining corner gaps."""
     priced = attach_polymarket_odds(picks, use_clob=use_clob) if fetch_pm else [dict(p) for p in picks]
     return attach_datagaffer_corner_odds(priced)
 
 
 def _refresh_open_corner_odds() -> int:
-    """Backfill odds on open corner log rows from DataGaffer when the line matches."""
+    """Backfill odds on open corner log rows (Polymarket, then DataGaffer fallback)."""
     from app.h2h_book_odds import _CORNER_BET_TYPES, corner_book_odds, load_corners_odds_index
 
-    try:
-        index = load_corners_odds_index()
-    except Exception:  # noqa: BLE001
+    open_corners = [
+        e
+        for e in load_h2h_bet_log()
+        if str(e.get("status") or "").lower() == "open"
+        and str(e.get("bet_type") or "") in _CORNER_BET_TYPES
+        and not (e.get("odds") is not None and float(e.get("odds") or 0) > 1)
+    ]
+    if not open_corners:
         return 0
-    updated = 0
-    for entry in load_h2h_bet_log():
-        if str(entry.get("status") or "").lower() != "open":
-            continue
-        bt = str(entry.get("bet_type") or "")
-        want = _CORNER_BET_TYPES.get(bt)
-        if want is None:
-            continue
-        existing = entry.get("odds")
-        if existing is not None and float(existing or 0) > 1:
-            continue
+
+    # Rebuild pick-shaped rows for Polymarket batching.
+    picks: list[dict[str, Any]] = []
+    for entry in open_corners:
         fixture = str(entry.get("fixture") or "")
         home = away = ""
         if " vs " in fixture:
             parts = fixture.split(" vs ", 1)
             home, away = parts[0].strip(), parts[1].strip()
-        priced = corner_book_odds(home, away, want, index=index)
-        if not priced:
+        picks.append(
+            {
+                "id": entry.get("id"),
+                "bet_type": entry.get("bet_type"),
+                "team_name": entry.get("team_name") or "",
+                "label": entry.get("bet_type") or "",
+                "fixture": fixture,
+                "fixture_date": entry.get("fixture_date"),
+                "home": home,
+                "away": away,
+                "odds": None,
+            }
+        )
+    priced = attach_polymarket_odds(picks, use_clob=True)
+    by_id = {str(p.get("id")): p for p in priced if p.get("id")}
+    updated = 0
+    for entry in open_corners:
+        bid = str(entry["id"])
+        row = by_id.get(bid) or {}
+        odds = row.get("odds")
+        if odds is not None and float(odds) > 1:
+            if update_bet_odds(LOG_TYPE, bid, float(odds)):
+                updated += 1
             continue
-        if update_bet_odds(LOG_TYPE, str(entry["id"]), float(priced["odds"])):
+        # DataGaffer fallback
+        try:
+            index = load_corners_odds_index()
+        except Exception:  # noqa: BLE001
+            continue
+        want = _CORNER_BET_TYPES.get(str(entry.get("bet_type") or ""))
+        if want is None:
+            continue
+        home = str(row.get("home") or "")
+        away = str(row.get("away") or "")
+        priced_dg = corner_book_odds(home, away, want, index=index)
+        if priced_dg and update_bet_odds(LOG_TYPE, bid, float(priced_dg["odds"])):
             updated += 1
     return updated
 
@@ -211,7 +245,7 @@ def sync_h2h_bets(
     fetch_pm_odds: bool = True,
     use_clob: bool = True,
 ) -> dict[str, Any]:
-    """Insert new H2H picks. Prices Goals/ML on Polymarket and corners on DataGaffer."""
+    """Insert new H2H picks. Prices Goals/ML/Corners on Polymarket (+ DG corners fallback)."""
     priced = attach_h2h_odds(picks, use_clob=use_clob, fetch_pm=fetch_pm_odds)
     candidates: list[dict[str, Any]] = []
     for p in priced:

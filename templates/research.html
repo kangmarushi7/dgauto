@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Research · DG</title>
+    <link rel="stylesheet" href="/static/style.css?v=16" />
+    <link rel="stylesheet" href="/static/research.css?v=1" />
+  </head>
+  <body>
+    <main class="container research-page">
+      {% set nav_current = "research" %}
+      {% include "includes/app_nav.html" %}
+
+      <header class="app-hero">
+        <h1 class="app-brand">Research</h1>
+        <p class="subtitle">
+          Settled Main / Arahus / +EV profitability — markets, odds, leagues, rolling windows, playbook.
+        </p>
+      </header>
+
+      <div class="research-toolbar">
+        <button type="button" id="refreshBtn">Refresh analysis</button>
+        <a class="btn-secondary research-dl" id="dlMd" href="/api/research/export/md">Download MD</a>
+        <a class="btn-secondary research-dl" id="dlPdf" href="/api/research/export/pdf">Download PDF</a>
+        <span class="research-status" id="statusText" aria-live="polite">Loading…</span>
+      </div>
+      <p class="research-meta" id="metaLine"></p>
+
+      <div id="emptyState" class="research-empty" hidden>
+        <p>No cached analysis yet. Click <strong>Refresh analysis</strong> to compute from the live bet database.</p>
+      </div>
+
+      <div id="researchRoot" hidden>
+        <div class="research-tabs" role="tablist" aria-label="Strategy">
+          <button type="button" class="research-tab is-active" data-slice="combined" role="tab" aria-selected="true">Combined</button>
+          <button type="button" class="research-tab" data-slice="main" role="tab" aria-selected="false">Main</button>
+          <button type="button" class="research-tab" data-slice="arahus" role="tab" aria-selected="false">Arahus</button>
+          <button type="button" class="research-tab" data-slice="ev" role="tab" aria-selected="false">+EV</button>
+        </div>
+
+        <section class="research-summary" id="summaryCards" aria-label="Summary"></section>
+
+        <section class="research-section">
+          <h2>Markets</h2>
+          <div class="research-table-wrap" id="marketsTable"></div>
+        </section>
+
+        <section class="research-section">
+          <h2>Odds buckets</h2>
+          <div class="research-table-wrap" id="oddsTable"></div>
+        </section>
+
+        <section class="research-section">
+          <h2>Leagues (by volume)</h2>
+          <div class="research-table-wrap" id="leaguesTable"></div>
+        </section>
+
+        <section class="research-section">
+          <h2>Rolling windows</h2>
+          <div class="research-table-wrap" id="rollingTable"></div>
+        </section>
+
+        <section class="research-section" id="focusSection" hidden>
+          <h2>Focus markets × odds</h2>
+          <div id="focusBlocks"></div>
+        </section>
+
+        <section class="research-section research-playbook">
+          <h2>Playbook</h2>
+          <div class="research-playbook-grid">
+            <div>
+              <h3 class="research-keep">Keep</h3>
+              <ul id="keepList"></ul>
+            </div>
+            <div>
+              <h3 class="research-cut">Cut / tighten</h3>
+              <ul id="cutList"></ul>
+            </div>
+          </div>
+          <div id="consensusBlock" class="research-consensus"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/static/research.js?v=1" defer></script>
+  </body>
+</html>

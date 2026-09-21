@@ -173,11 +173,12 @@ class MatchTests(unittest.TestCase):
         m = match_btts(MORE_MARKETS)
         self.assertEqual(m["sportsMarketType"], "both_teams_to_score")
 
-    def test_resolve_corners_returns_none(self):
+    def test_resolve_corners_without_event_returns_none(self):
         market, outcome, kind = resolve_h2h_market(
             bet_type="h2h_c_o85",
             primary_markets=PRIMARY_MARKETS,
             more_markets=MORE_MARKETS,
+            corners_markets=[],
             home="Degerfors",
             away="Djurgarden",
         )

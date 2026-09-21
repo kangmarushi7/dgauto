@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strategy Logic · DG</title>
+    <link rel="stylesheet" href="/static/style.css?v=17" />
+    <style>
+      .logic-toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+        margin: 0 0 1.5rem;
+      }
+      .logic-toc a {
+        color: var(--forest);
+        font-weight: 600;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+      .logic-toc a:hover {
+        border-bottom-color: var(--forest);
+      }
+      .logic-section {
+        scroll-margin-top: 1.25rem;
+      }
+      .logic-section + .logic-section {
+        margin-top: 1.25rem;
+      }
+      .logic-kicker {
+        margin: 0 0 0.35rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .logic-lead {
+        margin: 0 0 1rem;
+        color: var(--ink-soft);
+        max-width: 52rem;
+      }
+      .logic-table-wrap {
+        overflow-x: auto;
+        margin: 0.75rem 0 1rem;
+      }
+      .logic-table-wrap table {
+        min-width: 36rem;
+      }
+      .logic-list {
+        margin: 0.5rem 0 0;
+        padding-left: 1.15rem;
+        color: var(--ink-soft);
+      }
+      .logic-list li + li {
+        margin-top: 0.35rem;
+      }
+      .logic-variants {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+      @media (min-width: 720px) {
+        .logic-variants {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .logic-variant {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        background: #f7faf7;
+      }
+      .logic-variant h3 {
+        margin: 0 0 0.4rem;
+        font-size: 1rem;
+      }
+      .logic-variant p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+      }
+      .logic-compare td:first-child {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "strategy-logic" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1>Strategy Logic</h1>
+      <p class="subtitle">
+        How every DG strategy decides what to bet — thresholds, stakes, markets, and how they differ.
+      </p>
+
+      <nav class="logic-toc" aria-label="On this page">
+        <a href="#main">Main</a>
+        <a href="#arahus">Arahus</a>
+        <a href="#plus-ev">+EV</a>
+        <a href="#h2h">H2H</a>
+        <a href="#lm">LM</a>
+        <a href="#no">NO</a>
+        <a href="#cs">CS</a>
+        <a href="#prop">Prop</a>
+        <a href="#compare">Compare</a>
+      </nav>
+
+      <section id="main" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = main</p>
+        <h2>Main bets</h2>
+        <p class="logic-lead">
+          Rule-based DataGaffer <strong>scenario buckets</strong>. If the sim projection crosses a
+          fixed threshold, take the matching market. No edge/EV filter and no multi-signal stack.
+          Source: DG projected win % and projected goals. Stake: flat <strong>1.0u</strong>.
+        </p>
+        <div class="logic-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Trigger</th>
+                <th>Markets logged</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Win 60%+</td>
+                <td>Home/away win % ≥ 60</td>
+                <td>ML, Win-or-Draw (1X/X2)</td>
+              </tr>
+              <tr>
+                <td>Win 70%+</td>
+                <td>Win % ≥ 70</td>
+                <td>Same, higher bar</td>
+              </tr>
+              <tr>
+                <td>Total 3.5+</td>
+                <td>Projected total ≥ 3.5</td>
+                <td>O1.5, O2.5</td>
+              </tr>
+              <tr>
+                <td>Total 4.0+</td>
+                <td>Projected total ≥ 4.0</td>
+                <td>O1.5, O2.5, O3.5</td>
+              </tr>
+              <tr>
+                <td>Team goals 2.0+</td>
+                <td>Team projected ≥ 2.0</td>
+                <td>Team O0.5, O1.5</td>
+              </tr>
+              <tr>
+                <td>Team goals 2.5+</td>
+                <td>Team projected ≥ 2.5</td>
+                <td>Team O0.5, O1.5</td>
+              </tr>
+              <tr>
+                <td>BTTS</td>
+                <td>Both teams projected ≥ 1.5</td>
+                <td>BTTS Yes</td>
+              </tr>
+              <tr>
+                <td>Low total ≤ 2.0</td>
+                <td>Projected total ≤ 2.0</td>
+                <td>U2.5, U3.5</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hit-note">
+          High volume, historical hit-rate style. The same fixture can create several Main bets
+          (e.g. both O1.5 and O2.5 when total ≥ 3.5).
+        </p>
+      </section>
+
+      <section id="arahus" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = arahus (+ v2 / live_v1 variants)</p>
+        <h2>Arahus bets</h2>
+        <p class="logic-lead">
+          Custom projection engine that blends DG sims, ratings (DGRtg/ORtg/DRtg), pace/NEC/AGIX,
+          xG/luck, highlights, and book odds — then only picks when
+          <strong>signal families agree</strong>. Isolated from Main and +EV logs.
+        </p>
+
+        <h3>Arahus V1 (main Arahus book)</h3>
+        <ul class="logic-list">
+          <li>Confidence ≥ <strong>62</strong> (sum of weighted signals)</li>
+          <li>If odds exist: edge ≥ <strong>2pp</strong> and EV &gt; 0</li>
+          <li>Can pick without odds when <code>ARAHUS_ALLOW_NO_ODDS=true</code></li>
+          <li>Max <strong>3 picks per fixture</strong></li>
+          <li>Rank by confidence → edge → EV; avoid conflicting families (overs vs unders, duplicate ML)</li>
+        </ul>
+        <p class="logic-lead" style="margin-top: 0.85rem">
+          <strong>Stake ladder:</strong> base 1.0u · 1.5u if confidence ≥ 78 and edge ≥ 5 ·
+          0.75u if confidence &lt; 68.
+        </p>
+        <p class="logic-lead">
+          <strong>Markets:</strong> O1.5/O2.5/O3.5, U2.5, BTTS, ML, team O0.5/O1.5, DC 1X/X2,
+          corners O8.5–O10.5. Every evaluated market (picked and skipped) is written to the
+          decision log.
+        </p>
+
+        <div class="logic-variants">
+          <article class="logic-variant">
+            <h3>Arahus v2</h3>
+            <p>
+              Frozen forward test: <strong>O2.5 only</strong>, odds <strong>1.30–1.49</strong>,
+              edge ≥ <strong>3pp</strong> (live), confidence ≥ <strong>66</strong>, EV &gt; 0,
+              flat <strong>1u</strong>. O3.5 logged as research only.
+            </p>
+          </article>
+          <article class="logic-variant">
+            <h3>Arahus Live V1</h3>
+            <p>
+              Filter on existing V1 picks: keep only <strong>O2.5</strong> with odds
+              <strong>1.30–1.49</strong>; preserve V1 stake. Auto-sync off by default
+              (<code>ARAHUS_LIVE_V1_ENABLED</code>).
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="plus-ev" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = ev</p>
+        <h2>+EV bets</h2>
+        <p class="logic-lead">
+          Price-driven. Only bet when the model says the market is underpriced, then confirm the
+          <strong>projection shape</strong> supports that market — not “DG scenario crossed a line.”
+          Stake: flat <strong>1.0u</strong>.
+        </p>
+        <p class="logic-lead"><strong>Must pass all of:</strong></p>
+        <ul class="logic-list">
+          <li>Edge ≥ <strong>2</strong> percentage points</li>
+          <li>EV &gt; <strong>0</strong></li>
+          <li>Verdict in <code>STRONG VALUE</code> / <code>VALUE</code> / <code>LEAN</code></li>
+          <li>xG / model filter for that market, for example:</li>
+        </ul>
+        <div class="logic-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>Model filter</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Over 2.5</td>
+                <td>Total xG ≥ 2.85</td>
+              </tr>
+              <tr>
+                <td>Over 3.5</td>
+                <td>Total xG ≥ 3.65</td>
+              </tr>
+              <tr>
+                <td>Under 2.5</td>
+                <td>Total xG ≤ 2.35</td>
+              </tr>
+              <tr>
+                <td>Team O1.5</td>
+                <td>Team xG ≥ 1.85</td>
+              </tr>
+              <tr>
+                <td>BTTS Yes</td>
+                <td>Both teams xG ≥ 0.95</td>
+              </tr>
+              <tr>
+                <td>Moneyline</td>
+                <td>Team xG edge ≥ 0.25 vs opponent</td>
+              </tr>
+              <tr>
+                <td>Draw</td>
+                <td>Draw model ≥ 26% and xG gap ≤ 0.45</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hit-note">
+          Markets come from the fixture dashboard: totals, team goals, BTTS, ML, draw, DC 1X/X2.
+        </p>
+      </section>
+
+      <section id="h2h" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = h2h</p>
+        <h2>H2H bets</h2>
+        <p class="logic-lead">
+          Mirrors DataGaffer <strong>Head-to-Head Trends</strong>: only bet markets that have hit
+          often enough in prior meetings between these two teams. Stake: flat
+          <strong>1.0u</strong> per qualified market.
+        </p>
+        <ul class="logic-list">
+          <li>Min meetings: <strong>6</strong></li>
+          <li>Min historical hit rate: <strong>≥ 75%</strong></li>
+        </ul>
+        <div class="logic-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Family</th>
+                <th>Markets</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Goals</td>
+                <td>O2.5, O3.5, BTTS Yes</td>
+              </tr>
+              <tr>
+                <td>Corners</td>
+                <td>O8.5, O9.5, O10.5</td>
+              </tr>
+              <tr>
+                <td>Shots on target</td>
+                <td>O7.5, O8.5, O9.5</td>
+              </tr>
+              <tr>
+                <td>Win / Draw</td>
+                <td>Home, Draw, Away</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hit-note">
+          Goals + 1X2 + corners priced from Polymarket (corners via
+          <code>{slug}-total-corners</code>); DataGaffer <code>all_odds</code> is the corners
+          fallback. SOT odds stay manual. Settlement for corners/SOT uses DataGaffer
+          <code>daily_accuracy</code> first, then API-Football. Auto PM pricing on refresh is off
+          by default (<code>AUTO_SYNC_H2H_PM_ON_REFRESH</code>).
+        </p>
+      </section>
+
+      <section id="lm" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = lm · UI: Line Movement</p>
+        <h2>LM bets</h2>
+        <p class="logic-lead">
+          Form + H2H filter for <strong>Over 1.5 goals only</strong>. Despite the “Line Movement”
+          label, selection is not live steam — it requires both teams to score enough in form and
+          H2H O1.5 history. Stake: flat <strong>1.0u</strong>.
+        </p>
+        <ul class="logic-list">
+          <li>Market: <strong>Over 1.5</strong> only</li>
+          <li>Home GF ≥ <strong>1.0</strong> and Away GF ≥ <strong>1.0</strong></li>
+          <li>H2H O1.5 % ≥ <strong>80</strong></li>
+          <li>Home form O1.5 % ≥ <strong>80</strong></li>
+          <li>Away form O1.5 % ≥ <strong>80</strong></li>
+        </ul>
+        <p class="hit-note">
+          Data from <code>team_actuals.json</code> + <code>h2h_form_combined.json</code>. Odds from
+          match <code>over_1_5_odds</code>.
+        </p>
+      </section>
+
+      <section id="no" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = no · UI: No-Vig Model</p>
+        <h2>NO bets</h2>
+        <p class="logic-lead">
+          Fade weak sides: when a team’s win % and projected goals are both low, bet the
+          <strong>double chance against them</strong> (they “not to win”). Stake: flat
+          <strong>1.0u</strong>.
+        </p>
+        <ul class="logic-list">
+          <li>Qualify when win % &lt; <strong>50</strong> <strong>and</strong> projected goals &lt; <strong>1.0</strong></li>
+          <li>Oppose home → market <strong>X2</strong> (Draw or Away), odds <code>dc_draw_away_odds</code></li>
+          <li>Oppose away → market <strong>1X</strong> (Home or Draw), odds <code>dc_home_draw_odds</code></li>
+          <li>Logged qualifier: <code>not_win_pct = 100 − win_pct</code></li>
+        </ul>
+      </section>
+
+      <section id="cs" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = cs · UI: Closing Steam</p>
+        <h2>CS bets (Correct Score baskets)</h2>
+        <p class="logic-lead">
+          Despite the “Closing Steam” label, this is a <strong>dutch correct-score basket</strong>
+          on Polymarket: buy DG’s top scorelines so any single hit profits. Stake is shared across
+          legs (default basket <strong>1.0u</strong> total).
+        </p>
+        <ul class="logic-list">
+          <li>Model: Dixon–Coles Poisson; try basket sizes <strong>5</strong> then <strong>4</strong></li>
+          <li>Candidate pool: top <strong>10</strong> DG scorelines (<code>CS_CANDIDATE_POOL</code>)</li>
+          <li>Min guaranteed ROI if any leg hits: <strong>5%</strong> (<code>CS_MIN_GUARANTEED_ROI</code>)</li>
+          <li>Ask buffer <strong>+0.005</strong>; max leg price <strong>0.60</strong></li>
+          <li>Only fixtures within <strong>72h</strong> kickoff (<code>CS_MAX_HOURS_AHEAD</code>)</li>
+          <li>Pick basket with max EV units; near-ties prefer wider size</li>
+          <li>Model +EV not required by default (<code>CS_REQUIRE_POSITIVE_EV=false</code>)</li>
+        </ul>
+        <p class="hit-note">
+          Sync skips fixtures already logged. Auto-sync on refresh defaults on
+          (<code>AUTO_SYNC_CS_ON_REFRESH</code>).
+        </p>
+      </section>
+
+      <section id="prop" class="recommendation-card logic-section">
+        <p class="logic-kicker">log_type = prop · NBA / MLB props</p>
+        <h2>Prop Model</h2>
+        <p class="logic-lead">
+          Phase 1 is <strong>stats scrape + normalize only</strong> (NBA/MLB). There is
+          <strong>no automated pick engine</strong> yet — bets are logged manually (stat, line,
+          side, stake, odds). Later phases (lines, projections, edge) are not live.
+        </p>
+        <ul class="logic-list">
+          <li>Storage: shared Postgres <code>pm_*</code> tables (or local SQLite fallback)</li>
+          <li>Manual stake default: <strong>1.0u</strong></li>
+        </ul>
+      </section>
+
+      <section id="compare" class="recommendation-card logic-section">
+        <h2>Quick contrast</h2>
+        <div class="logic-table-wrap">
+          <table class="logic-compare">
+            <thead>
+              <tr>
+                <th>Strategy</th>
+                <th>Driver</th>
+                <th>Stake</th>
+                <th>Selectivity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Main</td>
+                <td>DG scenario thresholds</td>
+                <td>1u flat</td>
+                <td>Broad / high volume</td>
+              </tr>
+              <tr>
+                <td>Arahus</td>
+                <td>Multi-signal confidence stack</td>
+                <td>0.75 / 1.0 / 1.5</td>
+                <td>Medium</td>
+              </tr>
+              <tr>
+                <td>+EV</td>
+                <td>Book mispricing + xG shape</td>
+                <td>1u flat</td>
+                <td>Narrower</td>
+              </tr>
+              <tr>
+                <td>H2H</td>
+                <td>≥6 meetings, ≥75% trend hit</td>
+                <td>1u flat</td>
+                <td>History-gated</td>
+              </tr>
+              <tr>
+                <td>LM</td>
+                <td>Form + H2H O1.5 ≥ 80%</td>
+                <td>1u flat</td>
+                <td>O1.5 only</td>
+              </tr>
+              <tr>
+                <td>NO</td>
+                <td>Win% &lt; 50 and xG &lt; 1.0 → fade</td>
+                <td>1u flat</td>
+                <td>DC against weak side</td>
+              </tr>
+              <tr>
+                <td>CS</td>
+                <td>Dutch Polymarket scoreline basket</td>
+                <td>1u basket</td>
+                <td>Qualified baskets only</td>
+              </tr>
+              <tr>
+                <td>Prop</td>
+                <td>Manual log (no auto picks yet)</td>
+                <td>Manual</td>
+                <td>n/a</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hit-note">
+          Same fixture can hit several strategies independently — each writes its own log
+          (<code>log_type</code>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

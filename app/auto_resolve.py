@@ -579,7 +579,11 @@ def _enrich_event_with_stats(
     h2h_cache: dict[str, list[dict[str, Any]]],
     team_recent_cache: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
-    """Attach corners/SOT totals for H2H prop settlement when API-Football is available."""
+    """Attach corners/SOT totals for H2H prop settlement.
+
+    Primary: DataGaffer ``daily_accuracy.json`` (Football Bot style).
+    Fallback: API-Football fixture statistics.
+    """
     kind = resolve_kind_for_entry(entry).lower()
     if kind not in {"h2h_corners", "h2h_sot"}:
         return event
@@ -587,6 +591,31 @@ def _enrich_event_with_stats(
         kind == "h2h_sot" and event.get("sot_total") is not None
     ):
         return event
+
+    # 1) DataGaffer daily_accuracy — primary
+    try:
+        from app.dg_accuracy_props import lookup_accuracy_props
+
+        acc = lookup_accuracy_props(entry)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("daily_accuracy prop lookup failed: %s", exc)
+        acc = None
+    if acc:
+        patched = dict(event)
+        if acc.get("corners_total") is not None:
+            patched["corners_total"] = acc["corners_total"]
+        if acc.get("sot_total") is not None:
+            patched["sot_total"] = acc["sot_total"]
+        if patched.get("intHomeScore") is None and acc.get("intHomeScore") is not None:
+            patched["intHomeScore"] = acc["intHomeScore"]
+            patched["intAwayScore"] = acc["intAwayScore"]
+        patched["props_source"] = acc.get("source") or "datagaffer_daily_accuracy"
+        if (kind == "h2h_corners" and patched.get("corners_total") is not None) or (
+            kind == "h2h_sot" and patched.get("sot_total") is not None
+        ):
+            return patched
+
+    # 2) API-Football statistics — fallback
     if not api_football_configured():
         return event
 

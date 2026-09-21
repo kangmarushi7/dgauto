@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
@@ -121,6 +121,12 @@ from app.unified_bets import bet_log_entries, count_flagged_ev, home_summary_sta
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
 from app.polymarket_exact_score import exact_score_prices_array, pull_exact_score_prices
 from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_scrape_job_status
+from app.research_analytics import (
+    CACHE_MD,
+    CACHE_PDF,
+    get_research_api_response,
+    refresh_research_cache,
+)
 from app.prop_model_scrape import start_scrape_background
 from app.prop_model_bets import (
     add_prop_bet,
@@ -366,6 +372,63 @@ async def health():
 async def health_db():
     status = check_db_health()
     return status
+
+
+@app.get("/strategy-logic")
+async def strategy_logic_page(request: Request):
+    return templates.TemplateResponse(request, "strategy_logic.html", {})
+
+
+@app.get("/research")
+async def research_page(request: Request):
+    return templates.TemplateResponse(request, "research.html", {})
+
+
+@app.get("/api/research")
+async def research_api():
+    return JSONResponse(await run_in_threadpool(get_research_api_response))
+
+
+@app.post("/api/research/refresh")
+async def research_refresh_api():
+    try:
+        payload = await run_in_threadpool(refresh_research_cache)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Research refresh failed: {exc}") from exc
+    return JSONResponse(
+        {
+            "ok": True,
+            "status": "ready",
+            "generated_at": payload.get("meta", {}).get("generated_at"),
+            "elapsed_sec": payload.get("meta", {}).get("elapsed_sec"),
+            "exports": {"md": CACHE_MD.exists(), "pdf": CACHE_PDF.exists()},
+            "data": payload,
+        }
+    )
+
+
+@app.get("/api/research/export/md")
+async def research_export_md():
+    if not CACHE_MD.exists():
+        raise HTTPException(status_code=404, detail="No research markdown yet — refresh analysis first")
+    return FileResponse(
+        CACHE_MD,
+        media_type="text/markdown; charset=utf-8",
+        filename="research_report.md",
+    )
+
+
+@app.get("/api/research/export/pdf")
+async def research_export_pdf():
+    if not CACHE_PDF.exists():
+        raise HTTPException(status_code=404, detail="No research PDF yet — refresh analysis first")
+    return FileResponse(
+        CACHE_PDF,
+        media_type="application/pdf",
+        filename="research_report.pdf",
+    )
 
 
 @app.get("/todays-bets")
