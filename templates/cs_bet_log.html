@@ -39,6 +39,27 @@
       </section>
 
       <section class="recommendation-card">
+        <h2>Scoreline performance</h2>
+        <p class="hit-note" id="scorelineEmpty" hidden>No settled scoreline legs yet.</p>
+        <table data-column-filters="1" data-csv-export="1" data-csv-filename="cs-scoreline-stats">
+          <thead>
+            <tr>
+              <th>Score</th>
+              <th>Settled</th>
+              <th>Won</th>
+              <th>Lost</th>
+              <th>Push</th>
+              <th>Win%</th>
+              <th>PnL(u)</th>
+              <th>ROI%</th>
+              <th>Avg odds</th>
+            </tr>
+          </thead>
+          <tbody id="scorelineRows"></tbody>
+        </table>
+      </section>
+
+      <section class="recommendation-card">
         <h2>Baskets</h2>
         <table data-column-filters="1" data-csv-export="1" data-csv-filename="cs-baskets-log">
           <thead>
@@ -103,6 +124,8 @@
       const legRowsEl = document.getElementById("legRows");
       const basketStatsEl = document.getElementById("basketStats");
       const legStatsEl = document.getElementById("legStats");
+      const scorelineRowsEl = document.getElementById("scorelineRows");
+      const scorelineEmptyEl = document.getElementById("scorelineEmpty");
       const syncBtn = document.getElementById("syncBtn");
       const autoResolveBtn = document.getElementById("autoResolveBtn");
 
@@ -121,6 +144,35 @@
 
       function num(value, digits = 2) {
         return value === null || value === undefined ? "—" : Number(value).toFixed(digits);
+      }
+
+      function toneClass(n) {
+        if (n == null || Number.isNaN(Number(n)) || Number(n) === 0) return null;
+        return Number(n) > 0 ? "cs-pos" : "cs-neg";
+      }
+
+      function renderScorelines(rows) {
+        const list = rows || [];
+        scorelineRowsEl.innerHTML = "";
+        scorelineEmptyEl.hidden = list.length > 0;
+        scorelineRowsEl.closest("table").hidden = list.length === 0;
+        if (!list.length) return;
+        for (const r of list) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(r.scoreline, "cs-score"));
+          tr.appendChild(td(r.settled));
+          tr.appendChild(td(r.won));
+          tr.appendChild(td(r.lost));
+          tr.appendChild(td(r.push));
+          tr.appendChild(td(r.win_pct != null ? Number(r.win_pct).toFixed(1) : "—"));
+          tr.appendChild(td(r.pnl_units, toneClass(r.pnl_units)));
+          tr.appendChild(
+            td(r.roi_pct != null ? `${Number(r.roi_pct).toFixed(1)}%` : "—", toneClass(r.roi_pct))
+          );
+          tr.appendChild(td(r.avg_odds != null ? Number(r.avg_odds).toFixed(2) : "—"));
+          scorelineRowsEl.appendChild(tr);
+        }
+        if (window.TableTools) window.TableTools.reapply(scorelineRowsEl.closest("table"));
       }
 
       function renderStats(d) {
@@ -235,7 +287,9 @@
       }
 
       function renderAll(payload) {
-        renderStats(payload.dashboard);
+        const dash = payload.dashboard || {};
+        renderStats(dash);
+        renderScorelines(dash.by_scoreline || []);
         renderBaskets(payload.baskets || []);
         renderLegs(payload.entries || []);
       }
