@@ -104,6 +104,20 @@ class TradePicksTests(unittest.TestCase):
         self.assertIn("open-o25", ids2)
         self.assertNotIn("settled-band", ids2)
 
+    def test_bot_feed_open_only(self):
+        feed = self.tp.build_bot_trade_picks_feed(open_only=True)
+        self.assertEqual(feed["kind"], "trade_picks")
+        self.assertEqual(feed["schema_version"], 1)
+        self.assertEqual(feed["flat_stake_usd"], 1.0)
+        ids = {p["id"] for p in feed["picks"]}
+        self.assertIn("open-o25", ids)
+        self.assertNotIn("settled-band", ids)
+        hit = next(p for p in feed["picks"] if p["id"] == "open-o25")
+        self.assertEqual(hit["home_team"], "A")
+        self.assertEqual(hit["away_team"], "B")
+        self.assertEqual(hit["stake_usd"], 1.0)
+        self.assertEqual(hit["live_category"], "Main_filtered")
+
 
 if __name__ == "__main__":
     unittest.main()

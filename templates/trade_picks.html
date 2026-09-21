@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trade Picks · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
-    <link rel="stylesheet" href="/static/bets.css?v=6" />
+    <link rel="stylesheet" href="/static/bets.css?v=7" />
     <script src="/static/table_tools.js?v=7" defer></script>
   </head>
   <body>
@@ -41,6 +41,20 @@
         <div class="bets-kpi">
           <p class="bets-kpi__label">Stake</p>
           <p class="bets-kpi__value">${{ '%.2f'|format(payload.flat_stake_usd or 1) }}</p>
+        </div>
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">PnL</p>
+          {% set pnl = payload.pnl_usd if payload.pnl_usd is not none else 0 %}
+          <p class="bets-kpi__value {% if pnl > 0 %}bets-pos{% elif pnl < 0 %}bets-neg{% endif %}" id="kpiPnl">
+            {% if payload.settled_n %}{{ '%+.2f'|format(pnl) }}{% else %}—{% endif %}
+          </p>
+        </div>
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">ROI</p>
+          {% set roi = payload.roi_pct %}
+          <p class="bets-kpi__value {% if roi is not none and roi > 0 %}bets-pos{% elif roi is not none and roi < 0 %}bets-neg{% endif %}" id="kpiRoi">
+            {% if roi is not none %}{{ '%+.1f'|format(roi) }}%{% else %}—{% endif %}
+          </p>
         </div>
       </div>
 
@@ -143,6 +157,8 @@
               data-strategy="{{ b.strategy }}"
               data-status="{{ b.status }}"
               data-date="{{ b.date_label or '' }}"
+              data-result="{{ b.result or '' }}"
+              data-pnl="{% if b.pnl_usd is not none %}{{ b.pnl_usd }}{% endif %}"
             >
               <td class="mono">{{ b.date_label or "—" }}</td>
               <td class="mono">{{ b.time_label or "—" }}</td>
@@ -172,6 +188,6 @@
         include_settled: {{ payload.include_settled | tojson }},
       };
     </script>
-    <script src="/static/trade_picks.js?v=2" defer></script>
+    <script src="/static/trade_picks.js?v=3" defer></script>
   </body>
 </html>

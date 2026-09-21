@@ -161,6 +161,7 @@ X-Cron-Secret: some-long-random-string
 - `GET /prop-model` - Prop Model Engine dashboard (NBA/MLB Phase 1)
 - `GET /api/prop-model` - Prop Model Engine JSON (scraper health + stats)
 - `GET /api/bot/prematch` - pre-match model feed for trading bots
+- `GET /api/bot/trade-picks` - LIVE capital-bucket picks for polybot (`X-Api-Key`, flat $1)
 - `GET /api/polymarket/exact-score?slug=` - football exact-score Yes prices (Gamma + CLOB)
 - `GET /api/polymarket/exact-score/prices?slug=` - prices array only
 - `GET /api/correct-score-strat` - priced correct-score baskets for the slate
@@ -182,6 +183,26 @@ X-Cron-Secret: some-long-random-string
 - `POST /api/auto-resolve/all` - resolve both logs in one call
 - `POST /api/cron/auto-resolve` - same as above (optional `X-Cron-Secret` header)
 - `GET /health` - health check
+
+## Bot Trade Picks (polybot / Polymarket)
+
+`GET /api/bot/trade-picks` returns open LIVE capital-bucket picks for placement.
+
+Auth (same as `/api/bot/prematch`): set `BOT_API_KEY` and send `X-Api-Key`.
+
+**Full integration guide (for other repos / agents):** [`docs/bot-api.md`](docs/bot-api.md)
+
+```text
+GET /api/bot/trade-picks
+GET /api/bot/trade-picks?open_only=true
+GET /api/bot/trade-picks?date=2026-09-21&open_only=true
+GET /api/bot/trade-picks?category=Main_filtered&strategy=main
+```
+
+Response `kind: trade_picks` includes `schema_version`, `flat_stake_usd` (always `1.0`),
+`live_category_ids`, and `picks[]` with `id`, `live_category`, `strategy`, `fixture_id`
+(when resolvable from slate), `home_team` / `away_team`, `kickoff`, `market`, `bet_type`,
+`team`, `odds`, `stake_usd`, `status`.
 
 ## H2H Strat (DataGaffer Trends)
 

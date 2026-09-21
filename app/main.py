@@ -1016,6 +1016,32 @@ async def bot_prematch_feed(
     return JSONResponse(payload)
 
 
+@app.get("/api/bot/trade-picks")
+async def bot_trade_picks_feed(
+    open_only: bool = Query(True, description="Only open LIVE picks (default true for placement)"),
+    date: str | None = Query(default=None, description="Optional kickoff date YYYY-MM-DD (IST)"),
+    category: str | None = Query(default=None, description="Filter by LIVE category id"),
+    strategy: str | None = Query(default=None, description="Filter by strategy: main|cs|ev|h2h|arahus"),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+):
+    """
+    LIVE capital-bucket trade picks for polybot / Polymarket placement.
+    Auth: set BOT_API_KEY and send header X-Api-Key (same as /api/bot/prematch).
+    Flat stake is always $1 USD per pick.
+    """
+    _bot_api_authorized(x_api_key)
+    from app.trade_picks import build_bot_trade_picks_feed
+
+    payload = await run_in_threadpool(
+        build_bot_trade_picks_feed,
+        open_only=open_only,
+        pick_date=date,
+        category=category,
+        strategy=strategy,
+    )
+    return JSONResponse(payload)
+
+
 @app.get("/api/bot/prematch/{fixture_id}")
 async def bot_prematch_fixture(
     fixture_id: int,

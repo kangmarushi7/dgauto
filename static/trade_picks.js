@@ -8,6 +8,10 @@
   const exportCsv = document.getElementById("exportCsv");
   const table = document.getElementById("tradePicksTable");
   const kpiShown = document.getElementById("kpiShown");
+  const kpiOpen = document.getElementById("kpiOpen");
+  const kpiSettled = document.getElementById("kpiSettled");
+  const kpiPnl = document.getElementById("kpiPnl");
+  const kpiRoi = document.getElementById("kpiRoi");
 
   const dateTrigger = document.getElementById("dateTrigger");
   const dateTriggerText = document.getElementById("dateTriggerText");
@@ -125,6 +129,13 @@
     exportCsv.href = "/api/trade-picks/export" + (q ? "?" + q : "");
   }
 
+  function setTone(el, value) {
+    if (!el) return;
+    el.classList.remove("bets-pos", "bets-neg");
+    if (value > 0) el.classList.add("bets-pos");
+    else if (value < 0) el.classList.add("bets-neg");
+  }
+
   function applyClientFilters() {
     if (!table) {
       syncExportHref();
@@ -133,6 +144,9 @@
     const cat = (categoryFilter && categoryFilter.value) || "";
     const strat = (strategyFilter && strategyFilter.value) || "";
     let shown = 0;
+    let open = 0;
+    let settled = 0;
+    let pnl = 0;
     for (const row of table.tBodies[0]?.rows || []) {
       const matchCat = !cat || row.dataset.category === cat;
       const matchStrat =
@@ -141,9 +155,38 @@
         (strat === "arahus" && String(row.dataset.strategy || "").startsWith("arahus"));
       const visible = matchCat && matchStrat;
       row.hidden = !visible;
-      if (visible) shown += 1;
+      if (!visible) continue;
+      shown += 1;
+      if (row.dataset.status === "open") open += 1;
+      const result = String(row.dataset.result || "").toLowerCase();
+      if (["won", "lost", "push"].includes(result)) {
+        settled += 1;
+        const p = Number(row.dataset.pnl);
+        if (!Number.isNaN(p)) pnl += p;
+      }
     }
     if (kpiShown) kpiShown.textContent = String(shown);
+    if (kpiOpen) kpiOpen.textContent = String(open);
+    if (kpiSettled) kpiSettled.textContent = String(settled);
+    if (kpiPnl) {
+      if (settled) {
+        kpiPnl.textContent = `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`;
+        setTone(kpiPnl, pnl);
+      } else {
+        kpiPnl.textContent = "—";
+        setTone(kpiPnl, 0);
+      }
+    }
+    if (kpiRoi) {
+      if (settled) {
+        const roiPct = (pnl / settled) * 100;
+        kpiRoi.textContent = `${roiPct >= 0 ? "+" : ""}${roiPct.toFixed(1)}%`;
+        setTone(kpiRoi, roiPct);
+      } else {
+        kpiRoi.textContent = "—";
+        setTone(kpiRoi, 0);
+      }
+    }
     syncExportHref();
   }
 

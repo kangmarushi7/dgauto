@@ -357,6 +357,12 @@
   margin: 0 0 1.25rem;
 }
 
+@media (min-width: 900px) {
+  .bets-kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
 .bets-kpi {
   background: var(--surface, var(--dg-surface-solid));
   border: 1px solid var(--line, var(--dg-line));
