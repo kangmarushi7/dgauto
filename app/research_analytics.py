@@ -380,7 +380,8 @@ def _consensus(slices: dict[str, dict]) -> list[dict]:
                     "angle": f"{kind}:{name}",
                     "strategies": ", ".join(h[0] for h in hits),
                     "detail": "; ".join(
-                        f"{h[0]} n={h[1]['n']} ROI={h[1]['roi_pct']}% PnL={h[1]['pnl_units']:+.1f}"
+                        f"{h[0]} n={h[1]['n']} ROI={_fmt_num(h[1].get('roi_pct'), '+.1f')}% "
+                        f"PnL={_fmt_num(h[1].get('pnl_units'), '+.1f')}"
                         for h in hits
                     ),
                 }
@@ -400,12 +401,21 @@ def _consensus(slices: dict[str, dict]) -> list[dict]:
                     "angle": f"Main durable market:{m}",
                     "strategies": "Main",
                     "detail": (
-                        f"all-time ROI {overall.get('roi_pct')}% "
-                        f"({overall['pnl_units']:+.1f}u, n={overall['n']})"
+                        f"all-time ROI {_fmt_num(overall.get('roi_pct'), '+.1f')}% "
+                        f"({_fmt_num(overall.get('pnl_units'), '+.1f')}u, n={overall['n']})"
                     ),
                 }
             )
     return out
+
+
+def _fmt_num(value: Any, spec: str = "+.2f", empty: str = "—") -> str:
+    if value is None:
+        return empty
+    try:
+        return format(float(value), spec)
+    except (TypeError, ValueError):
+        return empty
 
 
 def _md_table(headers: list[str], rows: list[list[Any]]) -> list[str]:
@@ -429,12 +439,25 @@ def _fmt_agg_table(items: list[dict], key_header: str) -> list[str]:
                 a["key"],
                 a["n"],
                 a.get("win_pct"),
-                f"{a['pnl_units']:+.2f}",
-                f"{a['roi_pct']:+.1f}" if a.get("roi_pct") is not None else "—",
-                f"{a['avg_odds']:.3f}" if a.get("avg_odds") is not None else "—",
+                _fmt_num(a.get("pnl_units"), "+.2f"),
+                _fmt_num(a.get("roi_pct"), "+.1f"),
+                _fmt_num(a.get("avg_odds"), ".3f"),
             ]
         )
     return _md_table([key_header, "N", "Win%", "PnL(u)", "ROI%", "AvgOdds"], rows)
+
+
+def _fmt_playbook_item(item: dict[str, Any]) -> str:
+    scope = item.get("scope") or ""
+    strategy = item.get("strategy") or ""
+    if item.get("detail"):
+        return f"- **{scope}** ({strategy}): {item['detail']}"
+    return (
+        f"- **{scope}** ({strategy}): "
+        f"n={item.get('n') if item.get('n') is not None else '—'}, "
+        f"ROI {_fmt_num(item.get('roi_pct'), '+.1f')}%, "
+        f"PnL {_fmt_num(item.get('pnl_units'), '+.1f')}u"
+    )
 
 
 def _write_markdown(payload: dict[str, Any], path: Path) -> None:
@@ -455,8 +478,8 @@ def _write_markdown(payload: dict[str, Any], path: Path) -> None:
                 sl["label"],
                 o["n"],
                 o.get("win_pct"),
-                f"{o['pnl_units']:+.2f}",
-                f"{o.get('roi_pct'):+.1f}" if o.get("roi_pct") is not None else "—",
+                _fmt_num(o.get("pnl_units"), "+.2f"),
+                _fmt_num(o.get("roi_pct"), "+.1f"),
                 sl["open_n"],
             ]
         )
@@ -469,8 +492,8 @@ def _write_markdown(payload: dict[str, Any], path: Path) -> None:
         lines.append(f"## {sl['label']}")
         lines.append("")
         lines.append(
-            f"Settled **{o['n']}** · open {sl['open_n']} · win {o.get('win_pct')}% · "
-            f"PnL **{o['pnl_units']:+.2f}u** · ROI **{o.get('roi_pct')}%**"
+            f"Settled **{o['n']}** · open {sl['open_n']} · win {_fmt_num(o.get('win_pct'), '.1f')}% · "
+            f"PnL **{_fmt_num(o.get('pnl_units'), '+.2f')}u** · ROI **{_fmt_num(o.get('roi_pct'), '+.1f')}%**"
         )
         lines.append("")
         lines.append("### Markets")
@@ -494,8 +517,8 @@ def _write_markdown(payload: dict[str, Any], path: Path) -> None:
                 [
                     f"last {d}d",
                     a["n"],
-                    f"{a['pnl_units']:+.2f}",
-                    f"{a.get('roi_pct'):+.1f}" if a.get("roi_pct") is not None else "—",
+                    _fmt_num(a.get("pnl_units"), "+.2f"),
+                    _fmt_num(a.get("roi_pct"), "+.1f"),
                 ]
             )
         lines.extend(_md_table(["Window", "N", "PnL", "ROI%"], roll_rows))
@@ -525,18 +548,12 @@ def _write_markdown(payload: dict[str, Any], path: Path) -> None:
     lines.append("## Playbook keep")
     lines.append("")
     for item in payload.get("playbook_keep") or []:
-        lines.append(
-            f"- **{item['scope']}** ({item.get('strategy', '')}): "
-            f"n={item['n']}, ROI {item['roi_pct']}%, PnL {item['pnl_units']:+.1f}u"
-        )
+        lines.append(_fmt_playbook_item(item))
     lines.append("")
     lines.append("## Playbook cut")
     lines.append("")
     for item in payload.get("playbook_cut") or []:
-        lines.append(
-            f"- **{item['scope']}** ({item.get('strategy', '')}): "
-            f"n={item['n']}, ROI {item['roi_pct']}%, PnL {item['pnl_units']:+.1f}u"
-        )
+        lines.append(_fmt_playbook_item(item))
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
 
