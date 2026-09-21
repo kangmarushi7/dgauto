@@ -57,7 +57,7 @@ class StrategyBucketTests(unittest.TestCase):
         self.assertIsNone(assigned[2])  # Moneyline explicitly excluded
         self.assertEqual(assigned[3], "CS_CorrectScore_0_1")
         self.assertEqual(assigned[4], "CS_CorrectScore_2_1")
-        self.assertEqual(assigned[5], "EV_Over_3_5")
+        self.assertEqual(assigned[5], None)  # EV_Over_3_5 demoted from LIVE
         self.assertEqual(assigned[6], "H2H_Over_2_5")
         self.assertEqual(assigned[7], "Arahus_filtered")  # o25 @ 1.42
         self.assertIsNone(assigned[8])  # BTTS excluded even on fav league

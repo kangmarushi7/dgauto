@@ -1,6 +1,7 @@
 """Trade Picks — open (default) bets that match LIVE capital categories."""
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 from app.db import list_bets
@@ -30,7 +31,7 @@ DISPLAY_STRATEGY: dict[str, str] = {
     "cs": "cs",
     "ev": "ev",
     "h2h": "h2h",
-    "arahus": "arahus_v2",  # reuse Over 2.5 market labeling
+    "arahus": "arahus_v2",
     "arahus_v2": "arahus_v2",
     "arahus_live_v1": "arahus_live_v1",
 }
@@ -51,6 +52,18 @@ TRADE_PICK_CSV_FIELDS = [
     "pnl_units",
     "id",
 ]
+
+
+def parse_pick_date(value: str | date | None) -> date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    text = str(value).strip()[:10]
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 def _pipeline_rows() -> list[dict[str, Any]]:
@@ -96,8 +109,18 @@ def _display_row(raw: dict[str, Any], live_category: str) -> dict[str, Any] | No
     }
 
 
-def trade_picks_payload(*, include_settled: bool = False) -> dict[str, Any]:
-    """LIVE-category picks. Default: open only; optional settled history."""
+def trade_picks_payload(
+    *,
+    include_settled: bool = False,
+    pick_date: str | date | None = None,
+) -> dict[str, Any]:
+    """LIVE-category picks.
+
+    Default: all open LIVE bets.
+    With pick_date (YYYY-MM-DD): bets whose kickoff date (IST) matches that day
+    — includes open and settled for that day.
+    """
+    day = parse_pick_date(pick_date)
     states = get_runtime_states()
     live_ids = [
         cid
@@ -106,9 +129,12 @@ def trade_picks_payload(*, include_settled: bool = False) -> dict[str, Any]:
     ]
     live_set = set(live_ids)
 
+    # Day view always includes settled for that fixture date.
+    want_settled = include_settled or day is not None
+
     picks: list[dict[str, Any]] = []
     for raw in _pipeline_rows():
-        if include_settled:
+        if want_settled:
             if not (_is_open_tradeable(raw) or _is_settled(raw)):
                 continue
         elif not _is_open_tradeable(raw):
@@ -119,8 +145,15 @@ def trade_picks_payload(*, include_settled: bool = False) -> dict[str, Any]:
             continue
 
         row = _display_row(raw, cid)
-        if row:
-            picks.append(row)
+        if not row:
+            continue
+
+        if day is not None:
+            row_day = parse_pick_date(row.get("date_label"))
+            if row_day != day:
+                continue
+
+        picks.append(row)
 
     picks.sort(
         key=lambda b: (
@@ -136,7 +169,8 @@ def trade_picks_payload(*, include_settled: bool = False) -> dict[str, Any]:
         by_category[p["live_category"]] = by_category.get(p["live_category"], 0) + 1
 
     return {
-        "include_settled": include_settled,
+        "include_settled": want_settled,
+        "pick_date": day.isoformat() if day else None,
         "flat_stake_usd": FLAT_STAKE_USD,
         "live_category_ids": live_ids,
         "entries": picks,

@@ -492,10 +492,15 @@ async def todays_bets_page(request: Request, strategy: str | None = Query(defaul
 async def trade_picks_page(
     request: Request,
     include_settled: bool = Query(False),
+    date: str | None = Query(default=None),
 ):
     from app.trade_picks import trade_picks_payload
 
-    payload = await run_in_threadpool(trade_picks_payload, include_settled=include_settled)
+    payload = await run_in_threadpool(
+        trade_picks_payload,
+        include_settled=include_settled,
+        pick_date=date,
+    )
     return templates.TemplateResponse(
         request,
         "trade_picks.html",
@@ -504,21 +509,35 @@ async def trade_picks_page(
 
 
 @app.get("/api/trade-picks")
-async def trade_picks_api(include_settled: bool = Query(False)):
+async def trade_picks_api(
+    include_settled: bool = Query(False),
+    date: str | None = Query(default=None),
+):
     from app.trade_picks import trade_picks_payload
 
-    return JSONResponse(await run_in_threadpool(trade_picks_payload, include_settled=include_settled))
+    return JSONResponse(
+        await run_in_threadpool(
+            trade_picks_payload,
+            include_settled=include_settled,
+            pick_date=date,
+        )
+    )
 
 
 @app.get("/api/trade-picks/export")
 async def trade_picks_export(
     include_settled: bool = Query(False),
+    date: str | None = Query(default=None),
     category: str | None = Query(default=None),
     strategy: str | None = Query(default=None),
 ):
     from app.trade_picks import TRADE_PICK_CSV_FIELDS, trade_pick_csv_rows, trade_picks_payload
 
-    payload = await run_in_threadpool(trade_picks_payload, include_settled=include_settled)
+    payload = await run_in_threadpool(
+        trade_picks_payload,
+        include_settled=include_settled,
+        pick_date=date,
+    )
     entries = list(payload.get("entries") or [])
     if category:
         entries = [e for e in entries if e.get("live_category") == category]
@@ -534,7 +553,10 @@ async def trade_picks_export(
             entries = [e for e in entries if e.get("strategy") == strat]
     rows = trade_pick_csv_rows(entries)
     content = dicts_to_csv(rows, TRADE_PICK_CSV_FIELDS)
-    suffix = "open" if not include_settled else "all"
+    if date:
+        suffix = str(date)[:10]
+    else:
+        suffix = "open" if not include_settled else "all"
     return _csv_attachment(content, f"trade_picks_{suffix}.csv")
 
 

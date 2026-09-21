@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trade Picks · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
-    <link rel="stylesheet" href="/static/bets.css?v=5" />
+    <link rel="stylesheet" href="/static/bets.css?v=6" />
     <script src="/static/table_tools.js?v=7" defer></script>
   </head>
   <body>
@@ -17,7 +17,11 @@
         <h1 class="app-brand">Trade <span>Picks</span></h1>
         <p class="subtitle">
           LIVE capital-bucket queue — flat ${{ '%.2f'|format(payload.flat_stake_usd or 1) }} stake.
-          Open bets only by default.
+          {% if payload.pick_date %}
+          Showing kickoffs on <strong>{{ payload.pick_date }}</strong> (IST).
+          {% else %}
+          Open bets only by default — pick a date to review that day’s queue.
+          {% endif %}
         </p>
       </header>
 
@@ -41,6 +45,35 @@
       </div>
 
       <div class="bets-toolbar">
+        <div class="bets-range" id="datePicker">
+          <span class="bets-range__label">Date</span>
+          <button type="button" class="bets-range__trigger" id="dateTrigger" aria-haspopup="dialog" aria-expanded="false">
+            <span id="dateTriggerText">{% if payload.pick_date %}{{ payload.pick_date }}{% else %}All open{% endif %}</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+              <path fill="currentColor" d="M4.5 2v1H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1.5V2h-1v1h-5V2h-1zm8.5 4H3v7h10V6z"/>
+            </svg>
+          </button>
+          <div class="bets-range__popover" id="datePopover" hidden role="dialog" aria-label="Pick a day">
+            <div class="bets-range__presets" role="group" aria-label="Quick dates">
+              <button type="button" data-preset="today">Today</button>
+              <button type="button" data-preset="clear">All open</button>
+            </div>
+            <div class="bets-cal__nav">
+              <button type="button" class="bets-cal__nav-btn" id="calPrev" aria-label="Previous month">‹</button>
+              <div class="bets-cal__month" id="calMonthLabel"></div>
+              <button type="button" class="bets-cal__nav-btn" id="calNext" aria-label="Next month">›</button>
+            </div>
+            <div class="bets-cal__weekdays" aria-hidden="true">
+              <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+            </div>
+            <div class="bets-cal__grid" id="calGrid" role="grid"></div>
+            <p class="bets-cal__hint">Select a day to see LIVE picks for that kickoff date (IST).</p>
+            <div class="bets-cal__actions">
+              <button type="button" class="btn-secondary" id="calClear">Clear</button>
+              <button type="button" id="calApply">Apply</button>
+            </div>
+          </div>
+        </div>
         <label>
           LIVE category
           <select id="categoryFilter" aria-label="Filter by LIVE category">
@@ -61,15 +94,16 @@
             <option value="arahus">Arahus</option>
           </select>
         </label>
-        <label class="bets-toggle">
-          <input type="checkbox" id="includeSettled" {% if payload.include_settled %}checked{% endif %} />
+        <label class="bets-toggle" {% if payload.pick_date %}title="Day view always includes settled for that date"{% endif %}>
+          <input
+            type="checkbox"
+            id="includeSettled"
+            {% if payload.include_settled %}checked{% endif %}
+            {% if payload.pick_date %}disabled{% endif %}
+          />
           Include settled
         </label>
-        <a
-          class="btn-secondary"
-          id="exportCsv"
-          href="/api/trade-picks/export{% if payload.include_settled %}?include_settled=1{% endif %}"
-        >Export CSV</a>
+        <a class="btn-secondary" id="exportCsv" href="/api/trade-picks/export">Export CSV</a>
       </div>
 
       <div class="bets-table-wrap">
@@ -77,7 +111,13 @@
         {% if not entries %}
         <div class="bets-empty">
           <h2>No LIVE trade picks</h2>
-          <p>No open bets currently match a LIVE capital category. Toggle “Include settled” to review history.</p>
+          <p>
+            {% if payload.pick_date %}
+            No LIVE-category bets with kickoff on {{ payload.pick_date }}.
+            {% else %}
+            No open bets currently match a LIVE capital category. Pick a date or toggle “Include settled”.
+            {% endif %}
+          </p>
         </div>
         {% else %}
         <table data-column-filters="1" id="tradePicksTable">
@@ -102,6 +142,7 @@
               data-category="{{ b.live_category }}"
               data-strategy="{{ b.strategy }}"
               data-status="{{ b.status }}"
+              data-date="{{ b.date_label or '' }}"
             >
               <td class="mono">{{ b.date_label or "—" }}</td>
               <td class="mono">{{ b.time_label or "—" }}</td>
@@ -125,6 +166,12 @@
         {% endif %}
       </div>
     </main>
-    <script src="/static/trade_picks.js?v=1" defer></script>
+    <script>
+      window.TRADE_PICKS_STATE = {
+        pick_date: {{ (payload.pick_date or none) | tojson }},
+        include_settled: {{ payload.include_settled | tojson }},
+      };
+    </script>
+    <script src="/static/trade_picks.js?v=2" defer></script>
   </body>
 </html>

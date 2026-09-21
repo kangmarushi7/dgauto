@@ -350,10 +350,11 @@ CATEGORIES: dict[str, CategoryDef] = {
     "EV_Over_3_5": CategoryDef(
         id="EV_Over_3_5",
         strategy="ev",
-        initial_state=STATE_LIVE,
+        initial_state=STATE_LOGGING,
         match=_match_ev_o35,
+        stake_usd=0.0,
         recent_underperformance_watch=True,
-        description="+EV Over 3.5",
+        description="+EV Over 3.5 — demoted from LIVE (gates fail / underperformance)",
     ),
     "H2H_Over_2_5": CategoryDef(
         id="H2H_Over_2_5",
@@ -425,6 +426,10 @@ def get_runtime_states() -> dict[str, str]:
     stored = load_state(STATE_STORE_KEY, {})
     out: dict[str, str] = {}
     for cid, cat in CATEGORIES.items():
+        # Config demotion wins over a stale LIVE value left in the state store.
+        if cat.initial_state == STATE_LOGGING and str(stored.get(cid) or "") == STATE_LIVE:
+            out[cid] = STATE_LOGGING
+            continue
         out[cid] = str(stored.get(cid) or cat.initial_state)
     return out
 

@@ -93,6 +93,17 @@ class TradePicksTests(unittest.TestCase):
         self.assertIn("settled-band", ids)
         self.assertNotIn("moneyline-skip", ids)
 
+    def test_pick_date_filters_kickoff_day(self):
+        payload = self.tp.trade_picks_payload(pick_date="2026-09-20")
+        ids = {e["id"] for e in payload["entries"]}
+        self.assertEqual(ids, {"settled-band"})
+        self.assertEqual(payload["pick_date"], "2026-09-20")
+
+        payload2 = self.tp.trade_picks_payload(pick_date="2026-09-21")
+        ids2 = {e["id"] for e in payload2["entries"]}
+        self.assertIn("open-o25", ids2)
+        self.assertNotIn("settled-band", ids2)
+
 
 if __name__ == "__main__":
     unittest.main()
