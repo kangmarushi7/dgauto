@@ -13,6 +13,7 @@
 }
 
 .research-toolbar button,
+.research-toolbar .btn-secondary,
 .research-dl {
   display: inline-flex;
   align-items: center;
@@ -34,6 +35,12 @@
 .research-toolbar button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.research-toolbar .btn-secondary {
+  background: var(--dg-surface-solid);
+  color: var(--dg-ink);
+  border-color: var(--dg-line);
 }
 
 .research-dl {
@@ -232,4 +239,43 @@
 
 .research-consensus h3 {
   margin: 0 0 8px;
+}
+
+.research-buckets {
+  margin-top: 4px;
+  margin-bottom: 32px;
+}
+
+.bucket-state {
+  display: inline-block;
+  min-width: 5.5rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font: 700 11px/1.2 var(--dg-font);
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.bucket-state.is-live {
+  background: #d8f0df;
+  color: #176b2f;
+}
+
+.bucket-state.is-tracking {
+  background: #f5e8c8;
+  color: #7a5a12;
+}
+
+.bucket-state.is-logging {
+  background: #e8ecef;
+  color: #4a5560;
+}
+
+.bucket-gates-pass {
+  color: var(--dg-ok);
+  font-weight: 700;
+}
+
+.bucket-gates-fail {
+  color: var(--dg-muted);
 }

@@ -174,6 +174,19 @@ def _add_fixture_refresh_job(scheduler: BackgroundScheduler, tz) -> None:
     )
 
 
+def run_monthly_category_graduation() -> dict[str, Any]:
+    """Monthly cron: status report + TRACKING promotions / LIVE demotions."""
+    from app.strategy_buckets import apply_monthly_graduation, load_pipeline_bets_from_db
+
+    rows = load_pipeline_bets_from_db()
+    payload = apply_monthly_graduation(rows, persist=True)
+    logger.info(
+        "Category graduation finished: transitions=%s",
+        payload.get("transitions"),
+    )
+    return payload
+
+
 def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
     """Start background jobs: daily auto-resolve + periodic fixture refresh."""
     global _scheduler
@@ -223,6 +236,32 @@ def start_auto_resolve_scheduler() -> BackgroundScheduler | None:
         logger.info("Scheduled auto-resolve is disabled (AUTO_RESOLVE_SCHEDULE_ENABLED=false)")
 
     _add_fixture_refresh_job(scheduler, tz)
+
+    if _env_flag("CATEGORY_GRADUATION_SCHEDULE_ENABLED", default=True):
+        try:
+            g_hour, g_minute = _parse_hhmm(os.getenv("CATEGORY_GRADUATION_TIME", "05:15"))
+            scheduler.add_job(
+                run_monthly_category_graduation,
+                trigger=CronTrigger(
+                    day=1,
+                    hour=g_hour,
+                    minute=g_minute,
+                    timezone=tz,
+                ),
+                id="monthly_category_graduation",
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+                misfire_grace_time=86400,
+            )
+            logger.info(
+                "Scheduled monthly category graduation on day 1 at %02d:%02d %s",
+                g_hour,
+                g_minute,
+                getattr(tz, "key", tz),
+            )
+        except ValueError as exc:
+            logger.error("%s — category graduation job not scheduled", exc)
 
     if not scheduler.get_jobs():
         logger.warning("No scheduled jobs configured — scheduler not started")

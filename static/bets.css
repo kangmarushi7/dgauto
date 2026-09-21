@@ -590,3 +590,48 @@
     grid-template-columns: 1fr;
   }
 }
+
+.bets-toggle {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink, var(--dg-ink));
+  align-self: flex-end;
+  margin-bottom: 0.15rem;
+}
+
+.bets-toggle input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.bets-toolbar .btn-secondary {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--dg-line, #c5d0c8);
+  background: var(--dg-surface-solid, #fff);
+  color: var(--dg-ink, #122);
+  font: 600 13px/1 inherit;
+  text-decoration: none;
+}
+
+.bucket-state {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font: 700 11px/1.2 inherit;
+  letter-spacing: 0.02em;
+}
+
+.bucket-state.is-live {
+  background: #d8f0df;
+  color: #176b2f;
+}

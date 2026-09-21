@@ -3,10 +3,12 @@
     slice: "combined",
     payload: null,
     status: "never_run",
+    buckets: null,
   };
 
   const el = {
     refreshBtn: document.getElementById("refreshBtn"),
+    bucketsBtn: document.getElementById("bucketsBtn"),
     statusText: document.getElementById("statusText"),
     metaLine: document.getElementById("metaLine"),
     emptyState: document.getElementById("emptyState"),
@@ -23,6 +25,9 @@
     consensus: document.getElementById("consensusBlock"),
     dlMd: document.getElementById("dlMd"),
     dlPdf: document.getElementById("dlPdf"),
+    bucketsMeta: document.getElementById("bucketsMeta"),
+    bucketsLiveSummary: document.getElementById("bucketsLiveSummary"),
+    bucketsTable: document.getElementById("bucketsTable"),
   };
 
   function fmt(n, digits = 1) {
@@ -89,6 +94,147 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function stateClass(st) {
+    const s = String(st || "").toUpperCase();
+    if (s === "LIVE") return "is-live";
+    if (s === "TRACKING") return "is-tracking";
+    return "is-logging";
+  }
+
+  function fmtRoiFrac(roi) {
+    if (roi == null || Number.isNaN(roi)) return "—";
+    return fmt(roi * 100) + "%";
+  }
+
+  function gateSummary(gates) {
+    if (!gates) return "—";
+    const labels = [
+      ["a_sample_size", "n"],
+      ["b_positive_months", "MoM+"],
+      ["c_full_roi_ge_5pct", "ROI≥5%"],
+      ["d_no_monotone_decline", "trend"],
+    ];
+    return labels
+      .map(([k, label]) => {
+        const ok = !!gates[k];
+        return `<span class="${ok ? "bucket-gates-pass" : "bucket-gates-fail"}">${label}${
+          ok ? "✓" : "✗"
+        }</span>`;
+      })
+      .join(" ");
+  }
+
+  async function loadBuckets() {
+    if (el.bucketsBtn) el.bucketsBtn.disabled = true;
+    // Don't wipe SSR content with "Loading…" unless the table is empty.
+    if (el.bucketsMeta && !(el.bucketsTable && el.bucketsTable.querySelector("table"))) {
+      el.bucketsMeta.textContent = "Loading bucket status…";
+    }
+    try {
+      const res = await fetch("/api/strategy-buckets/status");
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.detail || res.statusText);
+      state.buckets = body;
+      renderBuckets(body);
+    } catch (err) {
+      state.buckets = null;
+      renderBuckets({ error: String(err) });
+    } finally {
+      if (el.bucketsBtn) el.bucketsBtn.disabled = false;
+    }
+  }
+
+  function renderBuckets(payload) {
+    if (!el.bucketsTable || !el.bucketsMeta) return;
+    try {
+      if (!payload || payload.error) {
+        el.bucketsMeta.textContent = payload?.error
+          ? `Buckets error: ${payload.error}`
+          : "No bucket data.";
+        el.bucketsTable.innerHTML = "";
+        if (el.bucketsLiveSummary) el.bucketsLiveSummary.innerHTML = "";
+        return;
+      }
+
+      const cats = payload.categories || {};
+      const ids = Object.keys(cats);
+      const stake = payload.flat_stake_usd != null ? Number(payload.flat_stake_usd).toFixed(2) : "1.00";
+      el.bucketsMeta.textContent = `Flat stake $${stake} · ${ids.length} categories · generated ${
+        payload.generated_at || "—"
+      }`;
+
+      const liveCats = ids.filter((id) => String(cats[id].state).toUpperCase() === "LIVE");
+      const liveN = liveCats.reduce((s, id) => s + (cats[id].n || 0), 0);
+      const liveRoi =
+        liveN > 0
+          ? liveCats.reduce((s, id) => s + (Number(cats[id].roi_full) || 0) * (cats[id].n || 0), 0) /
+            liveN
+          : null;
+
+      if (el.bucketsLiveSummary) {
+        el.bucketsLiveSummary.innerHTML = [
+          ["LIVE categories", String(liveCats.length), ""],
+          ["LIVE settled n", String(liveN), ""],
+          [
+            "LIVE ROI (weighted)",
+            liveRoi != null ? fmtRoiFrac(liveRoi) : "—",
+            toneClass(liveRoi != null ? liveRoi * 100 : null),
+          ],
+          ["Stake", `$${stake}`, ""],
+        ]
+          .map(
+            ([label, value, cls]) =>
+              `<article class="research-stat">
+            <p class="research-stat__label">${label}</p>
+            <p class="research-stat__value ${cls}">${value}</p>
+          </article>`
+          )
+          .join("");
+      }
+
+      const order = { LIVE: 0, TRACKING: 1, LOGGING: 2 };
+      const sorted = ids.slice().sort((a, b) => {
+        const sa = String(cats[a].state || "").toUpperCase();
+        const sb = String(cats[b].state || "").toUpperCase();
+        return (order[sa] ?? 9) - (order[sb] ?? 9) || a.localeCompare(b);
+      });
+
+      const body = sorted
+        .map((id) => {
+          const c = cats[id];
+          const st = String(c.state || "").toUpperCase();
+          const mom = (c.roi_last_3_months || [])
+            .map((m) => `${m.month}:${m.roi != null ? fmt(m.roi * 100) + "%" : "—"}`)
+            .join(" · ");
+          const gatesPass = c.graduation_all_pass;
+          return `<tr>
+          <td>${escapeHtml(id)}</td>
+          <td><span class="bucket-state ${stateClass(st)}">${escapeHtml(st)}</span></td>
+          <td>${c.n ?? 0}</td>
+          <td class="${toneClass(c.roi_full != null ? c.roi_full * 100 : null)}">${fmtRoiFrac(
+            c.roi_full
+          )}</td>
+          <td>${escapeHtml(mom || "—")}</td>
+          <td class="${gatesPass ? "bucket-gates-pass" : "bucket-gates-fail"}">${
+            gatesPass ? "PASS" : "fail"
+          }</td>
+          <td>${gateSummary(c.graduation_gates)}</td>
+          <td>$${Number(c.stake_usd || 0).toFixed(2)}</td>
+        </tr>`;
+        })
+        .join("");
+
+      el.bucketsTable.innerHTML = `<table class="research-table">
+      <thead><tr>
+        <th>Category</th><th>State</th><th>N</th><th>ROI</th><th>Last 3 mo</th><th>Gates</th><th>a–d</th><th>Stake</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+    } catch (err) {
+      el.bucketsMeta.textContent = `Buckets render error: ${err}`;
+    }
   }
 
   function currentSlice() {
@@ -163,7 +309,6 @@
       el.focusBlocks.innerHTML = "";
     }
 
-    // Playbook: global keep/cut for Combined; per-slice lists otherwise
     let keep = [];
     let cut = [];
     if (state.slice === "combined") {
@@ -220,6 +365,11 @@
     } else {
       el.consensus.innerHTML = "";
     }
+
+    // Prefer fresh buckets API; fall back to research payload embed.
+    if (!state.buckets && data.live_buckets) {
+      renderBuckets(data.live_buckets);
+    }
   }
 
   async function loadCached() {
@@ -246,6 +396,7 @@
       setStatus("ready", body.generated_at, null, body.elapsed_sec);
       setExports(body.exports);
       render();
+      await loadBuckets();
     } catch (err) {
       setStatus("error", null, String(err));
       await loadCached();
@@ -266,5 +417,12 @@
   });
 
   el.refreshBtn.addEventListener("click", refresh);
-  loadCached().catch((err) => setStatus("error", null, String(err)));
+  if (el.bucketsBtn) el.bucketsBtn.addEventListener("click", loadBuckets);
+
+  // Buckets first (fast), then profitability cache — avoids a stuck "Loading…" race.
+  loadBuckets()
+    .catch((err) => renderBuckets({ error: String(err) }))
+    .finally(() => {
+      loadCached().catch((err) => setStatus("error", null, String(err)));
+    });
 })();

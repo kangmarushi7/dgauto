@@ -555,6 +555,37 @@ def _write_markdown(payload: dict[str, Any], path: Path) -> None:
     for item in payload.get("playbook_cut") or []:
         lines.append(_fmt_playbook_item(item))
     lines.append("")
+
+    live = payload.get("live_buckets") or {}
+    cats = live.get("categories") or {}
+    if cats:
+        lines.append("## Capital buckets (LIVE / TRACKING / LOGGING)")
+        lines.append("")
+        lines.append(f"Flat stake: `${live.get('flat_stake_usd', 1.0):.2f}` USD")
+        lines.append("")
+        bucket_rows = []
+        for cid, info in cats.items():
+            roi = info.get("roi_full")
+            bucket_rows.append(
+                [
+                    cid,
+                    info.get("state"),
+                    info.get("n"),
+                    _fmt_num((roi * 100) if roi is not None else None, "+.1f"),
+                    "pass" if info.get("graduation_all_pass") else "fail",
+                ]
+            )
+        lines.extend(_md_table(["Category", "State", "N", "ROI%", "Gates"], bucket_rows))
+        lines.append("")
+        live_pnl = payload.get("live_pnl") or {}
+        if live_pnl:
+            lines.append(
+                f"LIVE aggregate: n={live_pnl.get('n')} · "
+                f"PnL {_fmt_num(live_pnl.get('pnl'), '+.2f')}u · "
+                f"ROI {_fmt_num((live_pnl.get('roi') or 0) * 100 if live_pnl.get('roi') is not None else None, '+.1f')}%"
+            )
+            lines.append("")
+
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -595,17 +626,46 @@ def build_research_payload() -> dict[str, Any]:
             "detail": c["detail"],
         })
 
+    # Single source of truth for LIVE / TRACKING / LOGGING capital buckets.
+    from app.strategy_buckets import (
+        LIVE_CATEGORY_IDS,
+        aggregate_live_pnl,
+        category_status_report,
+        load_pipeline_bets_from_db,
+    )
+
+    try:
+        bucket_rows = load_pipeline_bets_from_db()
+        # Ensure Main/Arahus/+EV research rows are included even if cs/h2h empty.
+        for key, log_type in (("main", "main"), ("arahus", "arahus"), ("ev", "ev")):
+            if not bucket_rows.get(log_type):
+                bucket_rows[log_type] = [
+                    {**r, "strategy": log_type, "log_type": log_type} for r in by_key[key]
+                ]
+        live_buckets = category_status_report(bucket_rows)
+        flat_for_pnl = []
+        for strat, rows in bucket_rows.items():
+            flat_for_pnl.extend({**r, "strategy": r.get("strategy") or strat} for r in rows)
+        live_pnl = aggregate_live_pnl(flat_for_pnl)
+    except Exception as exc:
+        logger.warning("strategy_buckets report failed: %s", exc)
+        live_buckets = {"error": str(exc), "categories": {}}
+        live_pnl = {}
+
     return {
         "meta": {
             "generated_at": now.isoformat(timespec="seconds"),
             "asof": asof.isoformat(),
             "sources": ["db:main", "db:arahus", "db:ev"],
             "classifier": "team_overs_before_match_overs",
+            "live_category_ids": list(LIVE_CATEGORY_IDS),
         },
         "slices": slices,
         "consensus": consensus,
         "playbook_keep": playbook_keep[:25],
         "playbook_cut": playbook_cut[:20],
+        "live_buckets": live_buckets,
+        "live_pnl": live_pnl,
     }
 
 

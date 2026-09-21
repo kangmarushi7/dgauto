@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trade Picks · DG</title>
+    <link rel="stylesheet" href="/static/style.css?v=16" />
+    <link rel="stylesheet" href="/static/bets.css?v=5" />
+    <script src="/static/table_tools.js?v=7" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "trade-picks" %}
+      {% include "includes/app_nav.html" %}
+
+      <header class="app-hero">
+        <h1 class="app-brand">Trade <span>Picks</span></h1>
+        <p class="subtitle">
+          LIVE capital-bucket queue — flat ${{ '%.2f'|format(payload.flat_stake_usd or 1) }} stake.
+          Open bets only by default.
+        </p>
+      </header>
+
+      <div class="bets-kpis" aria-label="Trade picks summary">
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">Shown</p>
+          <p class="bets-kpi__value" id="kpiShown">{{ payload.n or 0 }}</p>
+        </div>
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">Open</p>
+          <p class="bets-kpi__value" id="kpiOpen">{{ payload.open_n or 0 }}</p>
+        </div>
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">Settled</p>
+          <p class="bets-kpi__value" id="kpiSettled">{{ payload.settled_n or 0 }}</p>
+        </div>
+        <div class="bets-kpi">
+          <p class="bets-kpi__label">Stake</p>
+          <p class="bets-kpi__value">${{ '%.2f'|format(payload.flat_stake_usd or 1) }}</p>
+        </div>
+      </div>
+
+      <div class="bets-toolbar">
+        <label>
+          LIVE category
+          <select id="categoryFilter" aria-label="Filter by LIVE category">
+            <option value="">All LIVE categories</option>
+            {% for c in payload.categories or [] %}
+            <option value="{{ c.id }}">{{ c.id }} ({{ c.n }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Strategy
+          <select id="strategyFilter" aria-label="Filter by strategy">
+            <option value="">All strategies</option>
+            <option value="main">Main</option>
+            <option value="cs">CS</option>
+            <option value="ev">+EV</option>
+            <option value="h2h">H2H</option>
+            <option value="arahus">Arahus</option>
+          </select>
+        </label>
+        <label class="bets-toggle">
+          <input type="checkbox" id="includeSettled" {% if payload.include_settled %}checked{% endif %} />
+          Include settled
+        </label>
+        <a
+          class="btn-secondary"
+          id="exportCsv"
+          href="/api/trade-picks/export{% if payload.include_settled %}?include_settled=1{% endif %}"
+        >Export CSV</a>
+      </div>
+
+      <div class="bets-table-wrap">
+        {% set entries = payload.entries or [] %}
+        {% if not entries %}
+        <div class="bets-empty">
+          <h2>No LIVE trade picks</h2>
+          <p>No open bets currently match a LIVE capital category. Toggle “Include settled” to review history.</p>
+        </div>
+        {% else %}
+        <table data-column-filters="1" id="tradePicksTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Fixture</th>
+              <th>League</th>
+              <th>LIVE category</th>
+              <th>Strategy</th>
+              <th>Market</th>
+              <th>Odds</th>
+              <th>Stake</th>
+              <th>Status</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in entries %}
+            <tr
+              data-category="{{ b.live_category }}"
+              data-strategy="{{ b.strategy }}"
+              data-status="{{ b.status }}"
+            >
+              <td class="mono">{{ b.date_label or "—" }}</td>
+              <td class="mono">{{ b.time_label or "—" }}</td>
+              <td>{{ b.fixture or "—" }}</td>
+              <td>{{ b.league or "—" }}</td>
+              <td><span class="bucket-state is-live">{{ b.live_category }}</span></td>
+              <td>{{ b.strategy_short or b.strategy_label or b.strategy }}</td>
+              <td>{{ b.market or "—" }}</td>
+              <td class="mono">{% if b.odds is not none %}{{ '%.3f'|format(b.odds) }}{% else %}—{% endif %}</td>
+              <td class="mono">${{ '%.2f'|format(b.stake_usd or 1) }}</td>
+              <td>
+                <span class="bets-pill bets-pill--{{ b.status or 'pending' }}">
+                  {{ (b.status or 'pending')|capitalize }}
+                </span>
+              </td>
+              <td>{{ b.result or "—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+    </main>
+    <script src="/static/trade_picks.js?v=1" defer></script>
+  </body>
+</html>

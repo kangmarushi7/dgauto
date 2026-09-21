@@ -1,5 +1,5 @@
 {# Shared app nav. Set nav_current before include, e.g. {% set nav_current = "home" %} #}
-{% set strategies_active = nav_current in ['lm-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'arahus', 'arahus-v2', 'arahus-live-v1', 'prop-model'] %}
+{% set strategies_active = nav_current in ['trade-picks', 'lm-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'arahus', 'arahus-v2', 'arahus-live-v1', 'prop-model'] %}
 {% set logs_active = nav_current in ['lm-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'arahus-bet-log', 'arahus-v2-bet-log', 'arahus-live-v1-bet-log', 'prop-bet-log'] %}
 {% set legacy_active = nav_current in ['legacy', 'legacy-scenarios', 'legacy-recommended', 'legacy-bet-log'] %}
 
@@ -28,6 +28,7 @@
         <span class="app-nav__caret" aria-hidden="true"></span>
       </button>
       <div class="app-nav__panel" id="navStrategies" role="menu" hidden>
+        <a href="/trade-picks" role="menuitem" class="{% if nav_current == 'trade-picks' %}is-current{% endif %}">Trade Picks</a>
         <a href="/lm-strat" role="menuitem" class="{% if nav_current == 'lm-strat' %}is-current{% endif %}">Line Movement (LM)</a>
         <a href="/no-strat" role="menuitem" class="{% if nav_current == 'no-strat' %}is-current{% endif %}">No-Vig Model (NO)</a>
         <a href="/h2h-strat" role="menuitem" class="{% if nav_current == 'h2h-strat' %}is-current{% endif %}">Head to Head (H2H)</a>

@@ -117,7 +117,7 @@ from app.arahus_live_v1_engine import (
 from app.fixture_detail import get_fixture_detail_from_state
 from app.slate import build_fixture_slate
 from app.todays_bets import build_todays_bets_scenarios
-from app.unified_bets import bet_log_entries, count_flagged_ev, home_summary_stats, todays_bets_payload
+from app.unified_bets import bet_log_entries, home_summary_stats, todays_bets_payload
 from app.bot_feed import build_prematch_feed, get_prematch_fixture
 from app.polymarket_exact_score import exact_score_prices_array, pull_exact_score_prices
 from app.prop_model import build_prop_model_dashboard, clear_scrape_logs, get_scrape_job_status
@@ -316,8 +316,13 @@ def _home_context() -> dict:
     data = read_latest()
     matches = data.get("matches", [])
     slate = build_fixture_slate(matches)
-    # Cached — full +EV scan is expensive; refresh via /api/slate or TTL.
-    flagged_ev = count_flagged_ev(data)
+    # Cheap open-bet count only — full +EV fixture scan can hang the homepage
+    # for minutes on a large slate. Use /api/slate?force_ev=1 for the scan.
+    from app.db import list_bets
+
+    flagged_ev = sum(
+        1 for e in list_bets("ev") if str(e.get("status") or "").lower() == "open"
+    )
     stats = home_summary_stats(match_count=len(slate), flagged_ev=flagged_ev)
     return {"data": data, "slate": slate, "matches": matches, "stats": stats}
 
@@ -381,7 +386,30 @@ async def strategy_logic_page(request: Request):
 
 @app.get("/research")
 async def research_page(request: Request):
-    return templates.TemplateResponse(request, "research.html", {})
+    def _buckets() -> dict[str, Any]:
+        try:
+            from app.strategy_buckets import category_status_report, load_pipeline_bets_from_db
+
+            report = category_status_report(load_pipeline_bets_from_db())
+            cats = report.get("categories") or {}
+            order = {"LIVE": 0, "TRACKING": 1, "LOGGING": 2}
+            report["category_rows"] = sorted(
+                cats.values(),
+                key=lambda c: (
+                    order.get(str(c.get("state") or "").upper(), 9),
+                    str(c.get("id") or ""),
+                ),
+            )
+            return report
+        except Exception as exc:
+            return {"error": str(exc), "categories": {}, "category_rows": []}
+
+    buckets = await run_in_threadpool(_buckets)
+    return templates.TemplateResponse(
+        request,
+        "research.html",
+        {"buckets": buckets},
+    )
 
 
 @app.get("/api/research")
@@ -431,6 +459,25 @@ async def research_export_pdf():
     )
 
 
+@app.get("/api/strategy-buckets/status")
+async def strategy_buckets_status(graduate: bool = Query(False)):
+    """On-demand category status report (+ optional graduation transitions)."""
+
+    def _run() -> dict[str, Any]:
+        from app.strategy_buckets import (
+            apply_monthly_graduation,
+            category_status_report,
+            load_pipeline_bets_from_db,
+        )
+
+        rows = load_pipeline_bets_from_db()
+        if graduate:
+            return apply_monthly_graduation(rows, persist=True)
+        return category_status_report(rows)
+
+    return JSONResponse(await run_in_threadpool(_run))
+
+
 @app.get("/todays-bets")
 async def todays_bets_page(request: Request, strategy: str | None = Query(default=None)):
     payload = await run_in_threadpool(todays_bets_payload, strategy=strategy)
@@ -439,6 +486,56 @@ async def todays_bets_page(request: Request, strategy: str | None = Query(defaul
         "todays_bets.html",
         {"payload": payload},
     )
+
+
+@app.get("/trade-picks")
+async def trade_picks_page(
+    request: Request,
+    include_settled: bool = Query(False),
+):
+    from app.trade_picks import trade_picks_payload
+
+    payload = await run_in_threadpool(trade_picks_payload, include_settled=include_settled)
+    return templates.TemplateResponse(
+        request,
+        "trade_picks.html",
+        {"payload": payload},
+    )
+
+
+@app.get("/api/trade-picks")
+async def trade_picks_api(include_settled: bool = Query(False)):
+    from app.trade_picks import trade_picks_payload
+
+    return JSONResponse(await run_in_threadpool(trade_picks_payload, include_settled=include_settled))
+
+
+@app.get("/api/trade-picks/export")
+async def trade_picks_export(
+    include_settled: bool = Query(False),
+    category: str | None = Query(default=None),
+    strategy: str | None = Query(default=None),
+):
+    from app.trade_picks import TRADE_PICK_CSV_FIELDS, trade_pick_csv_rows, trade_picks_payload
+
+    payload = await run_in_threadpool(trade_picks_payload, include_settled=include_settled)
+    entries = list(payload.get("entries") or [])
+    if category:
+        entries = [e for e in entries if e.get("live_category") == category]
+    if strategy:
+        strat = strategy.strip().lower()
+        if strat == "arahus":
+            entries = [
+                e
+                for e in entries
+                if str(e.get("strategy") or "").startswith("arahus") or e.get("strategy") == "arahus"
+            ]
+        else:
+            entries = [e for e in entries if e.get("strategy") == strat]
+    rows = trade_pick_csv_rows(entries)
+    content = dicts_to_csv(rows, TRADE_PICK_CSV_FIELDS)
+    suffix = "open" if not include_settled else "all"
+    return _csv_attachment(content, f"trade_picks_{suffix}.csv")
 
 
 @app.get("/api/bets/today")
