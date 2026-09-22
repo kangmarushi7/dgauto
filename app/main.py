@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -148,6 +148,7 @@ from app.bet_log_export import (
     unified_bet_rows,
 )
 from app.seasons import DEFAULT_SEASON_ID, filter_entries_by_season, parse_season, season_context, sort_by_fixture_date
+from app.ws_manager import picks_bus, results_bus
 
 app = FastAPI(title="DG Bet Automation")
 templates = Jinja2Templates(directory="templates")
@@ -2018,3 +2019,95 @@ async def cron_refresh(
     _cron_authorized(x_cron_secret)
     result = await run_in_threadpool(run_fixture_refresh)
     return JSONResponse({"ok": bool(result.get("success")), **result})
+
+
+# ─── WebSocket endpoints for SPM /// Aroha ───────────────────────────────────
+
+@app.websocket("/ws/trade-picks")
+async def ws_trade_picks(ws: WebSocket, x_api_key: str | None = Header(default=None, alias="X-Api-Key")):
+    """
+    Real-time stream of open trade picks for Polymarket placement.
+    Auth: same BOT_API_KEY as /api/bot/trade-picks.
+    On connect: send {"sync_since": "<ISO timestamp>"} to replay picks updated
+    after that time, or omit to receive only future events.
+    Server sends: {"type": "snapshot"|"pick"|"heartbeat", "payload": ..., "ts": "<ISO>"}
+    """
+    _bot_api_authorized(x_api_key)
+    await picks_bus.connect(ws)
+    import asyncio
+    from datetime import datetime, timezone as _tz
+    from app.trade_picks import build_bot_trade_picks_feed
+
+    async def _heartbeat():
+        while True:
+            await asyncio.sleep(30)
+            try:
+                await ws.send_text('{"type":"heartbeat"}')
+            except Exception:
+                break
+
+    heartbeat_task = asyncio.create_task(_heartbeat())
+    try:
+        # First message may carry sync_since for replay
+        try:
+            import asyncio as _asyncio
+            raw = await _asyncio.wait_for(ws.receive_text(), timeout=5.0)
+            import json as _json
+            msg = _json.loads(raw)
+            sync_since = msg.get("sync_since")
+        except Exception:
+            sync_since = None
+
+        # Send current open picks as initial snapshot
+        payload = await run_in_threadpool(
+            build_bot_trade_picks_feed,
+            open_only=True,
+            pick_date=None,
+            category=None,
+            strategy=None,
+        )
+        await ws.send_text(_json.dumps({
+            "type": "snapshot",
+            "payload": payload,
+            "ts": datetime.now(_tz.utc).isoformat(),
+        }))
+
+        # Keep connection alive, draining any client pings
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        heartbeat_task.cancel()
+        picks_bus.disconnect(ws)
+
+
+@app.websocket("/ws/results")
+async def ws_results(ws: WebSocket, x_api_key: str | None = Header(default=None, alias="X-Api-Key")):
+    """
+    Real-time stream of settled bet results (won/lost/push).
+    Auth: same BOT_API_KEY as /api/bot/trade-picks.
+    Server sends: {"type": "result"|"heartbeat", "payload": <pick_row>, "ts": "<ISO>"}
+    """
+    _bot_api_authorized(x_api_key)
+    await results_bus.connect(ws)
+    import asyncio
+    from datetime import datetime, timezone as _tz
+
+    async def _heartbeat():
+        while True:
+            await asyncio.sleep(30)
+            try:
+                await ws.send_text('{"type":"heartbeat"}')
+            except Exception:
+                break
+
+    heartbeat_task = asyncio.create_task(_heartbeat())
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        heartbeat_task.cancel()
+        results_bus.disconnect(ws)

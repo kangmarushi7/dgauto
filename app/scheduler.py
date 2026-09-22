@@ -95,6 +95,7 @@ def run_fixture_refresh() -> dict[str, Any]:
             result.get("scraped_at"),
             (result.get("bet_sync") or {}).get("inserted_total"),
         )
+        _broadcast_picks_update()
         return result
     except Exception as exc:
         logger.exception("Fixture refresh failed: %s", exc)
@@ -128,7 +129,53 @@ def run_all_auto_resolves() -> dict[str, Any]:
                 "error": str(exc).strip() or repr(exc),
             }
     logger.info("Auto-resolve run finished: %s", summary)
+    _broadcast_results_update(summary)
     return summary
+
+
+def _broadcast_picks_update() -> None:
+    """Broadcast current open picks snapshot to WS subscribers after a sync."""
+    try:
+        from app.ws_manager import picks_bus
+        if picks_bus.subscriber_count == 0:
+            return
+        from datetime import datetime, timezone
+        from app.trade_picks import build_bot_trade_picks_feed
+        payload = build_bot_trade_picks_feed(open_only=True, pick_date=None, category=None, strategy=None)
+        picks_bus.broadcast_from_thread({
+            "type": "snapshot",
+            "payload": payload,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as exc:
+        logger.warning("picks WS broadcast failed: %s", exc)
+
+
+def _broadcast_results_update(summary: dict[str, Any]) -> None:
+    """Broadcast settled bets to WS subscribers after auto-resolve."""
+    try:
+        from app.ws_manager import results_bus
+        if results_bus.subscriber_count == 0:
+            return
+        total_resolved = sum(
+            (v.get("resolved") or 0)
+            for v in summary.values()
+            if isinstance(v, dict)
+        )
+        if total_resolved == 0:
+            return
+        from datetime import datetime, timezone
+        from app.trade_picks import build_bot_trade_picks_feed
+        # Broadcast the full settled snapshot so Aroha can reconcile
+        payload = build_bot_trade_picks_feed(open_only=False, pick_date=None, category=None, strategy=None)
+        settled = [p for p in payload.get("entries", []) if p.get("status") in ("won", "lost", "push")]
+        results_bus.broadcast_from_thread({
+            "type": "results_batch",
+            "payload": {"entries": settled, "resolved_count": total_resolved},
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as exc:
+        logger.warning("results WS broadcast failed: %s", exc)
 
 
 def _add_fixture_refresh_job(scheduler: BackgroundScheduler, tz) -> None:
