@@ -153,6 +153,20 @@ def register_cup_league(league: str, *, is_cup: bool = True) -> None:
     _LEAGUE_LOOKUP[_league_key(name)] = name
 
 
+_ARAHUS_BET_TYPE_LABELS: dict[str, str] = {
+    "arahus_o25": "Over 2.5",
+    "arahus_o35": "Over 3.5",
+    "arahus_o15": "Over 1.5",
+    "arahus_u25": "Under 2.5",
+    "arahus_btts": "BTTS Yes",
+    "arahus_team_o15": "Team Over 1.5",
+    "arahus_team_o05": "Team Over 0.5",
+    "arahus_ml": "Moneyline",
+    "arahus_dc_1x": "Win or Draw",
+    "arahus_dc_x2": "Draw or Away",
+}
+
+
 def canonical_market(row: dict[str, Any]) -> str:
     """Human market label used by bucket rules."""
     strategy = normalize_strategy(row.get("strategy") or row.get("log_type"))
@@ -179,6 +193,17 @@ def canonical_market(row: dict[str, Any]) -> str:
         return mapping[classified]
     if label:
         return label
+    # Fall back to Arahus-specific bet_type labels before returning raw code or "other".
+    if bet_type in _ARAHUS_BET_TYPE_LABELS:
+        return _ARAHUS_BET_TYPE_LABELS[bet_type]
+    # Corners: arahus_corners_oXX → "Corners Over X.X"
+    if bet_type.startswith("arahus_corners_o"):
+        raw_num = bet_type[len("arahus_corners_o"):]
+        try:
+            val = float(raw_num) / 10
+            return f"Corners Over {val:.1f}"
+        except ValueError:
+            return f"Corners {raw_num}"
     return classified or bet_type or "other"
 
 
