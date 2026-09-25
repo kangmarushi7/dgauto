@@ -2049,22 +2049,25 @@ async def ws_trade_picks(ws: WebSocket, x_api_key: str | None = Header(default=N
     heartbeat_task = asyncio.create_task(_heartbeat())
     try:
         # First message may carry sync_since for replay
+        import json as _json
         try:
             import asyncio as _asyncio
             raw = await _asyncio.wait_for(ws.receive_text(), timeout=5.0)
-            import json as _json
             msg = _json.loads(raw)
-            sync_since = msg.get("sync_since")
+            sync_since = msg.get("sync_since") or None
         except Exception:
             sync_since = None
 
-        # Send current open picks as initial snapshot
+        # Send initial snapshot: open picks always; if sync_since provided, also
+        # include any settled picks updated after that timestamp so the client can
+        # reconcile events it missed while disconnected.
         payload = await run_in_threadpool(
             build_bot_trade_picks_feed,
             open_only=True,
             pick_date=None,
             category=None,
             strategy=None,
+            sync_since=sync_since,
         )
         await ws.send_text(_json.dumps({
             "type": "snapshot",
