@@ -86,6 +86,15 @@ def _is_settled(entry: dict[str, Any]) -> bool:
     return status in {"won", "lost", "push"}
 
 
+def _row_ts(raw: dict[str, Any]) -> str:
+    """Best available ISO timestamp for a raw DB row (for sync_since comparison)."""
+    return (
+        str(raw.get("synced_at") or "")
+        or str(raw.get("created_at") or "")
+        or str(raw.get("signal_timestamp") or "")
+    )
+
+
 def _display_row(raw: dict[str, Any], live_category: str) -> dict[str, Any] | None:
     pipeline_strat = raw["strategy"]
     meta_key = DISPLAY_STRATEGY.get(pipeline_strat)
@@ -166,12 +175,15 @@ def trade_picks_payload(
     *,
     include_settled: bool = False,
     pick_date: str | date | None = None,
+    sync_since: str | None = None,
 ) -> dict[str, Any]:
     """LIVE-category picks.
 
     Default: all open LIVE bets.
     With pick_date (YYYY-MM-DD): bets whose kickoff date (IST) matches that day
     — includes open and settled for that day.
+    With sync_since (ISO timestamp): all open picks PLUS any settled picks whose
+    DB timestamp is >= sync_since, so reconnecting clients can replay missed events.
     """
     day = parse_pick_date(pick_date)
     states = get_runtime_states()
@@ -187,10 +199,18 @@ def trade_picks_payload(
 
     picks: list[dict[str, Any]] = []
     for raw in _pipeline_rows():
-        if want_settled:
-            if not (_is_open_tradeable(raw) or _is_settled(raw)):
+        is_open = _is_open_tradeable(raw)
+        is_settled = _is_settled(raw)
+
+        if sync_since:
+            # Include open picks always + any row (open or settled) updated since sync_since.
+            row_ts = _row_ts(raw)
+            if not is_open and not (is_settled and row_ts >= sync_since):
                 continue
-        elif not _is_open_tradeable(raw):
+        elif want_settled:
+            if not (is_open or is_settled):
+                continue
+        elif not is_open:
             continue
 
         cid = assign_live_category(raw, states=states)
@@ -308,14 +328,20 @@ def build_bot_trade_picks_feed(
     pick_date: str | date | None = None,
     category: str | None = None,
     strategy: str | None = None,
+    sync_since: str | None = None,
 ) -> dict[str, Any]:
     """Stable JSON feed for polybot / Polymarket placement.
 
     Default: open LIVE picks only (placeable queue).
+    With sync_since: open picks + any settled picks updated since that ISO timestamp.
     """
     day = parse_pick_date(pick_date)
 
-    if open_only and day is not None:
+    if sync_since:
+        base = trade_picks_payload(include_settled=False, pick_date=day, sync_since=sync_since)
+        entries = list(base.get("entries") or [])
+        live_ids = base.get("live_category_ids") or []
+    elif open_only and day is not None:
         # Open LIVE bets kicking on that IST day.
         base = trade_picks_payload(include_settled=True, pick_date=day)
         entries = [e for e in (base.get("entries") or []) if e.get("status") == "open"]
