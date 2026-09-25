@@ -1,7 +1,8 @@
-"""DataGaffer daily_accuracy.json — corners / SOT actuals for H2H prop settlement.
+"""DataGaffer daily_accuracy.json — FT scores + corners / SOT for settlement.
 
-Primary settlement source for ``h2h_corners`` / ``h2h_sot`` (Football Bot style).
-Pair fields like ``\"5 - 5\"`` are summed to a match total.
+Primary settlement source for all soccer strategy logs (goals, 1X2, BTTS, CS,
+corners, SOT). Pair fields like ``\"5 - 5\"`` are summed to a match total.
+Flashscore / API-Football remain fallbacks when the accuracy feed lags or misses.
 """
 from __future__ import annotations
 

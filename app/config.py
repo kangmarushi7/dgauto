@@ -24,7 +24,9 @@ class Settings:
     api_football_key: str = os.getenv("API_FOOTBALL_KEY", "") or os.getenv("APISPORTS_KEY", "")
     bot_api_key: str = os.getenv("BOT_API_KEY", "")
     flashscore_fsign: str = os.getenv("FLASHSCORE_FSIGN", "SW9D1eZo")
-    bet_settle_source: str = os.getenv("BET_SETTLE_SOURCE", "flashscore,api_football")
+    bet_settle_source: str = os.getenv(
+        "BET_SETTLE_SOURCE", "daily_accuracy,flashscore,api_football"
+    )
 
 
 settings = Settings()

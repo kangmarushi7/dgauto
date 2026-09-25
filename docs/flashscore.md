@@ -1,5 +1,5 @@
 # Flashscore ninja feed — settlement / live scores
-# Primary settle path for open bets (see BET_SETTLE_SOURCE).
+# Fallback settle path for open bets after DataGaffer daily_accuracy (see BET_SETTLE_SOURCE).
 
 ## Feed URL
 
@@ -84,10 +84,11 @@ refresh_cache(force=True)
 score_for_fixture("Hammarby", "Kalmar FF", league="Allsvenskan")
 ```
 
-Settlement uses Flashscore first, then API-Football:
+Settlement order: DataGaffer ``daily_accuracy.json`` first (scores + corners/SOT),
+then Flashscore, then API-Football:
 
 ```env
-BET_SETTLE_SOURCE=flashscore,api_football
+BET_SETTLE_SOURCE=daily_accuracy,flashscore,api_football
 FLASHSCORE_FSIGN=SW9D1eZo
 FLASHSCORE_DAY_OFFSETS=-1,0,1,2
 FLASHSCORE_CACHE_TTL_SEC=180

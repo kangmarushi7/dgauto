@@ -102,7 +102,7 @@ AUTO_RESOLVE_MAX_RUNTIME_SEC=240
 API_FOOTBALL_KEY=your_key_here
 
 # Open-bet settlement: Flashscore ninja feed first, API-Football fallback
-BET_SETTLE_SOURCE=flashscore,api_football
+BET_SETTLE_SOURCE=daily_accuracy,flashscore,api_football
 FLASHSCORE_FSIGN=SW9D1eZo
 FLASHSCORE_DAY_OFFSETS=-1,0,1,2
 # Score API–style rank + df_sui score confirm (kickoff-aware matching)

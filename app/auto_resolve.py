@@ -32,13 +32,26 @@ logger = logging.getLogger(__name__)
 
 # Allow enough time for date lookups + fallback team/H2H searches on large open books.
 MAX_RUNTIME_SEC = int(os.getenv("AUTO_RESOLVE_MAX_RUNTIME_SEC", "240"))
-SETTLE_SOURCE = (os.getenv("BET_SETTLE_SOURCE") or "flashscore,api_football").strip().lower()
+SETTLE_SOURCE = (
+    os.getenv("BET_SETTLE_SOURCE") or "daily_accuracy,flashscore,api_football"
+).strip().lower()
+
+_DAILY_ACCURACY_ALIASES = frozenset(
+    {"daily_accuracy", "datagaffer", "dg_accuracy", "accuracy"}
+)
+_FLASHSCORE_ALIASES = frozenset({"flashscore", "fs", "ninja"})
+_API_FOOTBALL_ALIASES = frozenset({"api_football", "api-football", "apifootball"})
 
 
 def _settle_sources() -> list[str]:
     """Return configured settlement sources in priority order."""
     sources = [source.strip() for source in SETTLE_SOURCE.split(",") if source.strip()]
-    return sources or ["flashscore", "api_football"]
+    return sources or ["daily_accuracy", "flashscore", "api_football"]
+
+
+def _uses_source(aliases: frozenset[str], sources: list[str] | None = None) -> bool:
+    ordered = sources if sources is not None else _settle_sources()
+    return any(s in aliases for s in ordered)
 
 # Generic club suffixes / tokens ignored when comparing core team names.
 _TEAM_STOPWORDS = frozenset(
@@ -581,7 +594,7 @@ def _enrich_event_with_stats(
 ) -> dict[str, Any]:
     """Attach corners/SOT totals for H2H prop settlement.
 
-    Primary: DataGaffer ``daily_accuracy.json`` (Football Bot style).
+    Usually already present when the primary settle source is daily_accuracy.
     Fallback: API-Football fixture statistics.
     """
     kind = resolve_kind_for_entry(entry).lower()
@@ -646,6 +659,46 @@ def _enrich_event_with_stats(
     return event
 
 
+def _event_from_daily_accuracy(entry: dict[str, Any]) -> dict[str, Any] | None:
+    """Build a final FT event from DataGaffer ``daily_accuracy.json`` when score exists."""
+    try:
+        from app.dg_accuracy_props import lookup_accuracy_props
+
+        acc = lookup_accuracy_props(entry)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("daily_accuracy settle lookup failed: %s", exc)
+        return None
+    if not acc:
+        return None
+    home = acc.get("intHomeScore")
+    away = acc.get("intAwayScore")
+    if home is None or away is None:
+        return None
+    event: dict[str, Any] = {
+        "intHomeScore": int(home),
+        "intAwayScore": int(away),
+        "strStatus": "FT",
+        "source": "daily_accuracy",
+        "strHomeTeam": acc.get("home") or "",
+        "strAwayTeam": acc.get("away") or "",
+        "strLeague": acc.get("league") or entry.get("league_name") or "",
+        "dateEvent": acc.get("date") or "",
+    }
+    fid = acc.get("fixture_id")
+    if fid:
+        # Keep as string-compatible id; API-Football enrich may rematch later if needed.
+        try:
+            event["fixtureId"] = int(fid)
+        except (TypeError, ValueError):
+            event["fixtureId"] = str(fid)
+    if acc.get("corners_total") is not None:
+        event["corners_total"] = acc["corners_total"]
+    if acc.get("sot_total") is not None:
+        event["sot_total"] = acc["sot_total"]
+    event["props_source"] = acc.get("source") or "datagaffer_daily_accuracy"
+    return event
+
+
 def _event_from_flashscore(entry: dict[str, Any]) -> dict[str, Any] | None:
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
@@ -675,12 +728,17 @@ def _find_settlement_event(
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Try configured settlement sources in order. Returns (event, source_name)."""
     for source in _settle_sources():
-        if source in {"flashscore", "fs", "ninja"}:
+        if source in _DAILY_ACCURACY_ALIASES:
+            event = _event_from_daily_accuracy(entry)
+            if event is not None:
+                return event, "daily_accuracy"
+            continue
+        if source in _FLASHSCORE_ALIASES:
             event = _event_from_flashscore(entry)
             if event is not None:
                 return event, "flashscore"
             continue
-        if source in {"api_football", "api-football", "apifootball"}:
+        if source in _API_FOOTBALL_ALIASES:
             if not api_football_configured():
                 continue
             event = _find_best_event(
@@ -696,14 +754,26 @@ def _find_settlement_event(
     return None, None
 
 
+def _event_is_final(event: dict[str, Any], source: str | None, kickoff: datetime | None) -> bool:
+    if source in {"daily_accuracy", "flashscore"}:
+        return str(event.get("strStatus") or "").upper() == "FT"
+    return fixture_is_final(event, kickoff=kickoff)
+
+
 def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     rows = list_bets(log_type)
     open_rows = [r for r in rows if str(r.get("status") or "").lower() == "open"]
     sources = _settle_sources()
-    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
-    use_api = any(s in {"api_football", "api-football", "apifootball"} for s in sources)
+    use_accuracy = _uses_source(_DAILY_ACCURACY_ALIASES, sources)
+    use_flashscore = _uses_source(_FLASHSCORE_ALIASES, sources)
+    use_api = _uses_source(_API_FOOTBALL_ALIASES, sources)
 
-    if not use_flashscore and use_api and not api_football_configured():
+    if (
+        not use_accuracy
+        and not use_flashscore
+        and use_api
+        and not api_football_configured()
+    ):
         return {
             "open_checked": len(open_rows),
             "resolved": 0,
@@ -712,8 +782,16 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             "skipped_unresolved": 0,
             "skipped_timeout": 0,
             "stopped_early": False,
-            "error": "API_FOOTBALL_KEY not set and Flashscore settlement disabled",
+            "error": "API_FOOTBALL_KEY not set and Flashscore/daily_accuracy settlement disabled",
         }
+
+    if use_accuracy:
+        try:
+            from app.dg_accuracy_props import load_accuracy_prop_rows
+
+            load_accuracy_prop_rows()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("daily_accuracy preload failed: %s", exc)
 
     if use_flashscore:
         try:
@@ -729,7 +807,11 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
     skipped_not_final = 0
     skipped_unresolved = 0
     stopped_early = False
-    resolved_via: dict[str, int] = {"flashscore": 0, "api_football": 0}
+    resolved_via: dict[str, int] = {
+        "daily_accuracy": 0,
+        "flashscore": 0,
+        "api_football": 0,
+    }
     started = time.monotonic()
 
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
@@ -780,11 +862,7 @@ def auto_resolve_open_bets(log_type: str) -> dict[str, Any]:
             skipped_not_found += len(group_entries)
             continue
 
-        if source == "flashscore":
-            is_final = str(event.get("strStatus") or "").upper() == "FT"
-        else:
-            is_final = fixture_is_final(event, kickoff=kickoff)
-        if not is_final:
+        if not _event_is_final(event, source, kickoff):
             skipped_not_final += len(group_entries)
             continue
 
@@ -879,7 +957,15 @@ def auto_resolve_arahus_decision_log() -> dict[str, Any]:
     open_rows = list_arahus_decision_log(unresolved_only=True)
     # Only attempt fixtures that can plausibly be finished (same 95m gate).
     sources = _settle_sources()
-    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    use_accuracy = _uses_source(_DAILY_ACCURACY_ALIASES, sources)
+    use_flashscore = _uses_source(_FLASHSCORE_ALIASES, sources)
+    if use_accuracy:
+        try:
+            from app.dg_accuracy_props import load_accuracy_prop_rows
+
+            load_accuracy_prop_rows()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("daily_accuracy preload for decision-log failed: %s", exc)
     if use_flashscore:
         try:
             fixture_dates = [_parse_entry_date(r.get("match_date")) for r in open_rows]
@@ -924,6 +1010,7 @@ def auto_resolve_arahus_decision_log() -> dict[str, Any]:
             "league_name": seed_row.get("league"),
             "bet_type": seed_row.get("bet_type"),
             "team_name": seed_row.get("team_name"),
+            "fixture_id": seed_row.get("fixture_id"),
             "log_type": "arahus",
         }
         kickoff = _parse_entry_date(seed.get("fixture_date"))
@@ -945,11 +1032,7 @@ def auto_resolve_arahus_decision_log() -> dict[str, Any]:
             skipped_not_found += len(group_entries)
             continue
 
-        if source == "flashscore":
-            is_final = str(event.get("strStatus") or "").upper() == "FT"
-        else:
-            is_final = fixture_is_final(event, kickoff=kickoff)
-        if not is_final:
+        if not _event_is_final(event, source, kickoff):
             skipped_not_final += len(group_entries)
             continue
 
@@ -966,6 +1049,7 @@ def auto_resolve_arahus_decision_log() -> dict[str, Any]:
                 "fixture": row.get("fixture"),
                 "fixture_date": row.get("match_date"),
                 "league_name": row.get("league"),
+                "fixture_id": row.get("fixture_id"),
                 "log_type": "arahus",
                 "odds": row.get("odds"),
                 "units": row.get("units"),
@@ -1020,7 +1104,15 @@ def auto_resolve_arahus_v2_report_log() -> dict[str, Any]:
 
     open_rows = list_arahus_v2_report_log(unresolved_only=True)
     sources = _settle_sources()
-    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    use_accuracy = _uses_source(_DAILY_ACCURACY_ALIASES, sources)
+    use_flashscore = _uses_source(_FLASHSCORE_ALIASES, sources)
+    if use_accuracy:
+        try:
+            from app.dg_accuracy_props import load_accuracy_prop_rows
+
+            load_accuracy_prop_rows()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("daily_accuracy preload for arahus_v2 report-log failed: %s", exc)
     if use_flashscore:
         try:
             fixture_dates = [_parse_entry_date(r.get("match_date")) for r in open_rows]
@@ -1065,6 +1157,7 @@ def auto_resolve_arahus_v2_report_log() -> dict[str, Any]:
             "league_name": seed_row.get("league"),
             "bet_type": seed_row.get("bet_type"),
             "team_name": seed_row.get("team_name"),
+            "fixture_id": seed_row.get("fixture_id"),
             "log_type": "arahus_v2",
         }
         kickoff = _parse_entry_date(seed.get("fixture_date"))
@@ -1086,11 +1179,7 @@ def auto_resolve_arahus_v2_report_log() -> dict[str, Any]:
             skipped_not_found += len(group_entries)
             continue
 
-        if source == "flashscore":
-            is_final = str(event.get("strStatus") or "").upper() == "FT"
-        else:
-            is_final = fixture_is_final(event, kickoff=kickoff)
-        if not is_final:
+        if not _event_is_final(event, source, kickoff):
             skipped_not_final += len(group_entries)
             continue
 
@@ -1107,6 +1196,7 @@ def auto_resolve_arahus_v2_report_log() -> dict[str, Any]:
                 "fixture": row.get("fixture"),
                 "fixture_date": row.get("match_date"),
                 "league_name": row.get("league"),
+                "fixture_id": row.get("fixture_id"),
                 "log_type": "arahus_v2",
                 "odds": row.get("odds"),
                 "units": row.get("stake") or FLAT_STAKE,
@@ -1158,7 +1248,15 @@ def auto_resolve_arahus_live_v1_decision_log() -> dict[str, Any]:
 
     open_rows = list_arahus_live_v1_decision_log(unresolved_only=True)
     sources = _settle_sources()
-    use_flashscore = any(s in {"flashscore", "fs", "ninja"} for s in sources)
+    use_accuracy = _uses_source(_DAILY_ACCURACY_ALIASES, sources)
+    use_flashscore = _uses_source(_FLASHSCORE_ALIASES, sources)
+    if use_accuracy and open_rows:
+        try:
+            from app.dg_accuracy_props import load_accuracy_prop_rows
+
+            load_accuracy_prop_rows()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("daily_accuracy preload for arahus_live_v1 failed: %s", exc)
     if use_flashscore and open_rows:
         try:
             fixture_dates = [
@@ -1194,6 +1292,7 @@ def auto_resolve_arahus_live_v1_decision_log() -> dict[str, Any]:
             "league_name": row.get("league"),
             "bet_type": row.get("bet_type") or "arahus_o25",
             "team_name": row.get("team_name") or "",
+            "fixture_id": row.get("fixture_id"),
             "odds": row.get("entry_odds") if row.get("entry_odds") is not None else row.get("odds"),
             "units": row.get("stake") if row.get("stake") is not None else row.get("units") or 1.0,
             "log_type": "arahus_live_v1",
@@ -1216,11 +1315,9 @@ def auto_resolve_arahus_live_v1_decision_log() -> dict[str, Any]:
         if not event:
             skipped_not_found += 1
             continue
-        if source == "flashscore":
-            is_final = str(event.get("strStatus") or "").upper() == "FT"
-            if not is_final:
-                skipped_not_final += 1
-                continue
+        if not _event_is_final(event, source, kickoff):
+            skipped_not_final += 1
+            continue
 
         hit = _resolve_result(seed, event)
         if hit not in {"won", "lost", "push"}:
