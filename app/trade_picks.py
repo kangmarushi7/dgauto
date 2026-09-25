@@ -68,11 +68,18 @@ def parse_pick_date(value: str | date | None) -> date | None:
 
 def _pipeline_rows() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
     for log_type in PIPELINE_LOG_TYPES:
         for raw in list_bets(log_type):
             strat = normalize_strategy(log_type) or normalize_strategy(raw.get("strategy"))
             if not strat:
                 continue
+            # Deduplicate: same bet may be stored in both "arahus" and "arahus_v2" tables.
+            row_id = str(raw.get("id") or "")
+            dedup_key = row_id or f"{raw.get('fixture')}|{raw.get('bet_type')}|{raw.get('odds')}|{raw.get('fixture_date')}"
+            if dedup_key in seen_ids:
+                continue
+            seen_ids.add(dedup_key)
             rows.append({**raw, "strategy": strat, "log_type": log_type})
     return rows
 
