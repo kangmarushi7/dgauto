@@ -136,17 +136,9 @@ def run_all_auto_resolves() -> dict[str, Any]:
 def _broadcast_picks_update() -> None:
     """Broadcast current open picks snapshot to WS subscribers after a sync."""
     try:
-        from app.ws_manager import picks_bus
-        if picks_bus.subscriber_count == 0:
-            return
-        from datetime import datetime, timezone
-        from app.trade_picks import build_bot_trade_picks_feed
-        payload = build_bot_trade_picks_feed(open_only=True, pick_date=None, category=None, strategy=None)
-        picks_bus.broadcast_from_thread({
-            "type": "snapshot",
-            "payload": payload,
-            "ts": datetime.now(timezone.utc).isoformat(),
-        })
+        from app.ws_manager import broadcast_open_picks_snapshot
+
+        broadcast_open_picks_snapshot()
     except Exception as exc:
         logger.warning("picks WS broadcast failed: %s", exc)
 

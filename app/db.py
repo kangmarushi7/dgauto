@@ -223,6 +223,13 @@ def insert_bets(log_type: str, bets: list[dict[str, Any]]) -> int:
         return 0
     with engine.begin() as conn:
         conn.execute(bet_entries.insert(), to_insert)
+    # Push open-picks snapshot to SPM Aroha / other WS subscribers.
+    try:
+        from app.ws_manager import notify_picks_changed
+
+        notify_picks_changed()
+    except Exception:
+        pass
     return len(to_insert)
 
 

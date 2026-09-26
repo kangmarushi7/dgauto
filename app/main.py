@@ -304,8 +304,24 @@ def _bot_api_authorized(x_api_key: str | None = Header(default=None, alias="X-Ap
 
 @app.on_event("startup")
 async def startup_event():
+    import asyncio
+
+    from app.ws_manager import bind_event_loop, broadcast_open_picks_snapshot
+
     init_db()
+    # Bind uvicorn loop so APScheduler / insert_bets can push WS snapshots.
+    bind_event_loop(asyncio.get_running_loop())
     start_auto_resolve_scheduler()
+
+    async def _push_snapshot_soon() -> None:
+        # Give WS clients a moment to reconnect after DG restart, then push.
+        await asyncio.sleep(3)
+        try:
+            broadcast_open_picks_snapshot()
+        except Exception:
+            pass
+
+    asyncio.create_task(_push_snapshot_soon())
 
 
 @app.on_event("shutdown")
@@ -2048,6 +2064,7 @@ async def ws_trade_picks(ws: WebSocket, x_api_key: str | None = Header(default=N
 
     heartbeat_task = asyncio.create_task(_heartbeat())
     try:
+        import json as _json
         # First message may carry sync_since for replay
         import json as _json
         try:
