@@ -41,6 +41,30 @@ class TradePicksTests(unittest.TestCase):
                     "fixture_date": "2026-09-21T12:00:00+00:00",
                 },
                 {
+                    "id": "dup-o25-t35",
+                    "created_at": "2026-09-27T10:00:00+00:00",
+                    "fixture": "Montreal vs Cincinnati",
+                    "league_name": "Major League Soccer",
+                    "bet_type": "o25_t35",
+                    "team_name": "",
+                    "odds": 1.40,
+                    "units": 1.0,
+                    "status": "open",
+                    "fixture_date": "2026-09-26T23:30:00+00:00",
+                },
+                {
+                    "id": "dup-o25-t40",
+                    "created_at": "2026-09-27T10:00:00+00:00",
+                    "fixture": "Montreal vs Cincinnati",
+                    "league_name": "Major League Soccer",
+                    "bet_type": "o25_t40",
+                    "team_name": "",
+                    "odds": 1.40,
+                    "units": 1.0,
+                    "status": "open",
+                    "fixture_date": "2026-09-26T23:30:00+00:00",
+                },
+                {
                     "id": "settled-band",
                     "created_at": "2026-09-20T10:00:00+00:00",
                     "fixture": "C vs D",
@@ -85,6 +109,30 @@ class TradePicksTests(unittest.TestCase):
         hit = next(e for e in payload["entries"] if e["id"] == "open-o25")
         self.assertEqual(hit["live_category"], "Main_filtered")
         self.assertEqual(hit["stake_usd"], 1.0)
+
+    def test_dedupes_same_fixture_market_scenarios(self):
+        """o25_t35 + o25_t40 are two Main scenarios — Trade Picks stakes once."""
+        payload = self.tp.trade_picks_payload(include_settled=False)
+        montreal = [
+            e
+            for e in payload["entries"]
+            if e.get("fixture") == "Montreal vs Cincinnati" and e.get("market") == "Over 2.5"
+        ]
+        self.assertEqual(len(montreal), 1)
+        self.assertEqual(montreal[0]["id"], "dup-o25-t40")
+        self.assertEqual(montreal[0]["bet_type"], "o25_t40")
+
+        feed = self.tp.build_bot_trade_picks_feed(open_only=True)
+        feed_montreal = [
+            p for p in feed["picks"] if "Montreal" in str(p.get("fixture") or "")
+        ]
+        if not feed_montreal:
+            feed_montreal = [
+                p
+                for p in feed["picks"]
+                if p.get("home_team") == "Montreal" and p.get("away_team") == "Cincinnati"
+            ]
+        self.assertEqual(len(feed_montreal), 1)
 
     def test_include_settled(self):
         payload = self.tp.trade_picks_payload(include_settled=True)

@@ -185,6 +185,48 @@ def _summary_metrics(picks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _stake_dedupe_key(row: dict[str, Any]) -> tuple[str, ...]:
+    """One LIVE stake per category + fixture + market + kickoff day."""
+    day = str(row.get("date_label") or row.get("fixture_date") or "")[:10]
+    return (
+        str(row.get("live_category") or ""),
+        str(row.get("fixture") or ""),
+        str(row.get("market") or ""),
+        day,
+    )
+
+
+def _stake_dedupe_rank(row: dict[str, Any]) -> tuple[int, str]:
+    """Prefer stricter Main projection bands (t40 > t35) when collapsing scenarios."""
+    bt = str(row.get("bet_type") or "")
+    pref = 0
+    if "_t40" in bt or bt.endswith("t40"):
+        pref = 2
+    elif "_t35" in bt or bt.endswith("t35"):
+        pref = 1
+    elif "_t25" in bt:
+        pref = 2
+    elif "_t20" in bt:
+        pref = 1
+    return (pref, bt)
+
+
+def _dedupe_live_stakes(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse Main scenario twins (o25_t35 + o25_t40) to a single Trade Pick."""
+    best: dict[tuple[str, ...], dict[str, Any]] = {}
+    order: list[tuple[str, ...]] = []
+    for row in picks:
+        key = _stake_dedupe_key(row)
+        prev = best.get(key)
+        if prev is None:
+            best[key] = row
+            order.append(key)
+            continue
+        if _stake_dedupe_rank(row) > _stake_dedupe_rank(prev):
+            best[key] = row
+    return [best[k] for k in order]
+
+
 def trade_picks_payload(
     *,
     include_settled: bool = False,
@@ -241,6 +283,8 @@ def trade_picks_payload(
                 continue
 
         picks.append(row)
+
+    picks = _dedupe_live_stakes(picks)
 
     picks.sort(
         key=lambda b: (
