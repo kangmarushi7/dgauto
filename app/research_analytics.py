@@ -70,9 +70,19 @@ def classify_market(market: str, bet_type: str = "") -> str:
         return "shots"
     if "btts" in t or "both teams" in t:
         return "btts"
-    if "under 3.5" in t or "under3.5" in t:
+    if (
+        "under 3.5" in t
+        or "under3.5" in t
+        or bt.startswith("u35")
+        or re.search(r"\bu35\b", bt)
+    ):
         return "under_3.5"
-    if "under 2.5" in t or "under2.5" in t:
+    if (
+        "under 2.5" in t
+        or "under2.5" in t
+        or bt.startswith("u25")
+        or re.search(r"\bu25\b", bt)
+    ):
         return "under_2.5"
     if (
         "team o1.5" in t
@@ -90,9 +100,19 @@ def classify_market(market: str, bet_type: str = "") -> str:
         or re.search(r"\bto05\b", bt)
     ):
         return "team_o0.5"
-    if "over 3.5" in t or "over3.5" in t:
+    if (
+        "over 3.5" in t
+        or "over3.5" in t
+        or bt.startswith("o35")
+        or re.search(r"\bo35\b", bt)
+    ):
         return "over_3.5"
-    if "over 2.5" in t or "over2.5" in t:
+    if (
+        "over 2.5" in t
+        or "over2.5" in t
+        or bt.startswith("o25")
+        or re.search(r"\bo25\b", bt)
+    ):
         return "over_2.5"
     if "over 1.5" in t or "over1.5" in t or bt.startswith("o15"):
         return "over_1.5"
@@ -100,13 +120,25 @@ def classify_market(market: str, bet_type: str = "") -> str:
         return "team_o1.5" if "team" in t else "over_1.5"
     if re.search(r"\bo0\.5\b", t):
         return "team_o0.5" if "team" in t else "other"
-    if "dc x2" in t or "dc_x2" in t:
+    if "dc x2" in t or "dc_x2" in t or bt.startswith("dc_x2"):
         return "dc_x2"
-    if "dc 1x" in t or "dc_1x" in t or "win or draw" in t:
+    if (
+        "dc 1x" in t
+        or "dc_1x" in t
+        or "win or draw" in t
+        or bt.startswith("dc_win")
+        or bt.startswith("dc_1x")
+    ):
         return "win_or_draw"
     if t.strip() == "draw" or (re.search(r"\bdraw\b", t) and "win or draw" not in t):
         return "draw"
-    if "moneyline" in t or "win outright" in t or re.search(r"\bwin\b", t):
+    if (
+        "moneyline" in t
+        or "win outright" in t
+        or bt.startswith("ml_")
+        or bt == "moneyline"
+        or re.search(r"\bwin\b", t)
+    ):
         return "moneyline"
     if "not to win" in t or "not_win" in t:
         return "not_win"

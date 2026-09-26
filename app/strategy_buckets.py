@@ -173,25 +173,53 @@ def canonical_market(row: dict[str, Any]) -> str:
     bet_type = str(row.get("bet_type") or "")
     team = str(row.get("team_name") or "").strip()
     label = str(row.get("market") or row.get("market_label") or "").strip()
+    # Never treat a prior bad enrich as a real label.
+    if label.lower() == "other":
+        label = ""
 
     if strategy == "cs" or bet_type == "correct_score":
         score = team or (label.replace("Correct score", "").strip() if label else "")
         return f"Correct score {score}" if score else (label or "Correct score")
+
+    # Prefer scenario / legacy labels when bet_type is known (main log stores codes only).
+    if not label and bet_type:
+        try:
+            from app.bet_scenarios import (
+                ARAHUS_BET_TYPE_MAP,
+                LEGACY_BET_TYPE_MAP,
+                SCENARIO_BY_BET_TYPE,
+                scenario_meta_for_entry,
+            )
+
+            if (
+                bet_type in SCENARIO_BY_BET_TYPE
+                or bet_type in LEGACY_BET_TYPE_MAP
+                or bet_type in ARAHUS_BET_TYPE_MAP
+            ):
+                meta_label = str(scenario_meta_for_entry(row).get("label") or "").strip()
+                if meta_label and meta_label != bet_type:
+                    label = meta_label
+        except Exception:
+            pass
 
     classified = classify_market(label, bet_type)
     mapping = {
         "over_2.5": "Over 2.5",
         "over_3.5": "Over 3.5",
         "over_1.5": "Over 1.5",
+        "under_2.5": "Under 2.5",
+        "under_3.5": "Under 3.5",
         "btts": "BTTS Yes",
         "team_o1.5": "Team Over 1.5",
         "team_o0.5": "Team Over 0.5",
         "moneyline": "Moneyline",
         "win_or_draw": "Win or Draw",
+        "dc_x2": "Draw or Away",
+        "draw": "Draw",
     }
     if classified in mapping:
         return mapping[classified]
-    if label:
+    if label and label.lower() != "other":
         return label
     # Fall back to Arahus-specific bet_type labels before returning raw code or "other".
     if bet_type in _ARAHUS_BET_TYPE_LABELS:
@@ -204,7 +232,9 @@ def canonical_market(row: dict[str, Any]) -> str:
             return f"Corners Over {val:.1f}"
         except ValueError:
             return f"Corners {raw_num}"
-    return classified or bet_type or "other"
+    if classified and classified != "other":
+        return classified
+    return bet_type or "other"
 
 
 def league_in(league: str | None, allowed: Iterable[str]) -> bool:

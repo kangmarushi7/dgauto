@@ -115,10 +115,17 @@ def _display_row(raw: dict[str, Any], live_category: str) -> dict[str, Any] | No
         norm["strategy_short"] = "Arahus"
 
     enriched = enrich_bet_row(raw)
+    enriched_market = str(enriched.get("market") or "").strip()
+    norm_market = str(norm.get("market") or "").strip()
+    # Prefer canonical bucket label; fall back to scenario label if enrich still says "other".
+    if enriched_market and enriched_market.lower() != "other":
+        market = enriched_market
+    else:
+        market = norm_market or enriched_market or "other"
     return {
         **norm,
         "live_category": live_category,
-        "market": enriched.get("market") or norm.get("market"),
+        "market": market,
         "stake_usd": FLAT_STAKE_USD,
         "stake_units": FLAT_STAKE_USD,
         "stake_inr": None,
