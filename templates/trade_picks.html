@@ -6,7 +6,7 @@
     <title>Trade Picks · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
     <link rel="stylesheet" href="/static/bets.css?v=9" />
-    <script src="/static/table_tools.js?v=7" defer></script>
+    <script src="/static/table_tools.js?v=8" defer></script>
   </head>
   <body>
     <main class="container">
@@ -68,7 +68,7 @@
             <p class="tp-stats__empty">No settled LIVE category picks yet.</p>
             {% else %}
             <div class="bets-table-wrap tp-stats__table-wrap">
-              <table class="tp-stats-table">
+              <table class="tp-stats-table" data-no-table-tools="1">
                 <thead>
                   <tr>
                     <th>Category</th>
@@ -108,7 +108,7 @@
             <p class="tp-stats__empty">No settled LIVE strategy picks yet.</p>
             {% else %}
             <div class="bets-table-wrap tp-stats__table-wrap">
-              <table class="tp-stats-table">
+              <table class="tp-stats-table" data-no-table-tools="1">
                 <thead>
                   <tr>
                     <th>Strategy</th>

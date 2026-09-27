@@ -1203,6 +1203,7 @@
   function enhanceTable(table) {
     if (!table || table.dataset.tableEnhanced === "1") return;
     if (!table.tHead || !table.tBodies.length) return;
+    if (table.dataset.noTableTools === "1" || table.classList.contains("tp-stats-table")) return;
 
     table.dataset.tableEnhanced = "1";
 
