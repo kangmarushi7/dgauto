@@ -69,7 +69,6 @@ curl -sS -H "X-Api-Key: $BOT_API_KEY" \
   "pick_date": null,
   "live_category_ids": [
     "Main_filtered",
-    "CS_CorrectScore_0_1",
     "H2H_Over_2_5",
     "Arahus_filtered"
   ],
@@ -140,16 +139,15 @@ curl -sS -H "X-Api-Key: $BOT_API_KEY" \
 
 ## LIVE categories (stakeable)
 
-Only these states appear in Trade Picks when LIVE. Demoted categories (e.g. `CS_CorrectScore_2_1`, `EV_Over_3_5` → LOGGING) are **excluded**.
+Only these states appear in Trade Picks when LIVE. Demoted categories (e.g. `CS_CorrectScore_0_1`, `CS_CorrectScore_2_1`, `EV_Over_3_5` → LOGGING) are **excluded**.
 
 | Category id | Strategy | Rule (summary) |
 | --- | --- | --- |
 | `Main_filtered` | main | Odds 1.30–1.49 **or** Over 2.5 **or** fav leagues; excludes Moneyline/BTTS/cups |
-| `CS_CorrectScore_0_1` | cs | Correct score `0-1` |
 | `H2H_Over_2_5` | h2h | Over 2.5 |
 | `Arahus_filtered` | arahus | Over 2.5 @ 1.30–1.49 **or** fav leagues; excludes BTTS |
 
-Demoted (not LIVE): `CS_CorrectScore_2_1` (losing scoreline), `EV_Over_3_5`.
+Demoted (not LIVE): `CS_CorrectScore_0_1`, `CS_CorrectScore_2_1` (losing scoreline), `EV_Over_3_5`.
 
 Always trust `live_category_ids` in the response over this table — runtime promotions/demotions can change the set.
 

@@ -55,7 +55,7 @@ class StrategyBucketTests(unittest.TestCase):
         self.assertEqual(assigned[0], "Main_filtered")  # team o1.5 @ 1.40
         self.assertEqual(assigned[1], "Main_filtered")  # over 2.5
         self.assertIsNone(assigned[2])  # Moneyline explicitly excluded
-        self.assertEqual(assigned[3], "CS_CorrectScore_0_1")
+        self.assertIsNone(assigned[3])  # CS_CorrectScore_0_1 demoted from LIVE
         self.assertIsNone(assigned[4])  # CS_CorrectScore_2_1 demoted from LIVE
         self.assertEqual(assigned[5], None)  # EV_Over_3_5 demoted from LIVE
         self.assertEqual(assigned[6], "H2H_Over_2_5")
