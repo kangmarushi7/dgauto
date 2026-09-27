@@ -277,4 +277,50 @@
 
   syncExportHref();
   applyClientFilters();
+
+  async function resolvePick(betId, logType, result, btn) {
+    const params = queryParams();
+    const q = params.toString();
+    const url = `/api/trade-picks/${encodeURIComponent(betId)}/resolve` + (q ? `?${q}` : "");
+    const actions = btn.closest(".tp-resolve-actions");
+    if (actions) {
+      actions.querySelectorAll("button").forEach((b) => {
+        b.disabled = true;
+      });
+    }
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ result, log_type: logType }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.detail || res.statusText || "Resolve failed");
+      }
+      // Keep date / include_settled query; reload so KPIs and open filter stay consistent.
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || String(err));
+      if (actions) {
+        actions.querySelectorAll("button").forEach((b) => {
+          b.disabled = false;
+        });
+      }
+    }
+  }
+
+  if (table) {
+    table.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tp-resolve-btn");
+      if (!btn || btn.disabled) return;
+      const row = btn.closest("tr");
+      if (!row) return;
+      const betId = row.dataset.id;
+      const logType = row.dataset.logType;
+      const result = btn.dataset.result;
+      if (!betId || !logType || !result) return;
+      resolvePick(betId, logType, result, btn);
+    });
+  }
 })();

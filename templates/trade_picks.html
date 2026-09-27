@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trade Picks · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
-    <link rel="stylesheet" href="/static/bets.css?v=7" />
+    <link rel="stylesheet" href="/static/bets.css?v=8" />
     <script src="/static/table_tools.js?v=7" defer></script>
   </head>
   <body>
@@ -148,11 +148,14 @@
               <th>Stake</th>
               <th>Status</th>
               <th>Result</th>
+              <th data-no-filter="1">Resolve</th>
             </tr>
           </thead>
           <tbody>
             {% for b in entries %}
             <tr
+              data-id="{{ b.id }}"
+              data-log-type="{{ b.log_type }}"
               data-category="{{ b.live_category }}"
               data-strategy="{{ b.strategy }}"
               data-status="{{ b.status }}"
@@ -175,6 +178,17 @@
                 </span>
               </td>
               <td>{{ b.result or "—" }}</td>
+              <td class="tp-resolve">
+                {% if (b.status or 'open')|lower == 'open' %}
+                <div class="tp-resolve-actions">
+                  <button type="button" class="tp-resolve-btn tp-resolve-btn--won" data-result="won">Won</button>
+                  <button type="button" class="tp-resolve-btn tp-resolve-btn--lost" data-result="lost">Lost</button>
+                  <button type="button" class="tp-resolve-btn tp-resolve-btn--push" data-result="push">Push</button>
+                </div>
+                {% else %}
+                <span class="tp-resolve-settled">Settled</span>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -188,6 +202,6 @@
         include_settled: {{ payload.include_settled | tojson }},
       };
     </script>
-    <script src="/static/trade_picks.js?v=3" defer></script>
+    <script src="/static/trade_picks.js?v=4" defer></script>
   </body>
 </html>

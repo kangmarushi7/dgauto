@@ -166,6 +166,17 @@ class TradePicksTests(unittest.TestCase):
         self.assertEqual(hit["stake_usd"], 1.0)
         self.assertEqual(hit["live_category"], "Main_filtered")
 
+    def test_resolve_trade_pick_main(self):
+        updated = self.tp.resolve_trade_pick("main", "open-o25", "won")
+        self.assertEqual(updated["status"], "won")
+        self.assertGreater(float(updated.get("pnl_units") or 0), 0)
+        rows = {e["id"]: e for e in self.db.list_bets("main")}
+        self.assertEqual(rows["open-o25"]["status"], "won")
+
+    def test_resolve_trade_pick_rejects_bad_log_type(self):
+        with self.assertRaises(ValueError):
+            self.tp.resolve_trade_pick("lm", "open-o25", "won")
+
 
 if __name__ == "__main__":
     unittest.main()

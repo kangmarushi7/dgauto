@@ -525,6 +525,32 @@ async def trade_picks_page(
     )
 
 
+@app.post("/api/trade-picks/{bet_id}/resolve")
+async def trade_picks_resolve(
+    bet_id: str,
+    payload: dict,
+    include_settled: bool = Query(False),
+    date: str | None = Query(default=None),
+):
+    from app.trade_picks import resolve_trade_pick, trade_picks_payload
+
+    try:
+        updated = await run_in_threadpool(
+            resolve_trade_pick,
+            str(payload.get("log_type") or ""),
+            bet_id,
+            str(payload.get("result") or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    data = await run_in_threadpool(
+        trade_picks_payload,
+        include_settled=include_settled,
+        pick_date=date,
+    )
+    return JSONResponse({"updated": updated, **data})
+
+
 @app.get("/api/trade-picks")
 async def trade_picks_api(
     include_settled: bool = Query(False),

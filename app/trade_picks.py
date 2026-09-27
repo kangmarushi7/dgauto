@@ -54,6 +54,44 @@ TRADE_PICK_CSV_FIELDS = [
 ]
 
 
+def resolve_trade_pick(log_type: str, bet_id: str, result: str) -> dict[str, Any]:
+    """Dispatch manual settle to the strategy resolver for this pipeline log_type."""
+    lt = str(log_type or "").strip().lower()
+    if lt not in PIPELINE_LOG_TYPES:
+        raise ValueError(f"Unsupported log_type for Trade Picks: {log_type}")
+
+    # Local imports avoid circular imports at module load.
+    if lt == "main":
+        from app.bet_log import resolve_bet
+
+        return resolve_bet(bet_id, result)
+    if lt == "cs":
+        from app.correct_score_strat import resolve_correct_score_bet
+
+        return resolve_correct_score_bet(bet_id, result)
+    if lt == "ev":
+        from app.plus_ev_strat import resolve_plus_ev_bet
+
+        return resolve_plus_ev_bet(bet_id, result)
+    if lt == "h2h":
+        from app.h2h_strat import resolve_h2h_bet
+
+        return resolve_h2h_bet(bet_id, result)
+    if lt == "arahus":
+        from app.arahus_engine import resolve_arahus_bet
+
+        return resolve_arahus_bet(bet_id, result)
+    if lt == "arahus_v2":
+        from app.arahus_v2_engine import resolve_arahus_v2_bet
+
+        return resolve_arahus_v2_bet(bet_id, result)
+    if lt == "arahus_live_v1":
+        from app.arahus_live_v1_engine import resolve_arahus_live_v1_bet
+
+        return resolve_arahus_live_v1_bet(bet_id, result)
+    raise ValueError(f"Unsupported log_type for Trade Picks: {log_type}")
+
+
 def parse_pick_date(value: str | date | None) -> date | None:
     if value is None or value == "":
         return None

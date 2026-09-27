@@ -641,3 +641,47 @@
   background: #d8f0df;
   color: #176b2f;
 }
+
+.tp-resolve-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tp-resolve-btn {
+  background: var(--dg-surface-solid, #fff);
+  color: var(--dg-ink, #122);
+  border: 1px solid var(--dg-line, #c5d0c8);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: 600 11px/1.2 inherit;
+  cursor: pointer;
+}
+
+.tp-resolve-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tp-resolve-btn--won:hover:not(:disabled) {
+  border-color: #176b2f;
+  background: #d8f0df;
+  color: #176b2f;
+}
+
+.tp-resolve-btn--lost:hover:not(:disabled) {
+  border-color: #a33;
+  background: #fde8e8;
+  color: #a33;
+}
+
+.tp-resolve-btn--push:hover:not(:disabled) {
+  border-color: #887;
+  background: #f2f0ea;
+}
+
+.tp-resolve-settled {
+  color: var(--dg-muted, #667);
+  font-size: 0.75rem;
+}
