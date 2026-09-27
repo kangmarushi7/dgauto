@@ -397,10 +397,11 @@ CATEGORIES: dict[str, CategoryDef] = {
     "CS_CorrectScore_2_1": CategoryDef(
         id="CS_CorrectScore_2_1",
         strategy="cs",
-        initial_state=STATE_LIVE,
+        initial_state=STATE_LOGGING,
         match=_match_cs_21,
         decay_watch=True,
-        description="CS Correct score 2-1 (decay watch)",
+        stake_usd=0.0,
+        description="CS Correct score 2-1 — demoted from LIVE (losing scoreline)",
     ),
     "EV_Over_3_5": CategoryDef(
         id="EV_Over_3_5",
