@@ -223,6 +223,102 @@ def _summary_metrics(picks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _result_of(row: dict[str, Any]) -> str:
+    result = str(row.get("result") or "").lower()
+    if result in {"won", "lost", "push"}:
+        return result
+    status = str(row.get("status") or "").lower()
+    return status if status in {"won", "lost", "push"} else ""
+
+
+def _aggregate_settled_groups(
+    picks: list[dict[str, Any]],
+    *,
+    key_fn,
+    label_fn=None,
+) -> list[dict[str, Any]]:
+    """Group settled display rows; ROI = PnL / (n * $1)."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    labels: dict[str, str] = {}
+    for p in picks:
+        key = str(key_fn(p) or "").strip()
+        if not key:
+            continue
+        buckets.setdefault(key, []).append(p)
+        if key not in labels:
+            labels[key] = str(label_fn(p) if label_fn else key)
+
+    rows: list[dict[str, Any]] = []
+    for key, group in buckets.items():
+        won = lost = push = 0
+        pnl_total = 0.0
+        for p in group:
+            result = _result_of(p)
+            if result == "won":
+                won += 1
+            elif result == "lost":
+                lost += 1
+            elif result == "push":
+                push += 1
+            pnl = _row_pnl_usd(p)
+            if pnl is not None:
+                pnl_total += pnl
+        n = len(group)
+        roi_pct = round((pnl_total / n) * 100, 1) if n else None
+        rows.append(
+            {
+                "key": key,
+                "label": labels[key],
+                "n": n,
+                "won": won,
+                "lost": lost,
+                "push": push,
+                "pnl_usd": round(pnl_total, 2),
+                "roi_pct": roi_pct,
+            }
+        )
+    rows.sort(key=lambda r: (-r["n"], r["label"]))
+    return rows
+
+
+def all_time_settled_live_breakdown(
+    *,
+    states: dict[str, str] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """All-time settled LIVE-category picks, by category and by strategy."""
+    runtime = states or get_runtime_states()
+    live_ids = [
+        cid
+        for cid, cat in CATEGORIES.items()
+        if runtime.get(cid, cat.initial_state) == STATE_LIVE
+    ]
+    live_set = set(live_ids)
+
+    picks: list[dict[str, Any]] = []
+    for raw in _pipeline_rows():
+        if not _is_settled(raw):
+            continue
+        cid = assign_live_category(raw, states=runtime)
+        if not cid or cid not in live_set:
+            continue
+        row = _display_row(raw, cid)
+        if row:
+            picks.append(row)
+
+    picks = _dedupe_live_stakes(picks)
+    return {
+        "by_category": _aggregate_settled_groups(
+            picks,
+            key_fn=lambda p: p.get("live_category"),
+        ),
+        "by_strategy": _aggregate_settled_groups(
+            picks,
+            key_fn=lambda p: p.get("strategy"),
+            label_fn=lambda p: p.get("strategy_short") or p.get("strategy_label") or p.get("strategy"),
+        ),
+    }
+
+
 def _stake_dedupe_key(row: dict[str, Any]) -> tuple[str, ...]:
     """One LIVE stake per category + fixture + market + kickoff day."""
     day = str(row.get("date_label") or row.get("fixture_date") or "")[:10]
@@ -338,6 +434,7 @@ def trade_picks_payload(
         by_category[p["live_category"]] = by_category.get(p["live_category"], 0) + 1
 
     metrics = _summary_metrics(picks)
+    all_time = all_time_settled_live_breakdown(states=states)
 
     return {
         "include_settled": want_settled,
@@ -353,6 +450,8 @@ def trade_picks_payload(
         "roi_pct": metrics["roi_pct"],
         "by_category": by_category,
         "categories": [{"id": cid, "n": by_category.get(cid, 0)} for cid in live_ids],
+        "stats_by_category": all_time["by_category"],
+        "stats_by_strategy": all_time["by_strategy"],
     }
 
 

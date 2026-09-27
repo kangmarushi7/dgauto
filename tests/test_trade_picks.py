@@ -166,6 +166,19 @@ class TradePicksTests(unittest.TestCase):
         self.assertEqual(hit["stake_usd"], 1.0)
         self.assertEqual(hit["live_category"], "Main_filtered")
 
+    def test_all_time_settled_breakdown(self):
+        payload = self.tp.trade_picks_payload(include_settled=False)
+        by_cat = {r["key"]: r for r in payload["stats_by_category"]}
+        by_strat = {r["key"]: r for r in payload["stats_by_strategy"]}
+        self.assertIn("Main_filtered", by_cat)
+        self.assertEqual(by_cat["Main_filtered"]["n"], 1)
+        self.assertEqual(by_cat["Main_filtered"]["won"], 1)
+        self.assertEqual(by_cat["Main_filtered"]["lost"], 0)
+        self.assertAlmostEqual(by_cat["Main_filtered"]["pnl_usd"], 0.4)
+        self.assertAlmostEqual(by_cat["Main_filtered"]["roi_pct"], 40.0)
+        self.assertIn("main", by_strat)
+        self.assertEqual(by_strat["main"]["won"], 1)
+
     def test_resolve_trade_pick_main(self):
         updated = self.tp.resolve_trade_pick("main", "open-o25", "won")
         self.assertEqual(updated["status"], "won")

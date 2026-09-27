@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trade Picks · DG</title>
     <link rel="stylesheet" href="/static/style.css?v=16" />
-    <link rel="stylesheet" href="/static/bets.css?v=8" />
+    <link rel="stylesheet" href="/static/bets.css?v=9" />
     <script src="/static/table_tools.js?v=7" defer></script>
   </head>
   <body>
@@ -57,6 +57,92 @@
           </p>
         </div>
       </div>
+
+      <section class="tp-stats" aria-label="All-time settled LIVE performance">
+        <p class="tp-stats__note">All-time settled LIVE picks (flat $1) — independent of date filter.</p>
+        <div class="tp-stats__grid">
+          <div class="tp-stats__card">
+            <h2>By LIVE category</h2>
+            {% set cat_rows = payload.stats_by_category or [] %}
+            {% if not cat_rows %}
+            <p class="tp-stats__empty">No settled LIVE category picks yet.</p>
+            {% else %}
+            <div class="bets-table-wrap tp-stats__table-wrap">
+              <table class="tp-stats-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>N</th>
+                    <th>Won</th>
+                    <th>Lost</th>
+                    <th>Push</th>
+                    <th>PnL</th>
+                    <th>ROI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in cat_rows %}
+                  <tr>
+                    <td>{{ r.label }}</td>
+                    <td class="mono">{{ r.n }}</td>
+                    <td class="mono">{{ r.won }}</td>
+                    <td class="mono">{{ r.lost }}</td>
+                    <td class="mono">{{ r.push }}</td>
+                    <td class="mono {% if r.pnl_usd > 0 %}bets-pos{% elif r.pnl_usd < 0 %}bets-neg{% endif %}">
+                      {{ '%+.2f'|format(r.pnl_usd) }}
+                    </td>
+                    <td class="mono {% if r.roi_pct is not none and r.roi_pct > 0 %}bets-pos{% elif r.roi_pct is not none and r.roi_pct < 0 %}bets-neg{% endif %}">
+                      {% if r.roi_pct is not none %}{{ '%+.1f'|format(r.roi_pct) }}%{% else %}—{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </div>
+          <div class="tp-stats__card">
+            <h2>By strategy</h2>
+            {% set strat_rows = payload.stats_by_strategy or [] %}
+            {% if not strat_rows %}
+            <p class="tp-stats__empty">No settled LIVE strategy picks yet.</p>
+            {% else %}
+            <div class="bets-table-wrap tp-stats__table-wrap">
+              <table class="tp-stats-table">
+                <thead>
+                  <tr>
+                    <th>Strategy</th>
+                    <th>N</th>
+                    <th>Won</th>
+                    <th>Lost</th>
+                    <th>Push</th>
+                    <th>PnL</th>
+                    <th>ROI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in strat_rows %}
+                  <tr>
+                    <td>{{ r.label }}</td>
+                    <td class="mono">{{ r.n }}</td>
+                    <td class="mono">{{ r.won }}</td>
+                    <td class="mono">{{ r.lost }}</td>
+                    <td class="mono">{{ r.push }}</td>
+                    <td class="mono {% if r.pnl_usd > 0 %}bets-pos{% elif r.pnl_usd < 0 %}bets-neg{% endif %}">
+                      {{ '%+.2f'|format(r.pnl_usd) }}
+                    </td>
+                    <td class="mono {% if r.roi_pct is not none and r.roi_pct > 0 %}bets-pos{% elif r.roi_pct is not none and r.roi_pct < 0 %}bets-neg{% endif %}">
+                      {% if r.roi_pct is not none %}{{ '%+.1f'|format(r.roi_pct) }}%{% else %}—{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
 
       <div class="bets-toolbar">
         <div class="bets-range" id="datePicker">
