@@ -62,12 +62,22 @@ bet_entries = Table(
     Column("status", String(20), nullable=False, default="open"),
     Column("pnl_units", Float),
     Column("resolved_at", String(64)),
-    # xGOT research log — projection totals for post-hoc slice filters
+    # xGOT research log — projection totals + team splits for post-hoc slices
     Column("fixture_id", String(64), index=True),
+    Column("proj_xgot_home", Float),
+    Column("proj_xgot_away", Float),
     Column("proj_xgot_total", Float),
+    Column("proj_big_chances_home", Float),
+    Column("proj_big_chances_away", Float),
     Column("proj_big_chances_total", Float),
+    Column("proj_box_shots_home", Float),
+    Column("proj_box_shots_away", Float),
     Column("proj_box_shots_total", Float),
+    Column("proj_sot_home", Float),
+    Column("proj_sot_away", Float),
     Column("proj_sot_total", Float),
+    Column("home_team", String(200)),
+    Column("away_team", String(200)),
     UniqueConstraint(
         "log_type",
         "fixture_date",
@@ -165,10 +175,20 @@ def _ensure_bet_entries_columns() -> None:
     """Add nullable xGOT projection columns on existing DBs (create_all won't alter)."""
     wanted = {
         "fixture_id": "VARCHAR(64)",
+        "proj_xgot_home": "FLOAT",
+        "proj_xgot_away": "FLOAT",
         "proj_xgot_total": "FLOAT",
+        "proj_big_chances_home": "FLOAT",
+        "proj_big_chances_away": "FLOAT",
         "proj_big_chances_total": "FLOAT",
+        "proj_box_shots_home": "FLOAT",
+        "proj_box_shots_away": "FLOAT",
         "proj_box_shots_total": "FLOAT",
+        "proj_sot_home": "FLOAT",
+        "proj_sot_away": "FLOAT",
         "proj_sot_total": "FLOAT",
+        "home_team": "VARCHAR(200)",
+        "away_team": "VARCHAR(200)",
     }
     dialect = engine.dialect.name
     with engine.begin() as conn:

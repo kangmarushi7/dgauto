@@ -63,7 +63,7 @@ Promote these onto pick/bet rows as flat fields, e.g.:
 - `fixture_id` (String, indexed) — if not already present on this table
 - `proj_xgot_total`, `proj_big_chances_total`, `proj_box_shots_total`, `proj_sot_total` (Float, nullable)
 
-Home/away breakdowns are optional v1 (can recompute from `fixtures_by_id` on the strat page only). Bet log slices use the four totals above.
+Home/away splits are persisted (`proj_*_home` / `proj_*_away`) alongside totals. Strat page shows `H / A (T)`. Bet log **xGOT** column uses the selected team's value for ML (tagged H/A); match markets use the total. Slices still rank by match totals.
 
 ## Markets
 

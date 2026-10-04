@@ -7,11 +7,15 @@ import unittest
 from app.bet_scenarios import resolve_kind_for_entry
 from app.xgot_strat import (
     build_xgot_picks,
+    display_metric_for_entry,
+    enrich_xgot_entries,
     extract_projections,
+    format_ha_total,
     is_eligible,
     market_label_for_entry,
     pick_sot_line,
     select_fixture_ids_for_slice,
+    team_side_for_entry,
 )
 
 
@@ -32,6 +36,8 @@ class ExtractProjectionsTests(unittest.TestCase):
             },
         }
         p = extract_projections(raw)
+        self.assertEqual(p["proj_xgot_home"], 1.1)
+        self.assertEqual(p["proj_xgot_away"], 1.4)
         self.assertEqual(p["proj_xgot_total"], 2.5)
         self.assertEqual(p["proj_big_chances_total"], 3.5)
         self.assertEqual(p["proj_box_shots_total"], 13.0)
@@ -54,6 +60,8 @@ class ExtractProjectionsTests(unittest.TestCase):
         }
         p = extract_projections(raw, heat=heat)
         self.assertIsNone(p["proj_xgot_total"])
+        self.assertEqual(p["proj_big_chances_home"], 2.2)
+        self.assertEqual(p["proj_big_chances_away"], 1.3)
         self.assertAlmostEqual(p["proj_big_chances_total"], 3.5)
         self.assertTrue(is_eligible(p))
 
@@ -110,8 +118,22 @@ class BuildPicksTests(unittest.TestCase):
         ml = next(p for p in picks if p["bet_type"] == "xgot_ml")
         self.assertEqual(ml["team_name"], "Home")
         self.assertEqual(ml["odds"], 2.4)
+        self.assertEqual(ml["proj_xgot_home"], 1.2)
+        self.assertEqual(ml["proj_xgot_away"], 1.5)
+        self.assertEqual(team_side_for_entry(ml), "home")
+        self.assertEqual(display_metric_for_entry(ml, "proj_xgot"), 1.2)
+        enriched = enrich_xgot_entries([ml])[0]
+        self.assertEqual(enriched["xgot_display_label"], "1.2 (H)")
+        self.assertEqual(enriched["xgot_breakdown"], "1.2 / 1.5 (2.7)")
+        o25 = next(p for p in picks if p["bet_type"] == "xgot_o25")
+        self.assertEqual(display_metric_for_entry(o25, "proj_xgot"), 2.7)
         sot = next(p for p in picks if p["bet_type"].startswith("xgot_sot_"))
         self.assertEqual(sot["team_name"], "8.5")
+
+    def test_format_ha_total(self):
+        self.assertEqual(format_ha_total(1.1, 1.4, 2.5), "1.1 / 1.4 (2.5)")
+        self.assertEqual(format_ha_total(None, None, 2.5), "2.5")
+        self.assertEqual(format_ha_total(None, None, None), "—")
 
     def test_skips_o25_without_odds(self):
         matches = [

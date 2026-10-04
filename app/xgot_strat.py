@@ -57,37 +57,110 @@ def extract_projections(
     *,
     heat: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Pull projection totals from sim_stats (+ heat big-chances fallback)."""
+    """Pull home/away/total projections from sim_stats (+ heat big-chances fallback)."""
     raw = fixture if isinstance(fixture, dict) else {}
     sim = raw.get("sim_stats") if isinstance(raw.get("sim_stats"), dict) else {}
     projected_xg = sim.get("projected_xg") if isinstance(sim.get("projected_xg"), dict) else {}
 
-    _, _, xgot_total = _side_total(projected_xg.get("xgot"))
-    _, _, bc_total = _side_total(sim.get("big_chances_created"))
-    _, _, box_total = _side_total(sim.get("shots_inside_box"))
-    _, _, sot_total = _side_total(sim.get("shots_on_target"))
+    xgot_h, xgot_a, xgot_total = _side_total(projected_xg.get("xgot"))
+    bc_h, bc_a, bc_total = _side_total(sim.get("big_chances_created"))
+    box_h, box_a, box_total = _side_total(sim.get("shots_inside_box"))
+    sot_h, sot_a, sot_total = _side_total(sim.get("shots_on_target"))
     _, _, xg_total = _side_total(sim.get("xg"))
 
-    if bc_total is None and isinstance(heat, dict):
+    if (bc_h is None or bc_a is None or bc_total is None) and isinstance(heat, dict):
         ps = heat.get("projected_stats") if isinstance(heat.get("projected_stats"), dict) else {}
         home_ps = ps.get("home") if isinstance(ps.get("home"), dict) else {}
         away_ps = ps.get("away") if isinstance(ps.get("away"), dict) else {}
         h = _num(home_ps.get("big_chances_created"))
         a = _num(away_ps.get("big_chances_created"))
-        if h is not None and a is not None:
-            bc_total = h + a
-        elif h is not None:
-            bc_total = h
-        elif a is not None:
-            bc_total = a
+        if bc_h is None:
+            bc_h = h
+        if bc_a is None:
+            bc_a = a
+        if bc_total is None and bc_h is not None and bc_a is not None:
+            bc_total = bc_h + bc_a
+        elif bc_total is None:
+            bc_total = bc_h if bc_h is not None else bc_a
 
     return {
+        "proj_xgot_home": xgot_h,
+        "proj_xgot_away": xgot_a,
         "proj_xgot_total": xgot_total,
+        "proj_big_chances_home": bc_h,
+        "proj_big_chances_away": bc_a,
         "proj_big_chances_total": bc_total,
+        "proj_box_shots_home": box_h,
+        "proj_box_shots_away": box_a,
         "proj_box_shots_total": box_total,
+        "proj_sot_home": sot_h,
+        "proj_sot_away": sot_a,
         "proj_sot_total": sot_total,
         "proj_xg_total": xg_total,
     }
+
+
+def _norm_name(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def team_side_for_entry(entry: dict[str, Any]) -> str | None:
+    """Return 'home' / 'away' when the bet is team-based (e.g. ML)."""
+    bt = str(entry.get("bet_type") or "")
+    if bt != "xgot_ml":
+        return None
+    team = _norm_name(entry.get("team_name"))
+    if not team:
+        return None
+    home = _norm_name(entry.get("home_team"))
+    away = _norm_name(entry.get("away_team"))
+    if not home or not away:
+        fixture = str(entry.get("fixture") or "")
+        for sep in (" vs ", " v "):
+            if sep in fixture.lower():
+                # Case-preserving split on first occurrence (case-insensitive).
+                idx = fixture.lower().find(sep)
+                home = _norm_name(fixture[:idx])
+                away = _norm_name(fixture[idx + len(sep) :])
+                break
+    if home and team == home:
+        return "home"
+    if away and team == away:
+        return "away"
+    return None
+
+
+def display_metric_for_entry(entry: dict[str, Any], prefix: str) -> float | None:
+    """Team side for ML bets; match total otherwise.
+
+    prefix examples: proj_xgot, proj_big_chances, proj_box_shots, proj_sot
+    """
+    side = team_side_for_entry(entry)
+    if side == "home":
+        return _num(entry.get(f"{prefix}_home"))
+    if side == "away":
+        return _num(entry.get(f"{prefix}_away"))
+    return _num(entry.get(f"{prefix}_total"))
+
+
+def format_ha_total(home: Any, away: Any, total: Any) -> str:
+    """Compact H / A (T) label for strat / log cells."""
+    h = _num(home)
+    a = _num(away)
+    t = _num(total)
+    if h is None and a is None and t is None:
+        return "—"
+    if h is None and a is None:
+        return str(t)
+    left = "—" if h is None else str(h)
+    right = "—" if a is None else str(a)
+    if t is None and h is not None and a is not None:
+        t = round(h + a, 4)
+        if abs(t - round(t)) < 1e-9:
+            t = float(round(t))
+    if t is None:
+        return f"{left} / {right}"
+    return f"{left} / {right} ({t})"
 
 
 def is_eligible(projections: dict[str, Any]) -> bool:
@@ -189,9 +262,17 @@ def build_xgot_picks(
             "home_team": home,
             "away_team": away,
             "units": STAKE_UNITS,
+            "proj_xgot_home": proj.get("proj_xgot_home"),
+            "proj_xgot_away": proj.get("proj_xgot_away"),
             "proj_xgot_total": proj.get("proj_xgot_total"),
+            "proj_big_chances_home": proj.get("proj_big_chances_home"),
+            "proj_big_chances_away": proj.get("proj_big_chances_away"),
             "proj_big_chances_total": proj.get("proj_big_chances_total"),
+            "proj_box_shots_home": proj.get("proj_box_shots_home"),
+            "proj_box_shots_away": proj.get("proj_box_shots_away"),
             "proj_box_shots_total": proj.get("proj_box_shots_total"),
+            "proj_sot_home": proj.get("proj_sot_home"),
+            "proj_sot_away": proj.get("proj_sot_away"),
             "proj_sot_total": proj.get("proj_sot_total"),
             "proj_xg_total": proj.get("proj_xg_total"),
         }
@@ -264,10 +345,36 @@ def group_xgot_candidates(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "fixture_date": p.get("fixture_date"),
                 "fixture": p.get("fixture"),
                 "league_name": p.get("league_name"),
+                "home_team": p.get("home_team"),
+                "away_team": p.get("away_team"),
+                "proj_xgot_home": p.get("proj_xgot_home"),
+                "proj_xgot_away": p.get("proj_xgot_away"),
                 "proj_xgot_total": p.get("proj_xgot_total"),
+                "proj_big_chances_home": p.get("proj_big_chances_home"),
+                "proj_big_chances_away": p.get("proj_big_chances_away"),
                 "proj_big_chances_total": p.get("proj_big_chances_total"),
+                "proj_box_shots_home": p.get("proj_box_shots_home"),
+                "proj_box_shots_away": p.get("proj_box_shots_away"),
                 "proj_box_shots_total": p.get("proj_box_shots_total"),
+                "proj_sot_home": p.get("proj_sot_home"),
+                "proj_sot_away": p.get("proj_sot_away"),
                 "proj_sot_total": p.get("proj_sot_total"),
+                "xgot_label": format_ha_total(
+                    p.get("proj_xgot_home"), p.get("proj_xgot_away"), p.get("proj_xgot_total")
+                ),
+                "big_chances_label": format_ha_total(
+                    p.get("proj_big_chances_home"),
+                    p.get("proj_big_chances_away"),
+                    p.get("proj_big_chances_total"),
+                ),
+                "box_shots_label": format_ha_total(
+                    p.get("proj_box_shots_home"),
+                    p.get("proj_box_shots_away"),
+                    p.get("proj_box_shots_total"),
+                ),
+                "sot_label": format_ha_total(
+                    p.get("proj_sot_home"), p.get("proj_sot_away"), p.get("proj_sot_total")
+                ),
                 "markets": [],
             }
             order.append(fid)
@@ -347,9 +454,19 @@ def sync_xgot_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
                 "status": "open",
                 "pnl_units": None,
                 "fixture_id": str(p.get("fixture_id") or "") or None,
+                "home_team": p.get("home_team") or "",
+                "away_team": p.get("away_team") or "",
+                "proj_xgot_home": p.get("proj_xgot_home"),
+                "proj_xgot_away": p.get("proj_xgot_away"),
                 "proj_xgot_total": p.get("proj_xgot_total"),
+                "proj_big_chances_home": p.get("proj_big_chances_home"),
+                "proj_big_chances_away": p.get("proj_big_chances_away"),
                 "proj_big_chances_total": p.get("proj_big_chances_total"),
+                "proj_box_shots_home": p.get("proj_box_shots_home"),
+                "proj_box_shots_away": p.get("proj_box_shots_away"),
                 "proj_box_shots_total": p.get("proj_box_shots_total"),
+                "proj_sot_home": p.get("proj_sot_home"),
+                "proj_sot_away": p.get("proj_sot_away"),
                 "proj_sot_total": p.get("proj_sot_total"),
             }
         )
@@ -389,5 +506,23 @@ def enrich_xgot_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for e in entries:
         row = dict(e)
         row["market_label"] = market_label_for_entry(row)
+        side = team_side_for_entry(row)
+        row["proj_side"] = side
+        row["display_xgot"] = display_metric_for_entry(row, "proj_xgot")
+        row["display_big_chances"] = display_metric_for_entry(row, "proj_big_chances")
+        row["display_box_shots"] = display_metric_for_entry(row, "proj_box_shots")
+        row["display_sot"] = display_metric_for_entry(row, "proj_sot")
+        row["xgot_breakdown"] = format_ha_total(
+            row.get("proj_xgot_home"), row.get("proj_xgot_away"), row.get("proj_xgot_total")
+        )
+        # ML / team bets: primary cell is the selected team value + side tag.
+        if side:
+            val = row["display_xgot"]
+            tag = "H" if side == "home" else "A"
+            row["xgot_display_label"] = "—" if val is None else f"{val} ({tag})"
+        else:
+            row["xgot_display_label"] = (
+                "—" if row["display_xgot"] is None else str(row["display_xgot"])
+            )
         out.append(row)
     return out

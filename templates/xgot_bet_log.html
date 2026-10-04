@@ -80,6 +80,7 @@
             <th>League</th>
             <th>Market</th>
             <th>xGOT</th>
+            <th>xGOT H / A (T)</th>
             <th>BC</th>
             <th>Box</th>
             <th>SOT</th>
@@ -246,7 +247,7 @@
         if (!entries.length) {
           const tr = document.createElement("tr");
           const empty = td("No xGOT bets in this slice.");
-          empty.colSpan = 13;
+          empty.colSpan = 14;
           tr.appendChild(empty);
           rowsEl.appendChild(tr);
           return;
@@ -257,10 +258,12 @@
           tr.appendChild(td(e.fixture || ""));
           tr.appendChild(td(e.league_name || ""));
           tr.appendChild(td(e.market_label || e.bet_type || ""));
-          tr.appendChild(td(fmtNum(e.proj_xgot_total)));
-          tr.appendChild(td(fmtNum(e.proj_big_chances_total)));
-          tr.appendChild(td(fmtNum(e.proj_box_shots_total)));
-          tr.appendChild(td(fmtNum(e.proj_sot_total)));
+          // Team bets (ML): selected team's xGOT; match markets: total.
+          tr.appendChild(td(e.xgot_display_label || fmtNum(e.display_xgot ?? e.proj_xgot_total)));
+          tr.appendChild(td(e.xgot_breakdown || "—"));
+          tr.appendChild(td(fmtNum(e.display_big_chances ?? e.proj_big_chances_total)));
+          tr.appendChild(td(fmtNum(e.display_box_shots ?? e.proj_box_shots_total)));
+          tr.appendChild(td(fmtNum(e.display_sot ?? e.proj_sot_total)));
           tr.appendChild(td(e.odds ?? ""));
           tr.appendChild(td(e.units ?? 1));
           tr.appendChild(td(e.status || "open"));
