@@ -158,6 +158,18 @@ LEGACY_BET_TYPE_MAP: dict[str, dict[str, str]] = {
     "h2h_away": {"category": "H2H Strat", "label": "H2H Away Win", "resolve": "h2h_away_win"},
 }
 
+# xGOT paper research bet types (log_type="xgot"; resolve kinds reuse auto-resolve).
+XGOT_BET_TYPE_MAP: dict[str, dict[str, str]] = {
+    "xgot_o25": {"category": "xGOT", "label": "Over 2.5", "resolve": "over2.5"},
+    "xgot_o35": {"category": "xGOT", "label": "Over 3.5", "resolve": "over3.5"},
+    "xgot_btts": {"category": "xGOT", "label": "BTTS Yes", "resolve": "btts"},
+    "xgot_ml": {"category": "xGOT", "label": "Moneyline", "resolve": "moneyline"},
+    "xgot_sot_o75": {"category": "xGOT", "label": "SOT O7.5", "resolve": "h2h_sot"},
+    "xgot_sot_o85": {"category": "xGOT", "label": "SOT O8.5", "resolve": "h2h_sot"},
+    "xgot_sot_o95": {"category": "xGOT", "label": "SOT O9.5", "resolve": "h2h_sot"},
+    "xgot_sot_o105": {"category": "xGOT", "label": "SOT O10.5", "resolve": "h2h_sot"},
+}
+
 # Arahus Engine bet types (isolated log_type="arahus"; resolve kinds reuse auto-resolve).
 ARAHUS_BET_TYPE_MAP: dict[str, dict[str, str]] = {
     "arahus_o15": {"category": "Arahus", "label": "Over 1.5", "resolve": "over1.5"},
@@ -215,6 +227,15 @@ def scenario_meta_for_entry(entry: dict[str, Any]) -> dict[str, Any]:
         }
     if bt in ARAHUS_BET_TYPE_MAP:
         meta = ARAHUS_BET_TYPE_MAP[bt]
+        return {
+            "bet_type": bt,
+            "category": meta["category"],
+            "label": meta["label"],
+            "hist_hit_pct": 0.0,
+            "resolve": meta["resolve"],
+        }
+    if bt in XGOT_BET_TYPE_MAP:
+        meta = XGOT_BET_TYPE_MAP[bt]
         return {
             "bet_type": bt,
             "category": meta["category"],

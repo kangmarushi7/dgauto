@@ -14,6 +14,7 @@ from app.plus_ev_strat import market_label_for_entry as plus_ev_market_label
 from app.prop_model_bets import list_prop_bets
 from app.seasons import fixture_date_ist
 from app.slate import _is_in_todays_slate_ist, _parse_dt
+from app.xgot_strat import market_label_for_entry as xgot_market_label
 
 _H2H_LABELS = {bt: label for _, _, bt, label, _, _ in H2H_MARKETS}
 
@@ -57,10 +58,11 @@ STRATEGY_META: dict[str, dict[str, str]] = {
     "cs": {"id": "cs", "label": "Closing Steam", "short": "CS"},
     "arahus_v2": {"id": "arahus_v2", "label": "Arahus v2", "short": "Av2"},
     "arahus_live_v1": {"id": "arahus_live_v1", "label": "Arahus Live V1", "short": "AL1"},
+    "xgot": {"id": "xgot", "label": "xGOT Research", "short": "xGOT"},
     "prop": {"id": "prop", "label": "Prop Model", "short": "Prop"},
 }
 
-LOG_TYPES = ("main", "lm", "no", "h2h", "ev", "cs", "arahus_v2", "arahus_live_v1")
+LOG_TYPES = ("main", "lm", "no", "h2h", "ev", "cs", "arahus_v2", "arahus_live_v1", "xgot")
 
 
 def _parse_iso(value: Any) -> datetime | None:
@@ -108,6 +110,8 @@ def _market_for_entry(entry: dict[str, Any], strategy: str) -> str:
         return f"Correct score {score}"
     if strategy == "lm":
         return "Over 1.5 Goals"
+    if strategy == "xgot":
+        return xgot_market_label(entry)
     if strategy == "no":
         team = str(entry.get("team_name") or "").strip()
         return f"{team} not to win" if team else "Not to win"

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xGOT Bet Log - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=18" />
+    <script src="/static/table_tools.js?v=8" defer></script>
+    <script src="/static/bet_log_date_filter.js?v=1"></script>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "xgot-bet-log" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">xGOT <span>Bet Log</span></h1>
+      <p class="subtitle">Paper research log — slice by projection percentile after the fact.</p>
+      {% include "includes/season_switch.html" %}
+
+      <div class="actions">
+        <button id="syncBtn">Sync xGOT Bets</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="xgot">Resync today</button>
+        <button id="autoResolveBtn">Auto Resolve Open Bets</button>
+        {% set log_export_href = "/api/xgot-bet-log/export?format=csv&season=" ~ season %}
+        {% include "includes/log_export_menu.html" %}
+        <span id="status"></span>
+      </div>
+      {% include "includes/bet_log_date_filter.html" %}
+
+      <section class="recommendations">
+        <div class="recommendation-card">
+          <h2>Slice filters</h2>
+          <div class="actions" style="flex-wrap: wrap; gap: 0.75rem; align-items: end;">
+            <label>
+              Rank by
+              <select id="sliceRankBy">
+                <option value="proj_xgot_total">xGOT total</option>
+                <option value="proj_big_chances_total">Big chances</option>
+                <option value="proj_box_shots_total">Box shots</option>
+              </select>
+            </label>
+            <label>
+              Percentile
+              <select id="slicePercentile">
+                <option value="all">All</option>
+                <option value="0.5">Top 50%</option>
+                <option value="0.2">Top 20%</option>
+                <option value="0.1">Top 10%</option>
+              </select>
+            </label>
+            <label>
+              Min threshold
+              <input id="sliceMin" type="number" step="0.1" placeholder="optional" style="width: 6rem;" />
+            </label>
+            <label>
+              Market
+              <select id="sliceMarket">
+                <option value="all">All</option>
+                <option value="xgot_o25">O2.5</option>
+                <option value="xgot_o35">O3.5</option>
+                <option value="xgot_btts">BTTS</option>
+                <option value="sot">SOT</option>
+                <option value="xgot_ml">ML</option>
+              </select>
+            </label>
+          </div>
+          <p class="hit-note" id="sliceMeta"></p>
+        </div>
+        <div class="recommendation-card">
+          <h2>xGOT Performance</h2>
+          <p class="hit-note" id="stats"></p>
+        </div>
+      </section>
+
+      <table data-column-filters="1" data-csv-export="1" data-csv-filename="xgot-log">
+        <thead>
+          <tr>
+            <th>Fixture Date</th>
+            <th>Fixture</th>
+            <th>League</th>
+            <th>Market</th>
+            <th>xGOT</th>
+            <th>BC</th>
+            <th>Box</th>
+            <th>SOT</th>
+            <th>Odds</th>
+            <th>Units</th>
+            <th>Status</th>
+            <th>Unit PnL</th>
+            <th data-no-filter="1">Resolve</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </main>
+
+    <script>
+      const LOG_SEASON = {{ season }};
+      function apiUrl(path) {
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}season=${LOG_SEASON}`;
+      }
+
+      const syncBtn = document.getElementById("syncBtn");
+      const autoResolveBtn = document.getElementById("autoResolveBtn");
+      const statusEl = document.getElementById("status");
+      const rowsEl = document.getElementById("rows");
+      const statsEl = document.getElementById("stats");
+      const sliceMetaEl = document.getElementById("sliceMeta");
+      const sliceRankBy = document.getElementById("sliceRankBy");
+      const slicePercentile = document.getElementById("slicePercentile");
+      const sliceMin = document.getElementById("sliceMin");
+      const sliceMarket = document.getElementById("sliceMarket");
+
+      const IST_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      function td(text) {
+        const el = document.createElement("td");
+        el.textContent = text ?? "";
+        return el;
+      }
+
+      function fmtNum(v) {
+        if (v == null || v === "") return "—";
+        const n = Number(v);
+        return Number.isFinite(n) ? n : "—";
+      }
+
+      function renderStats(s) {
+        const avgOdds = s.avg_odds != null ? s.avg_odds : "—";
+        statsEl.textContent = `Placed: ${s.placed} | Won: ${s.won} | Lost: ${s.lost} | Push: ${s.push} | Win%: ${s.win_pct} | Avg Odds: ${avgOdds} | UnitPnL: ${s.unit_pnl}`;
+      }
+
+      function formatToIst(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return IST_DATE_FORMATTER.format(d).replace(",", "");
+      }
+
+      function ensureTableTools(maxAttempts = 20) {
+        let attempts = 0;
+        const tick = () => {
+          if (window.TableTools) {
+            window.TableTools.enhanceAll();
+            return;
+          }
+          attempts += 1;
+          if (attempts < maxAttempts) setTimeout(tick, 150);
+        };
+        tick();
+      }
+
+      /**
+       * Must match app.xgot_strat.select_fixture_ids_for_slice:
+       * unique fixtures → sort metric desc, fixture_id asc → ceil(n*pct) → optional min.
+       */
+      function selectFixtureIdsForSlice(entries, rankBy, percentile, minValue) {
+        const best = new Map();
+        for (const e of entries) {
+          let fid = String(e.fixture_id || "").trim();
+          if (!fid) fid = `${e.fixture_date || ""}|${e.fixture || ""}`;
+          const raw = e[rankBy];
+          const metric = raw == null || raw === "" ? null : Number(raw);
+          const m = Number.isFinite(metric) ? metric : null;
+          if (!best.has(fid)) best.set(fid, m);
+          else {
+            const prev = best.get(fid);
+            if (m != null && (prev == null || m > prev)) best.set(fid, m);
+          }
+        }
+        let items = Array.from(best.entries());
+        items.sort((a, b) => {
+          const av = a[1] == null ? -Infinity : a[1];
+          const bv = b[1] == null ? -Infinity : b[1];
+          if (bv !== av) return bv - av;
+          return String(a[0]).localeCompare(String(b[0]));
+        });
+        if (minValue != null && Number.isFinite(minValue)) {
+          items = items.filter(([, m]) => m != null && m >= minValue);
+        }
+        if (percentile == null || percentile >= 1) {
+          return new Set(items.map(([fid]) => fid));
+        }
+        const keepN = items.length ? Math.ceil(items.length * percentile) : 0;
+        return new Set(items.slice(0, keepN).map(([fid]) => fid));
+      }
+
+      function marketMatches(entry, market) {
+        if (!market || market === "all") return true;
+        const bt = String(entry.bet_type || "");
+        if (market === "sot") return bt.startsWith("xgot_sot_");
+        return bt === market;
+      }
+
+      function applySlice(entries) {
+        const rankBy = sliceRankBy.value || "proj_xgot_total";
+        const pctRaw = slicePercentile.value;
+        const percentile = pctRaw === "all" ? null : Number(pctRaw);
+        const minRaw = sliceMin.value;
+        const minValue = minRaw === "" ? null : Number(minRaw);
+        const market = sliceMarket.value || "all";
+        const keptIds = selectFixtureIdsForSlice(entries, rankBy, percentile, minValue);
+        const sliced = entries.filter((e) => {
+          let fid = String(e.fixture_id || "").trim();
+          if (!fid) fid = `${e.fixture_date || ""}|${e.fixture || ""}`;
+          return keptIds.has(fid) && marketMatches(e, market);
+        });
+        const fixturesInScope = new Set(
+          entries.map((e) => String(e.fixture_id || "").trim() || `${e.fixture_date}|${e.fixture}`)
+        ).size;
+        sliceMetaEl.textContent = `Slice: ${keptIds.size} of ${fixturesInScope} fixtures · ${sliced.length} bets`;
+        return sliced;
+      }
+
+      async function resolveBet(id, result) {
+        const res = await fetch(apiUrl(`/api/xgot-bet-log/${id}/resolve`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ result }),
+        });
+        const data = await res.json();
+        render(data);
+      }
+
+      let dateScopedEntries = [];
+
+      function render(data) {
+        dateScopedEntries = Array.isArray(data.entries) ? data.entries : [];
+        const sliced = applySlice(dateScopedEntries);
+        const dash = BetLogDateFilter.computeDashboard(sliced);
+        renderStats(dash);
+        renderRows(sliced);
+      }
+
+      function renderRows(entries) {
+        rowsEl.innerHTML = "";
+        if (!entries.length) {
+          const tr = document.createElement("tr");
+          const empty = td("No xGOT bets in this slice.");
+          empty.colSpan = 13;
+          tr.appendChild(empty);
+          rowsEl.appendChild(tr);
+          return;
+        }
+        for (const e of entries) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(formatToIst(e.fixture_date)));
+          tr.appendChild(td(e.fixture || ""));
+          tr.appendChild(td(e.league_name || ""));
+          tr.appendChild(td(e.market_label || e.bet_type || ""));
+          tr.appendChild(td(fmtNum(e.proj_xgot_total)));
+          tr.appendChild(td(fmtNum(e.proj_big_chances_total)));
+          tr.appendChild(td(fmtNum(e.proj_box_shots_total)));
+          tr.appendChild(td(fmtNum(e.proj_sot_total)));
+          tr.appendChild(td(e.odds ?? ""));
+          tr.appendChild(td(e.units ?? 1));
+          tr.appendChild(td(e.status || "open"));
+          tr.appendChild(td(e.pnl_units ?? ""));
+
+          const actions = document.createElement("td");
+          if (String(e.status || "open").toLowerCase() === "open") {
+            const sel = document.createElement("select");
+            sel.className = "resolve-select";
+            sel.setAttribute("aria-label", "Resolve bet");
+            sel.innerHTML =
+              '<option value="">Resolve…</option>' +
+              '<option value="won">Won</option>' +
+              '<option value="lost">Lost</option>' +
+              '<option value="push">Push</option>';
+            sel.onchange = () => {
+              if (!sel.value) return;
+              resolveBet(e.id, sel.value);
+            };
+            actions.appendChild(sel);
+          }
+          tr.appendChild(actions);
+          rowsEl.appendChild(tr);
+        }
+        if (window.TableTools) {
+          window.TableTools.reapply(rowsEl.closest("table"));
+        }
+      }
+
+      ["change", "input"].forEach((evt) => {
+        sliceRankBy.addEventListener(evt, () => render({ entries: dateScopedEntries }));
+        slicePercentile.addEventListener(evt, () => render({ entries: dateScopedEntries }));
+        sliceMin.addEventListener(evt, () => render({ entries: dateScopedEntries }));
+        sliceMarket.addEventListener(evt, () => render({ entries: dateScopedEntries }));
+      });
+
+      syncBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Syncing...";
+        syncBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/xgot-bet-log/sync"), { method: "POST" });
+          const data = await res.json();
+          renderScoped(data);
+          statusEl.textContent = `Synced ${data.result.inserted} new bets`;
+        } finally {
+          syncBtn.disabled = false;
+        }
+      });
+
+      autoResolveBtn.addEventListener("click", async () => {
+        statusEl.textContent = "Auto resolving open bets...";
+        autoResolveBtn.disabled = true;
+        try {
+          const res = await fetch(apiUrl("/api/xgot-bet-log/auto-resolve"), { method: "POST" });
+          const raw = await res.text();
+          if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
+          const data = JSON.parse(raw);
+          if (data.result?.error) {
+            statusEl.textContent = data.result.error;
+            return;
+          }
+          renderScoped(data);
+          let msg = `Resolved ${data.result.resolved}/${data.result.open_checked} open bets`;
+          if (data.result.skipped_not_found) {
+            msg += ` (${data.result.skipped_not_found} not found)`;
+          }
+          if (data.result.stopped_early) {
+            msg += " — partial run, click again for remaining";
+          }
+          statusEl.textContent = msg;
+        } catch (err) {
+          statusEl.textContent = `Auto resolve failed: ${err.message || err}`;
+        } finally {
+          autoResolveBtn.disabled = false;
+        }
+      });
+
+      let renderScoped = BetLogDateFilter.attach(render);
+      renderScoped({
+        entries: {{ entries | tojson }},
+        dashboard: {{ dashboard | tojson }},
+      });
+      ensureTableTools();
+    </script>
+    <script src="/static/resync_today.js?v=1"></script>
+  </body>
+</html>

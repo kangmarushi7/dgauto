@@ -64,6 +64,7 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     from app.no_strat import build_no_strat_picks, sync_no_bets
     from app.h2h_strat import build_h2h_strat_picks, sync_h2h_bets
     from app.plus_ev_strat import build_plus_ev_picks, sync_plus_ev_bets
+    from app.xgot_strat import build_xgot_picks_from_state, sync_xgot_bets
     from app.arahus_engine import build_arahus_slate, flatten_picks, sync_arahus_bets
     from app.arahus_v2_engine import (
         build_arahus_v2_slate,
@@ -80,6 +81,7 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     summary["main"] = _safe("main", lambda: sync_recommended_bets(matches))
     summary["lm"] = _safe("lm", lambda: sync_lm_bets(build_lm_strat_picks(matches)))
     summary["no"] = _safe("no", lambda: sync_no_bets(build_no_strat_picks(matches)))
+    summary["xgot"] = _safe("xgot", lambda: sync_xgot_bets(build_xgot_picks_from_state(state)))
     summary["h2h"] = _safe(
         "h2h",
         lambda: sync_h2h_bets(
@@ -176,6 +178,7 @@ def resync_todays_bets(
     from app.no_strat import build_no_strat_picks, sync_no_bets
     from app.h2h_strat import build_h2h_strat_picks, sync_h2h_bets
     from app.plus_ev_strat import build_plus_ev_picks, sync_plus_ev_bets
+    from app.xgot_strat import build_xgot_picks_from_state, sync_xgot_bets
     from app.arahus_engine import build_arahus_slate, flatten_picks, sync_arahus_bets
     from app.arahus_v2_engine import (
         build_arahus_v2_slate,
@@ -194,6 +197,7 @@ def resync_todays_bets(
         "no": lambda: sync_no_bets(build_no_strat_picks(matches)),
         "h2h": lambda: sync_h2h_bets(build_h2h_strat_picks(matches), fetch_pm_odds=True),
         "ev": lambda: sync_plus_ev_bets(build_plus_ev_picks(state)),
+        "xgot": lambda: sync_xgot_bets(build_xgot_picks_from_state(state)),
         "arahus": lambda: sync_arahus_bets(flatten_picks(build_arahus_slate(state))),
         "arahus_v2": lambda: (
             lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
@@ -218,6 +222,7 @@ def resync_todays_bets(
         "no": "no",
         "h2h": "h2h",
         "ev": "ev",
+        "xgot": "xgot",
         "arahus": "arahus",
         "arahus_v2": "arahus_v2",
         "cs": "cs",

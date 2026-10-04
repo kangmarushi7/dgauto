@@ -91,6 +91,7 @@ While the app is running, it automatically resolves open bets on:
 
 - **Main bet log** (scenario + legacy entries share the same `main` log)
 - **LM Strat bet log**
+- **xGOT Research bet log** (paper; projection slice filters on the log)
 
 Default schedule: **04:30, 10:30, 16:30, 22:30 Asia/Kolkata** so finished fixtures are resolved through the day. Configure in `.env`:
 
@@ -155,6 +156,9 @@ X-Cron-Secret: some-long-random-string
 - `GET /api/data` - latest slate data
 - `GET /api/todays-bets` - scenario-filtered bets
 - `GET /api/lm-strat` - LM Strat filtered picks
+- `GET /api/xgot-strat` - xGOT Research candidates (all projected fixtures × markets)
+- `POST /api/xgot-bet-log/sync` - sync xGOT paper bets (`log_type = "xgot"`)
+- `POST /api/xgot-bet-log/auto-resolve` - settle open xGOT bets
 - `GET /api/h2h-strat` - H2H Trends picks (Min 6 meetings, ≥75% hit rate)
 - `POST /api/h2h-bet-log/sync` - sync H2H Strat bets (1u each, separate log)
 - `POST /api/h2h-bet-log/auto-resolve` - settle open H2H bets

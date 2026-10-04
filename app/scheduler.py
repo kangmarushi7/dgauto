@@ -106,7 +106,7 @@ def run_fixture_refresh() -> dict[str, Any]:
 
 
 def run_all_auto_resolves() -> dict[str, Any]:
-    """Resolve open bets across main, LM, NO, +EV, CS, H2H, and Arahus logs."""
+    """Resolve open bets across main, LM, NO, +EV, CS, H2H, Arahus, and xGOT logs."""
     summary: dict[str, Any] = {
         "main": None,
         "lm": None,
@@ -117,8 +117,20 @@ def run_all_auto_resolves() -> dict[str, Any]:
         "arahus": None,
         "arahus_v2": None,
         "arahus_live_v1": None,
+        "xgot": None,
     }
-    for log_type in ("main", "lm", "no", "ev", "cs", "h2h", "arahus", "arahus_v2", "arahus_live_v1"):
+    for log_type in (
+        "main",
+        "lm",
+        "no",
+        "ev",
+        "cs",
+        "h2h",
+        "arahus",
+        "arahus_v2",
+        "arahus_live_v1",
+        "xgot",
+    ):
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:

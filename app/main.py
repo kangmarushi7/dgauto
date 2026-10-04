@@ -46,6 +46,15 @@ from app.lm_strat import (
     resolve_lm_bet,
     sync_lm_bets,
 )
+from app.xgot_strat import (
+    build_xgot_picks_from_state,
+    enrich_xgot_entries,
+    group_xgot_candidates,
+    load_xgot_bet_log,
+    resolve_xgot_bet,
+    sync_xgot_bets,
+    xgot_dashboard,
+)
 from app.no_strat import (
     build_no_strat_picks,
     load_no_bet_log,
@@ -833,6 +842,18 @@ async def lm_strat_page(request: Request):
     )
 
 
+@app.get("/xgot-strat")
+async def xgot_strat_page(request: Request):
+    data = read_latest()
+    picks = build_xgot_picks_from_state(data)
+    candidates = group_xgot_candidates(picks)
+    return templates.TemplateResponse(
+        request,
+        "xgot_strat.html",
+        {"data": data, "picks": picks, "candidates": candidates},
+    )
+
+
 @app.get("/no-strat")
 async def no_strat_page(request: Request):
     data = read_latest()
@@ -1023,6 +1044,17 @@ async def lm_bet_log_page(request: Request, season: int | None = Query(default=N
     return templates.TemplateResponse(request, "lm_bet_log.html", payload)
 
 
+@app.get("/xgot-bet-log")
+async def xgot_bet_log_page(request: Request, season: int | None = Query(default=None)):
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(
+        enrich_xgot_entries(load_xgot_bet_log()),
+        xgot_dashboard,
+        season=season_id,
+    )
+    return templates.TemplateResponse(request, "xgot_bet_log.html", payload)
+
+
 @app.post("/api/refresh", response_model=RefreshResponse)
 async def refresh():
     try:
@@ -1209,6 +1241,19 @@ async def lm_strat_data():
     latest = read_latest()
     picks = build_lm_strat_picks(latest.get("matches", []))
     return JSONResponse({"scraped_at": latest.get("scraped_at"), "picks": picks})
+
+
+@app.get("/api/xgot-strat")
+async def xgot_strat_data():
+    latest = read_latest()
+    picks = build_xgot_picks_from_state(latest)
+    return JSONResponse(
+        {
+            "scraped_at": latest.get("scraped_at"),
+            "picks": picks,
+            "candidates": group_xgot_candidates(picks),
+        }
+    )
 
 
 @app.get("/api/no-strat")
@@ -2040,6 +2085,63 @@ async def lm_bet_log_resolve(bet_id: str, payload: dict, season: int | None = Qu
 async def lm_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "lm")
     data = _strat_log_payload(load_lm_bet_log(), lm_dashboard, season=season)
+    return JSONResponse({"result": result, **data})
+
+
+@app.get("/api/xgot-bet-log")
+async def xgot_bet_log_data(season: int | None = Query(default=None)):
+    return JSONResponse(
+        _strat_log_payload(
+            enrich_xgot_entries(load_xgot_bet_log()),
+            xgot_dashboard,
+            season=season,
+        )
+    )
+
+
+@app.get("/api/xgot-bet-log/export")
+async def xgot_bet_log_export(season: int | None = Query(default=None)):
+    return await _export_strategy_bet_log_csv(
+        loader=lambda: enrich_xgot_entries(load_xgot_bet_log()),
+        basename="xgot_bet_log",
+        season=season,
+    )
+
+
+@app.post("/api/xgot-bet-log/sync")
+async def xgot_bet_log_sync(season: int | None = Query(default=None)):
+    latest = read_latest()
+    picks = build_xgot_picks_from_state(latest)
+    result = sync_xgot_bets(picks)
+    payload = _strat_log_payload(
+        enrich_xgot_entries(load_xgot_bet_log()),
+        xgot_dashboard,
+        season=season,
+    )
+    return JSONResponse({"result": result, **payload})
+
+
+@app.post("/api/xgot-bet-log/{bet_id}/resolve")
+async def xgot_bet_log_resolve(
+    bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    updated = resolve_xgot_bet(bet_id, str(payload.get("result", "")))
+    data = _strat_log_payload(
+        enrich_xgot_entries(load_xgot_bet_log()),
+        xgot_dashboard,
+        season=season,
+    )
+    return JSONResponse({"updated": updated, **data})
+
+
+@app.post("/api/xgot-bet-log/auto-resolve")
+async def xgot_bet_log_auto_resolve(season: int | None = Query(default=None)):
+    result = await run_in_threadpool(auto_resolve_open_bets, "xgot")
+    data = _strat_log_payload(
+        enrich_xgot_entries(load_xgot_bet_log()),
+        xgot_dashboard,
+        season=season,
+    )
     return JSONResponse({"result": result, **data})
 
 

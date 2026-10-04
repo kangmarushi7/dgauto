@@ -62,6 +62,12 @@ bet_entries = Table(
     Column("status", String(20), nullable=False, default="open"),
     Column("pnl_units", Float),
     Column("resolved_at", String(64)),
+    # xGOT research log — projection totals for post-hoc slice filters
+    Column("fixture_id", String(64), index=True),
+    Column("proj_xgot_total", Float),
+    Column("proj_big_chances_total", Float),
+    Column("proj_box_shots_total", Float),
+    Column("proj_sot_total", Float),
     UniqueConstraint(
         "log_type",
         "fixture_date",
@@ -155,8 +161,43 @@ arahus_decision_log = Table(
 )
 
 
+def _ensure_bet_entries_columns() -> None:
+    """Add nullable xGOT projection columns on existing DBs (create_all won't alter)."""
+    wanted = {
+        "fixture_id": "VARCHAR(64)",
+        "proj_xgot_total": "FLOAT",
+        "proj_big_chances_total": "FLOAT",
+        "proj_box_shots_total": "FLOAT",
+        "proj_sot_total": "FLOAT",
+    }
+    dialect = engine.dialect.name
+    with engine.begin() as conn:
+        existing: set[str] = set()
+        if dialect == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(bet_entries)")).fetchall()
+            existing = {str(r[1]) for r in rows}
+        else:
+            rows = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'bet_entries'"
+                )
+            ).fetchall()
+            existing = {str(r[0]) for r in rows}
+        if not existing:
+            return
+        for col, sql_type in wanted.items():
+            if col in existing:
+                continue
+            conn.execute(text(f"ALTER TABLE bet_entries ADD COLUMN {col} {sql_type}"))
+
+
 def init_db() -> None:
     metadata.create_all(engine)
+    try:
+        _ensure_bet_entries_columns()
+    except Exception as exc:
+        print(f"[db] bet_entries column ensure skipped/failed: {exc}")
     # Prop Model Engine tables (pm_*) live on the same DATABASE_URL Postgres.
     try:
         from app.prop_model import init_prop_model_tables
