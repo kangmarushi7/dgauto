@@ -134,6 +134,58 @@ class TradePicksTests(unittest.TestCase):
             ]
         self.assertEqual(len(feed_montreal), 1)
 
+    def test_prefers_arahus_when_main_and_arahus_both_o25(self):
+        """Same fixture/day Over 2.5 from Main + Arahus → one Trade Pick (Arahus)."""
+        self.db.insert_bets(
+            "main",
+            [
+                {
+                    "id": "cross-main-o25",
+                    "created_at": "2026-10-12T10:00:00+00:00",
+                    "fixture": "Nijmegen vs Twente",
+                    "league_name": "Eredivisie",
+                    "bet_type": "over2.5",
+                    "team_name": "",
+                    "odds": 1.42,
+                    "units": 1.0,
+                    "status": "open",
+                    "fixture_date": "2026-10-12T18:00:00+00:00",
+                },
+            ],
+        )
+        self.db.insert_bets(
+            "arahus",
+            [
+                {
+                    "id": "cross-arahus-o25",
+                    "created_at": "2026-10-12T10:00:00+00:00",
+                    "fixture": "Nijmegen vs Twente",
+                    "league_name": "Eredivisie",
+                    "bet_type": "arahus_o25",
+                    "team_name": "",
+                    "odds": 1.42,
+                    "units": 1.0,
+                    "status": "open",
+                    "fixture_date": "2026-10-12T18:00:00+00:00",
+                },
+            ],
+        )
+        payload = self.tp.trade_picks_payload(include_settled=False)
+        hits = [
+            e
+            for e in payload["entries"]
+            if e.get("fixture") == "Nijmegen vs Twente" and e.get("market") == "Over 2.5"
+        ]
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["id"], "cross-arahus-o25")
+        self.assertEqual(hits[0]["strategy"], "arahus")
+        self.assertEqual(hits[0]["live_category"], "Arahus_filtered")
+
+        feed = self.tp.build_bot_trade_picks_feed(open_only=True)
+        feed_hits = [p for p in feed["picks"] if p.get("fixture") == "Nijmegen vs Twente"]
+        self.assertEqual(len(feed_hits), 1)
+        self.assertEqual(feed_hits[0]["id"], "cross-arahus-o25")
+
     def test_include_settled(self):
         payload = self.tp.trade_picks_payload(include_settled=True)
         ids = {e["id"] for e in payload["entries"]}

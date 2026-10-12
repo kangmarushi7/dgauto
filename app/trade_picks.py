@@ -358,7 +358,55 @@ def _dedupe_live_stakes(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         if _stake_dedupe_rank(row) > _stake_dedupe_rank(prev):
             best[key] = row
-    return [best[k] for k in order]
+    return _dedupe_cross_strategy_o25([best[k] for k in order])
+
+
+def _cross_strategy_o25_key(row: dict[str, Any]) -> tuple[str, ...] | None:
+    """Key for Main↔Arahus Over 2.5 stake collapse; None if not applicable."""
+    market = str(row.get("market") or "").strip().lower()
+    if market not in {"over 2.5", "o2.5", "over2.5"}:
+        return None
+    strat = str(row.get("strategy") or "").strip().lower()
+    if strat not in {"main", "arahus"} and not strat.startswith("arahus"):
+        return None
+    day = str(row.get("date_label") or row.get("fixture_date") or "")[:10]
+    fixture = str(row.get("fixture") or "").strip().lower()
+    return (fixture, day, "over 2.5")
+
+
+def _cross_strategy_o25_rank(row: dict[str, Any]) -> int:
+    """Prefer Arahus over Main when both suggest the same Over 2.5."""
+    strat = str(row.get("strategy") or "").strip().lower()
+    if strat == "arahus" or strat.startswith("arahus"):
+        return 2
+    if strat == "main":
+        return 1
+    return 0
+
+
+def _dedupe_cross_strategy_o25(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One Trade Pick stake when Main and Arahus both have Over 2.5 on a fixture/day."""
+    best: dict[tuple[str, ...], dict[str, Any]] = {}
+    for row in picks:
+        key = _cross_strategy_o25_key(row)
+        if key is None:
+            continue
+        prev = best.get(key)
+        if prev is None or _cross_strategy_o25_rank(row) > _cross_strategy_o25_rank(prev):
+            best[key] = row
+
+    out: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, ...]] = set()
+    for row in picks:
+        key = _cross_strategy_o25_key(row)
+        if key is None:
+            out.append(row)
+            continue
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        out.append(best[key])
+    return out
 
 
 def trade_picks_payload(
