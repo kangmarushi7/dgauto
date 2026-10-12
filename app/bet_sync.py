@@ -206,6 +206,7 @@ def resync_todays_bets(
     from app.h2h_strat import build_h2h_strat_picks, sync_h2h_bets
     from app.plus_ev_strat import build_plus_ev_picks, sync_plus_ev_bets
     from app.xgot_strat import build_xgot_picks_from_state, sync_xgot_bets
+    from app.xgot_research import sync_variant
     from app.arahus_engine import build_arahus_slate, flatten_picks, sync_arahus_bets
     from app.arahus_v2_engine import (
         build_arahus_v2_slate,
@@ -229,6 +230,10 @@ def resync_todays_bets(
             scraped_at=state.get("scraped_at"),
             scrape_id=state.get("last_snapshot_id"),
         ),
+        "xgot_fw_b": lambda: sync_variant("B", state),
+        "xgot_fw_c": lambda: sync_variant("C", state),
+        "xgot_fw_d": lambda: sync_variant("D", state),
+        "xgot_fw_e": lambda: sync_variant("E", state),
         "arahus": lambda: sync_arahus_bets(flatten_picks(build_arahus_slate(state))),
         "arahus_v2": lambda: (
             lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
@@ -254,6 +259,10 @@ def resync_todays_bets(
         "h2h": "h2h",
         "ev": "ev",
         "xgot": "xgot",
+        "xgot_fw_b": "xgot_fw_b",
+        "xgot_fw_c": "xgot_fw_c",
+        "xgot_fw_d": "xgot_fw_d",
+        "xgot_fw_e": "xgot_fw_e",
         "arahus": "arahus",
         "arahus_v2": "arahus_v2",
         "cs": "cs",

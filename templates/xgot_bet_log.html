@@ -3,25 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>xGOT Bet Log - DG Bet Automation</title>
+    <title>{{ page_title|default("xGOT Bet Log") }} - DG Bet Automation</title>
     <link rel="stylesheet" href="/static/style.css?v=18" />
     <script src="/static/table_tools.js?v=8" defer></script>
     <script src="/static/bet_log_date_filter.js?v=1"></script>
   </head>
   <body>
     <main class="container">
-      {% set nav_current = "xgot-bet-log" %}
+      {% set nav_current = log_nav|default("xgot-bet-log") %}
       {% include "includes/app_nav.html" %}
 
-      <h1 class="app-brand">xGOT <span>Bet Log</span></h1>
-      <p class="subtitle">Paper research log — slice by projection percentile after the fact.</p>
+      <h1 class="app-brand">{{ brand_main|default("xGOT") }} <span>{{ brand_sub|default("Bet Log") }}</span></h1>
+      <p class="subtitle">{{ subtitle|default("Paper research log — slice by projection percentile after the fact.") }}</p>
+      {% if hub_link %}
+      <p class="hit-note"><a href="{{ hub_link }}">← xGOT Forward hub</a></p>
+      {% endif %}
       {% include "includes/season_switch.html" %}
 
       <div class="actions">
-        <button id="syncBtn">Sync xGOT Bets</button>
-        <button type="button" class="btn-secondary" data-resync-strategy="xgot">Resync today</button>
+        <button id="syncBtn">{{ sync_label|default("Sync xGOT Bets") }}</button>
+        <button type="button" class="btn-secondary" data-resync-strategy="{{ resync_strategy|default('xgot') }}">Resync today</button>
         <button id="autoResolveBtn">Auto Resolve Open Bets</button>
-        {% set log_export_href = "/api/xgot-bet-log/export?format=csv&season=" ~ season %}
+        {% set log_export_href = (api_base|default('/api/xgot-bet-log')) ~ "/export?format=csv&season=" ~ season %}
         {% include "includes/log_export_menu.html" %}
         <span id="status"></span>
       </div>
@@ -67,12 +70,12 @@
           <p class="hit-note" id="sliceMeta"></p>
         </div>
         <div class="recommendation-card">
-          <h2>xGOT Performance</h2>
+          <h2>{{ brand_main|default("xGOT") }} Performance</h2>
           <p class="hit-note" id="stats"></p>
         </div>
       </section>
 
-      <table data-column-filters="1" data-csv-export="1" data-csv-filename="xgot-log">
+      <table data-column-filters="1" data-csv-export="1" data-csv-filename="{{ csv_filename|default('xgot-log') }}">
         <thead>
           <tr>
             <th>Fixture Date</th>
@@ -97,6 +100,7 @@
 
     <script>
       const LOG_SEASON = {{ season }};
+      const API_BASE = {{ (api_base|default('/api/xgot-bet-log'))|tojson }};
       function apiUrl(path) {
         const sep = path.includes("?") ? "&" : "?";
         return `${path}${sep}season=${LOG_SEASON}`;
@@ -160,10 +164,6 @@
         tick();
       }
 
-      /**
-       * Must match app.xgot_strat.select_fixture_ids_for_slice:
-       * unique fixtures → sort metric desc, fixture_id asc → ceil(n*pct) → optional min.
-       */
       function selectFixtureIdsForSlice(entries, rankBy, percentile, minValue) {
         const best = new Map();
         for (const e of entries) {
@@ -223,7 +223,7 @@
       }
 
       async function resolveBet(id, result) {
-        const res = await fetch(apiUrl(`/api/xgot-bet-log/${id}/resolve`), {
+        const res = await fetch(apiUrl(`${API_BASE}/${id}/resolve`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ result }),
@@ -258,7 +258,6 @@
           tr.appendChild(td(e.fixture || ""));
           tr.appendChild(td(e.league_name || ""));
           tr.appendChild(td(e.market_label || e.bet_type || ""));
-          // Team bets (ML): selected team's xGOT; match markets: total.
           tr.appendChild(td(e.xgot_display_label || fmtNum(e.display_xgot ?? e.proj_xgot_total)));
           tr.appendChild(td(e.xgot_breakdown || "—"));
           tr.appendChild(td(fmtNum(e.display_big_chances ?? e.proj_big_chances_total)));
@@ -304,7 +303,7 @@
         statusEl.textContent = "Syncing...";
         syncBtn.disabled = true;
         try {
-          const res = await fetch(apiUrl("/api/xgot-bet-log/sync"), { method: "POST" });
+          const res = await fetch(apiUrl(`${API_BASE}/sync`), { method: "POST" });
           const data = await res.json();
           renderScoped(data);
           statusEl.textContent = `Synced ${data.result.inserted} new bets`;
@@ -317,7 +316,7 @@
         statusEl.textContent = "Auto resolving open bets...";
         autoResolveBtn.disabled = true;
         try {
-          const res = await fetch(apiUrl("/api/xgot-bet-log/auto-resolve"), { method: "POST" });
+          const res = await fetch(apiUrl(`${API_BASE}/auto-resolve`), { method: "POST" });
           const raw = await res.text();
           if (!res.ok) throw new Error(raw || `HTTP ${res.status}`);
           const data = JSON.parse(raw);

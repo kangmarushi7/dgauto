@@ -55,6 +55,13 @@ from app.xgot_strat import (
     sync_xgot_bets,
     xgot_dashboard,
 )
+from app.xgot_research import LOG_TYPES as XGOT_FW_LOG_TYPES, sync_variant
+from app.xgot_web import (
+    VARIANT_META,
+    build_forward_hub,
+    load_audit_html,
+    load_audit_markdown,
+)
 from app.no_strat import (
     build_no_strat_picks,
     load_no_bet_log,
@@ -1053,6 +1060,101 @@ async def xgot_bet_log_page(request: Request, season: int | None = Query(default
         season=season_id,
     )
     return templates.TemplateResponse(request, "xgot_bet_log.html", payload)
+
+
+@app.get("/xgot-forward")
+async def xgot_forward_page(request: Request):
+    hub = await run_in_threadpool(build_forward_hub)
+    return templates.TemplateResponse(request, "xgot_forward.html", {"hub": hub})
+
+
+@app.get("/xgot-audit")
+async def xgot_audit_page(request: Request):
+    audit = await run_in_threadpool(load_audit_html)
+    return templates.TemplateResponse(
+        request,
+        "xgot_audit.html",
+        {"audit_html": audit["html"], "source_path": audit["source_path"]},
+    )
+
+
+@app.get("/api/xgot-audit/raw")
+async def xgot_audit_raw():
+    md = await run_in_threadpool(load_audit_markdown)
+    return Response(
+        content=md,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="xgot_forensic_audit_REPORT.md"'},
+    )
+
+
+@app.get("/api/xgot-forward")
+async def xgot_forward_api():
+    return JSONResponse(await run_in_threadpool(build_forward_hub))
+
+
+@app.post("/api/xgot-forward/sync-research")
+async def xgot_forward_sync_research():
+    """Manual research sync. When env gate is off, still syncs B–E from this button."""
+    from app.db import load_state
+
+    state = load_state(
+        "latest_data",
+        {"scraped_at": None, "matches": [], "fixtures_by_id": {}, "dg_extra_indexes": {}},
+    )
+
+    def _run() -> dict:
+        # Force sync from UI even if auto env is false (user-initiated).
+        results = {}
+        inserted = 0
+        for vid in ("B", "C", "D", "E"):
+            results[vid] = sync_variant(vid, state)
+            inserted += int(results[vid].get("inserted") or 0)
+        return {"ok": True, "skipped": False, "inserted": inserted, "variants": results}
+
+    try:
+        summary = await run_in_threadpool(_run)
+        return JSONResponse(summary)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(exc).strip() or repr(exc)}, status_code=500)
+
+
+def _xgot_fw_page_context(variant_id: str, payload: dict) -> dict:
+    meta = VARIANT_META[variant_id]
+    slug = variant_id.lower()
+    return {
+        **payload,
+        "page_title": f"xGOT FW {variant_id} Log",
+        "brand_main": f"xGOT FW {variant_id}",
+        "brand_sub": "Bet Log",
+        "subtitle": f"Forward-paper variant {variant_id}: {meta['rule']}. Paper only — not LIVE.",
+        "log_nav": f"xgot-fw-{slug}-bet-log",
+        "api_base": f"/api/xgot-fw-{slug}-bet-log",
+        "resync_strategy": f"xgot_fw_{slug}",
+        "sync_label": f"Sync FW {variant_id}",
+        "csv_filename": f"xgot-fw-{slug}-log",
+        "hub_link": "/xgot-forward",
+    }
+
+
+@app.get("/xgot-fw-{variant}-bet-log")
+async def xgot_fw_bet_log_page(
+    request: Request, variant: str, season: int | None = Query(default=None)
+):
+    from app.db import list_bets
+
+    key = str(variant or "").strip().upper()
+    if key not in XGOT_FW_LOG_TYPES:
+        raise HTTPException(status_code=404, detail="Unknown xGOT forward variant")
+    season_id = _resolve_season(season)
+    payload = _strat_log_payload(
+        enrich_xgot_entries(list_bets(XGOT_FW_LOG_TYPES[key])),
+        xgot_dashboard,
+        season=season_id,
+    )
+    return templates.TemplateResponse(
+        request, "xgot_bet_log.html", _xgot_fw_page_context(key, payload)
+    )
 
 
 @app.post("/api/refresh", response_model=RefreshResponse)
@@ -2143,6 +2245,86 @@ async def xgot_bet_log_auto_resolve(season: int | None = Query(default=None)):
     result = await run_in_threadpool(auto_resolve_open_bets, "xgot")
     data = _strat_log_payload(
         enrich_xgot_entries(load_xgot_bet_log()),
+        xgot_dashboard,
+        season=season,
+    )
+    return JSONResponse({"result": result, **data})
+
+
+def _fw_log_type(variant: str) -> str:
+    key = str(variant or "").strip().upper()
+    if key not in XGOT_FW_LOG_TYPES:
+        raise HTTPException(status_code=404, detail="Unknown xGOT forward variant")
+    return XGOT_FW_LOG_TYPES[key]
+
+
+@app.get("/api/xgot-fw-{variant}-bet-log")
+async def xgot_fw_bet_log_data(variant: str, season: int | None = Query(default=None)):
+    from app.db import list_bets
+
+    lt = _fw_log_type(variant)
+    return JSONResponse(
+        _strat_log_payload(
+            enrich_xgot_entries(list_bets(lt)),
+            xgot_dashboard,
+            season=season,
+        )
+    )
+
+
+@app.get("/api/xgot-fw-{variant}-bet-log/export")
+async def xgot_fw_bet_log_export(variant: str, season: int | None = Query(default=None)):
+    from app.db import list_bets
+
+    lt = _fw_log_type(variant)
+    key = str(variant).strip().lower()
+    return await _export_strategy_bet_log_csv(
+        loader=lambda: enrich_xgot_entries(list_bets(lt)),
+        basename=f"xgot_fw_{key}_bet_log",
+        season=season,
+    )
+
+
+@app.post("/api/xgot-fw-{variant}-bet-log/sync")
+async def xgot_fw_bet_log_sync(variant: str, season: int | None = Query(default=None)):
+    from app.db import list_bets
+
+    key = str(variant or "").strip().upper()
+    lt = _fw_log_type(variant)
+    latest = read_latest()
+    result = await run_in_threadpool(sync_variant, key, latest)
+    payload = _strat_log_payload(
+        enrich_xgot_entries(list_bets(lt)),
+        xgot_dashboard,
+        season=season,
+    )
+    return JSONResponse({"result": result, **payload})
+
+
+@app.post("/api/xgot-fw-{variant}-bet-log/{bet_id}/resolve")
+async def xgot_fw_bet_log_resolve(
+    variant: str, bet_id: str, payload: dict, season: int | None = Query(default=None)
+):
+    from app.db import list_bets
+
+    lt = _fw_log_type(variant)
+    updated = resolve_xgot_bet(bet_id, str(payload.get("result", "")), log_type=lt)
+    data = _strat_log_payload(
+        enrich_xgot_entries(list_bets(lt)),
+        xgot_dashboard,
+        season=season,
+    )
+    return JSONResponse({"updated": updated, **data})
+
+
+@app.post("/api/xgot-fw-{variant}-bet-log/auto-resolve")
+async def xgot_fw_bet_log_auto_resolve(variant: str, season: int | None = Query(default=None)):
+    from app.db import list_bets
+
+    lt = _fw_log_type(variant)
+    result = await run_in_threadpool(auto_resolve_open_bets, lt)
+    data = _strat_log_payload(
+        enrich_xgot_entries(list_bets(lt)),
         xgot_dashboard,
         season=season,
     )

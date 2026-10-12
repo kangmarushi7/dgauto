@@ -1,6 +1,6 @@
 {# Shared app nav. Set nav_current before include, e.g. {% set nav_current = "home" %} #}
-{% set strategies_active = nav_current in ['trade-picks', 'lm-strat', 'xgot-strat', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'arahus', 'arahus-v2', 'arahus-live-v1', 'prop-model'] %}
-{% set logs_active = nav_current in ['lm-bet-log', 'xgot-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'arahus-bet-log', 'arahus-v2-bet-log', 'arahus-live-v1-bet-log', 'prop-bet-log'] %}
+{% set strategies_active = nav_current in ['trade-picks', 'lm-strat', 'xgot-strat', 'xgot-forward', 'xgot-audit', 'no-strat', 'h2h-strat', 'plus-ev-strat', 'cs-strat', 'arahus', 'arahus-v2', 'arahus-live-v1', 'prop-model'] %}
+{% set logs_active = nav_current in ['lm-bet-log', 'xgot-bet-log', 'xgot-fw-b-bet-log', 'xgot-fw-c-bet-log', 'xgot-fw-d-bet-log', 'xgot-fw-e-bet-log', 'no-bet-log', 'h2h-bet-log', 'plus-ev-bet-log', 'cs-bet-log', 'arahus-bet-log', 'arahus-v2-bet-log', 'arahus-live-v1-bet-log', 'prop-bet-log'] %}
 {% set legacy_active = nav_current in ['legacy', 'legacy-scenarios', 'legacy-recommended', 'legacy-bet-log'] %}
 
 <nav class="app-nav" aria-label="Main" data-app-nav>
@@ -31,6 +31,8 @@
         <a href="/trade-picks" role="menuitem" class="{% if nav_current == 'trade-picks' %}is-current{% endif %}">Trade Picks</a>
         <a href="/lm-strat" role="menuitem" class="{% if nav_current == 'lm-strat' %}is-current{% endif %}">Line Movement (LM)</a>
         <a href="/xgot-strat" role="menuitem" class="{% if nav_current == 'xgot-strat' %}is-current{% endif %}">xGOT Research</a>
+        <a href="/xgot-forward" role="menuitem" class="{% if nav_current == 'xgot-forward' %}is-current{% endif %}">xGOT Forward</a>
+        <a href="/xgot-audit" role="menuitem" class="{% if nav_current == 'xgot-audit' %}is-current{% endif %}">xGOT Audit</a>
         <a href="/no-strat" role="menuitem" class="{% if nav_current == 'no-strat' %}is-current{% endif %}">No-Vig Model (NO)</a>
         <a href="/h2h-strat" role="menuitem" class="{% if nav_current == 'h2h-strat' %}is-current{% endif %}">Head to Head (H2H)</a>
         <a href="/plus-ev-strat" role="menuitem" class="{% if nav_current == 'plus-ev-strat' %}is-current{% endif %}">+EV Finder</a>
@@ -57,6 +59,10 @@
       <div class="app-nav__panel" id="navLogs" role="menu" hidden>
         <a href="/lm-bet-log" role="menuitem" class="{% if nav_current == 'lm-bet-log' %}is-current{% endif %}">LM Log</a>
         <a href="/xgot-bet-log" role="menuitem" class="{% if nav_current == 'xgot-bet-log' %}is-current{% endif %}">xGOT Log</a>
+        <a href="/xgot-fw-b-bet-log" role="menuitem" class="{% if nav_current == 'xgot-fw-b-bet-log' %}is-current{% endif %}">xGOT FW B</a>
+        <a href="/xgot-fw-c-bet-log" role="menuitem" class="{% if nav_current == 'xgot-fw-c-bet-log' %}is-current{% endif %}">xGOT FW C</a>
+        <a href="/xgot-fw-d-bet-log" role="menuitem" class="{% if nav_current == 'xgot-fw-d-bet-log' %}is-current{% endif %}">xGOT FW D</a>
+        <a href="/xgot-fw-e-bet-log" role="menuitem" class="{% if nav_current == 'xgot-fw-e-bet-log' %}is-current{% endif %}">xGOT FW E</a>
         <a href="/no-bet-log" role="menuitem" class="{% if nav_current == 'no-bet-log' %}is-current{% endif %}">NO Log</a>
         <a href="/h2h-bet-log" role="menuitem" class="{% if nav_current == 'h2h-bet-log' %}is-current{% endif %}">H2H Log</a>
         <a href="/plus-ev-bet-log" role="menuitem" class="{% if nav_current == 'plus-ev-bet-log' %}is-current{% endif %}">+EV Log</a>

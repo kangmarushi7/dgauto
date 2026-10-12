@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xGOT Audit - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=18" />
+    <style>
+      .audit-body { max-width: 52rem; margin: 1rem 0 3rem; line-height: 1.55; }
+      .audit-body h1 { font-size: 1.6rem; margin: 1.5rem 0 0.75rem; }
+      .audit-body h2 { font-size: 1.25rem; margin: 1.5rem 0 0.6rem; }
+      .audit-body h3 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+      .audit-body h4 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+      .audit-body p { margin: 0.5rem 0; }
+      .audit-body ul { margin: 0.5rem 0 0.5rem 1.25rem; }
+      .audit-body hr { border: 0; border-top: 1px solid rgba(0,0,0,0.12); margin: 1.5rem 0; }
+      .audit-body code { font-size: 0.9em; }
+      .audit-body pre { overflow-x: auto; padding: 0.75rem 1rem; background: rgba(0,0,0,0.04); border-radius: 6px; }
+      .table-wrap { overflow-x: auto; margin: 0.75rem 0 1.25rem; }
+      .audit-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+      .audit-table th, .audit-table td {
+        border: 1px solid rgba(0,0,0,0.12);
+        padding: 0.4rem 0.55rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      .audit-table th { background: rgba(0,0,0,0.04); }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "xgot-audit" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">xGOT <span>Audit</span></h1>
+      <p class="subtitle">Read-only forensic audit (historical). Source: <code>{{ source_path }}</code></p>
+      <p class="hit-note">
+        <a href="/xgot-forward">← Forward hub</a>
+        · <a href="/api/xgot-audit/raw">Download markdown</a>
+      </p>
+
+      <article class="audit-body">
+        {{ audit_html | safe }}
+      </article>
+    </main>
+  </body>
+</html>

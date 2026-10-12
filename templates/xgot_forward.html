@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xGOT Forward - DG Bet Automation</title>
+    <link rel="stylesheet" href="/static/style.css?v=18" />
+    <style>
+      .xgot-hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+        gap: 1rem;
+        margin: 1.25rem 0;
+      }
+      .xgot-hub-card h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+      .xgot-hub-card .rule { color: var(--muted, #666); font-size: 0.85rem; margin-bottom: 0.75rem; }
+      .xgot-hub-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; font-size: 0.9rem; }
+      .xgot-hub-card dt { opacity: 0.7; }
+      .xgot-hub-card dd { margin: 0; font-variant-numeric: tabular-nums; }
+      .xgot-hub-meta { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; margin: 0.75rem 0 1.25rem; }
+      .pill-on { color: #0a7a3e; font-weight: 600; }
+      .pill-off { color: #a35b00; font-weight: 600; }
+      .roi-na { opacity: 0.65; }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      {% set nav_current = "xgot-forward" %}
+      {% include "includes/app_nav.html" %}
+
+      <h1 class="app-brand">xGOT <span>Forward</span></h1>
+      <p class="subtitle">
+        Frozen forward-paper book — baseline A vs research variants B–E.
+        Financial ROI uses real odds only (null odds = N/A). Not LIVE.
+      </p>
+
+      <div class="xgot-hub-meta">
+        <span>Version: <strong>{{ hub.xgot_fw_version }}</strong></span>
+        <span>Baseline: <strong>{{ hub.baseline_version }}</strong></span>
+        <span>
+          Research sync:
+          {% if hub.research_sync_enabled %}
+            <span class="pill-on">ON</span>
+          {% else %}
+            <span class="pill-off">OFF</span>
+          {% endif %}
+        </span>
+        <span>
+          Snapshots: <strong>{{ hub.snapshots.count }}</strong>
+          {% if hub.snapshots.latest_scraped_at %}
+            · last {{ hub.snapshots.latest_scraped_at }}
+            ({{ hub.snapshots.latest_fixture_count }} fixtures)
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="actions">
+        <a class="btn-secondary" href="{{ hub.strat_href }}">xGOT Strat</a>
+        <a class="btn-secondary" href="{{ hub.audit_href }}">Forensic audit</a>
+        <button type="button" id="syncResearchBtn">Sync research variants</button>
+        <button type="button" id="refreshHubBtn" class="btn-secondary">Refresh stats</button>
+        <span id="status"></span>
+      </div>
+
+      <div class="xgot-hub-grid" id="hubCards">
+        {% for vid, v in hub.variants.items() %}
+        <section class="recommendation-card xgot-hub-card" data-variant="{{ vid }}">
+          <h3><a href="{{ v.href }}">{{ v.label }}</a></h3>
+          <p class="rule">{{ v.rule }}</p>
+          <dl>
+            <dt>Placed</dt><dd>{{ v.placed }}</dd>
+            <dt>Settled</dt><dd>{{ v.settled }} (open {{ v.open }})</dd>
+            <dt>W–L–P</dt><dd>{{ v.won }}–{{ v.lost }}–{{ v.push }}</dd>
+            <dt>Outcome WR</dt>
+            <dd>{% if v.win_rate is not none %}{{ '%.1f'|format(v.win_rate * 100) }}%{% else %}—{% endif %}</dd>
+            <dt>Fixtures</dt><dd>{{ v.unique_fixtures }} (max/fx {{ v.max_bets_per_fixture }})</dd>
+            <dt>Priced</dt><dd>{{ v.priced_settled }}</dd>
+            <dt>Net PnL</dt>
+            <dd>{% if v.net_pnl_units is not none %}{{ '%+.2f'|format(v.net_pnl_units) }}u{% else %}<span class="roi-na">N/A</span>{% endif %}</dd>
+            <dt>ROI</dt>
+            <dd>{% if v.roi is not none %}{{ '%.1f'|format(v.roi * 100) }}%{% else %}<span class="roi-na">N/A</span>{% endif %}</dd>
+          </dl>
+        </section>
+        {% endfor %}
+      </div>
+    </main>
+    <script>
+      const statusEl = document.getElementById("status");
+      document.getElementById("refreshHubBtn").addEventListener("click", () => {
+        window.location.reload();
+      });
+      document.getElementById("syncResearchBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("syncResearchBtn");
+        statusEl.textContent = "Syncing research variants…";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/xgot-forward/sync-research", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok || data.ok === false) throw new Error(data.error || "Sync failed");
+          statusEl.textContent = data.skipped
+            ? `Skipped: ${data.reason || "research sync disabled"}`
+            : `Inserted ${data.inserted || 0}. Reloading…`;
+          if (!data.skipped) setTimeout(() => window.location.reload(), 600);
+        } catch (err) {
+          statusEl.textContent = `Sync failed: ${err.message || err}`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

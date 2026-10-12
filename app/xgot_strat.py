@@ -522,12 +522,13 @@ def sync_xgot_bets(
     }
 
 
-def resolve_xgot_bet(bet_id: str, result: str) -> dict[str, Any]:
+def resolve_xgot_bet(bet_id: str, result: str, *, log_type: str = LOG_TYPE) -> dict[str, Any]:
     result = result.lower().strip()
     if result not in {"won", "lost", "push"}:
         raise ValueError("Result must be one of: won, lost, push")
 
-    entries = load_xgot_bet_log()
+    lt = str(log_type or LOG_TYPE)
+    entries = list_bets(lt)
     entry = next((e for e in entries if e.get("id") == bet_id), None)
     if not entry:
         raise ValueError("Bet not found.")
@@ -539,7 +540,7 @@ def resolve_xgot_bet(bet_id: str, result: str) -> dict[str, Any]:
         pnl = round(-1.0 * units, 3)
     else:
         pnl = 0.0
-    updated = resolve_bet_entry(LOG_TYPE, bet_id, result, pnl, _now_iso())
+    updated = resolve_bet_entry(lt, bet_id, result, pnl, _now_iso())
     if not updated:
         raise ValueError("Bet not found.")
     return updated
