@@ -12,6 +12,7 @@ from app.db import insert_bets, list_bets, resolve_bet_entry
 LOG_TYPE = "xgot"
 STAKE_UNITS = 1.0
 SOT_LINES: tuple[float, ...] = (7.5, 8.5, 9.5, 10.5)
+BASELINE_STRATEGY_VERSION = "xgot-baseline-v1"
 
 MARKET_LABELS: dict[str, str] = {
     "xgot_o25": "Over 2.5",
@@ -27,6 +28,32 @@ MARKET_LABELS: dict[str, str] = {
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def is_post_kickoff(fixture_date: Any, *, now: datetime | None = None) -> bool:
+    """True when ``now`` is strictly after fixture kickoff."""
+    kick = _parse_iso(fixture_date)
+    if kick is None:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current > kick.astimezone(timezone.utc)
 
 
 def _num(value: Any) -> float | None:
@@ -437,13 +464,26 @@ def load_xgot_bet_log() -> list[dict[str, Any]]:
     return list_bets(LOG_TYPE)
 
 
-def sync_xgot_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
+def sync_xgot_bets(
+    picks: list[dict[str, Any]],
+    *,
+    scraped_at: str | None = None,
+    scrape_id: str | None = None,
+    strategy_version: str = BASELINE_STRATEGY_VERSION,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Insert baseline xGOT paper bets. Pick rules unchanged; metadata annotated."""
     candidates: list[dict[str, Any]] = []
+    created = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()
+    flagged = 0
     for p in picks:
+        post = is_post_kickoff(p.get("fixture_date"), now=now)
+        if post:
+            flagged += 1
         candidates.append(
             {
                 "id": str(uuid.uuid4()),
-                "created_at": _now_iso(),
+                "created_at": created,
                 "fixture_date": p.get("fixture_date"),
                 "fixture": p.get("fixture", ""),
                 "league_name": p.get("league_name", ""),
@@ -468,10 +508,18 @@ def sync_xgot_bets(picks: list[dict[str, Any]]) -> dict[str, Any]:
                 "proj_sot_home": p.get("proj_sot_home"),
                 "proj_sot_away": p.get("proj_sot_away"),
                 "proj_sot_total": p.get("proj_sot_total"),
+                "strategy_version": strategy_version,
+                "scrape_id": scrape_id,
+                "source_scraped_at": scraped_at,
+                "post_kickoff": post,
             }
         )
     inserted = insert_bets(LOG_TYPE, candidates)
-    return {"inserted": inserted, "total": len(load_xgot_bet_log())}
+    return {
+        "inserted": inserted,
+        "total": len(load_xgot_bet_log()),
+        "post_kickoff_flagged": flagged,
+    }
 
 
 def resolve_xgot_bet(bet_id: str, result: str) -> dict[str, Any]:

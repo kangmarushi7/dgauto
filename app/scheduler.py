@@ -107,19 +107,15 @@ def run_fixture_refresh() -> dict[str, Any]:
 
 def run_all_auto_resolves() -> dict[str, Any]:
     """Resolve open bets across main, LM, NO, +EV, CS, H2H, Arahus, and xGOT logs."""
-    summary: dict[str, Any] = {
-        "main": None,
-        "lm": None,
-        "no": None,
-        "ev": None,
-        "cs": None,
-        "h2h": None,
-        "arahus": None,
-        "arahus_v2": None,
-        "arahus_live_v1": None,
-        "xgot": None,
+    import os
+
+    research_enabled = os.getenv("XGOT_RESEARCH_SYNC_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
     }
-    for log_type in (
+    log_types = [
         "main",
         "lm",
         "no",
@@ -130,7 +126,17 @@ def run_all_auto_resolves() -> dict[str, Any]:
         "arahus_v2",
         "arahus_live_v1",
         "xgot",
-    ):
+    ]
+    if research_enabled:
+        try:
+            from app.xgot_research import research_log_types
+
+            log_types.extend(research_log_types())
+        except Exception:  # noqa: BLE001
+            log_types.extend(["xgot_fw_b", "xgot_fw_c", "xgot_fw_d", "xgot_fw_e"])
+
+    summary: dict[str, Any] = {lt: None for lt in log_types}
+    for log_type in log_types:
         try:
             summary[log_type] = auto_resolve_open_bets(log_type)
         except Exception as exc:

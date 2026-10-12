@@ -78,6 +78,11 @@ bet_entries = Table(
     Column("proj_sot_total", Float),
     Column("home_team", String(200)),
     Column("away_team", String(200)),
+    # Research capture metadata (xGOT forward paper / PIT)
+    Column("strategy_version", String(80)),
+    Column("scrape_id", String(64)),
+    Column("source_scraped_at", String(64)),
+    Column("post_kickoff", Boolean),
     UniqueConstraint(
         "log_type",
         "fixture_date",
@@ -86,6 +91,18 @@ bet_entries = Table(
         "team_name",
         name="uq_bet_entries_dedupe",
     ),
+)
+
+# Immutable DataGaffer fixtures.json snapshots (point-in-time research archive).
+dg_fixture_snapshots = Table(
+    "dg_fixture_snapshots",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("scraped_at", String(64), nullable=False, unique=True, index=True),
+    Column("content_hash", String(64), nullable=False, index=True),
+    Column("fixture_count", Integer, nullable=False, default=0),
+    Column("payload", JSON, nullable=False),
+    Column("created_at", String(64), nullable=False),
 )
 
 # Immutable Arahus decision snapshots for export / fine-tuning analysis.
@@ -189,6 +206,10 @@ def _ensure_bet_entries_columns() -> None:
         "proj_sot_total": "FLOAT",
         "home_team": "VARCHAR(200)",
         "away_team": "VARCHAR(200)",
+        "strategy_version": "VARCHAR(80)",
+        "scrape_id": "VARCHAR(64)",
+        "source_scraped_at": "VARCHAR(64)",
+        "post_kickoff": "BOOLEAN",
     }
     dialect = engine.dialect.name
     with engine.begin() as conn:

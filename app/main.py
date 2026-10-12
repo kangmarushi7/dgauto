@@ -2112,7 +2112,11 @@ async def xgot_bet_log_export(season: int | None = Query(default=None)):
 async def xgot_bet_log_sync(season: int | None = Query(default=None)):
     latest = read_latest()
     picks = build_xgot_picks_from_state(latest)
-    result = sync_xgot_bets(picks)
+    result = sync_xgot_bets(
+        picks,
+        scraped_at=(latest or {}).get("scraped_at"),
+        scrape_id=(latest or {}).get("last_snapshot_id"),
+    )
     payload = _strat_log_payload(
         enrich_xgot_entries(load_xgot_bet_log()),
         xgot_dashboard,

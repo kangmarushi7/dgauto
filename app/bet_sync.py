@@ -30,6 +30,13 @@ AUTO_SYNC_H2H_PM = os.getenv("AUTO_SYNC_H2H_PM_ON_REFRESH", "false").strip().low
     "yes",
     "on",
 }
+# xGOT forward-paper research variants B–E — off until explicitly approved.
+XGOT_RESEARCH_SYNC_ENABLED = os.getenv("XGOT_RESEARCH_SYNC_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _safe(name: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
@@ -81,7 +88,27 @@ def sync_all_strategy_bets(state: dict[str, Any] | None = None) -> dict[str, Any
     summary["main"] = _safe("main", lambda: sync_recommended_bets(matches))
     summary["lm"] = _safe("lm", lambda: sync_lm_bets(build_lm_strat_picks(matches)))
     summary["no"] = _safe("no", lambda: sync_no_bets(build_no_strat_picks(matches)))
-    summary["xgot"] = _safe("xgot", lambda: sync_xgot_bets(build_xgot_picks_from_state(state)))
+    summary["xgot"] = _safe(
+        "xgot",
+        lambda: sync_xgot_bets(
+            build_xgot_picks_from_state(state),
+            scraped_at=state.get("scraped_at"),
+            scrape_id=state.get("last_snapshot_id"),
+        ),
+    )
+    if XGOT_RESEARCH_SYNC_ENABLED:
+        from app.xgot_research import sync_all_research_variants
+
+        summary["xgot_research"] = _safe(
+            "xgot_research", lambda: sync_all_research_variants(state)
+        )
+    else:
+        summary["xgot_research"] = {
+            "ok": True,
+            "skipped": True,
+            "inserted": 0,
+            "reason": "XGOT_RESEARCH_SYNC_ENABLED=false",
+        }
     summary["h2h"] = _safe(
         "h2h",
         lambda: sync_h2h_bets(
@@ -197,7 +224,11 @@ def resync_todays_bets(
         "no": lambda: sync_no_bets(build_no_strat_picks(matches)),
         "h2h": lambda: sync_h2h_bets(build_h2h_strat_picks(matches), fetch_pm_odds=True),
         "ev": lambda: sync_plus_ev_bets(build_plus_ev_picks(state)),
-        "xgot": lambda: sync_xgot_bets(build_xgot_picks_from_state(state)),
+        "xgot": lambda: sync_xgot_bets(
+            build_xgot_picks_from_state(state),
+            scraped_at=state.get("scraped_at"),
+            scrape_id=state.get("last_snapshot_id"),
+        ),
         "arahus": lambda: sync_arahus_bets(flatten_picks(build_arahus_slate(state))),
         "arahus_v2": lambda: (
             lambda cards: sync_arahus_v2_bets(flatten_v2_picks(cards), cards=cards)
