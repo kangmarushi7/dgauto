@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Allow enough time for date lookups + fallback team/H2H searches on large open books.
 MAX_RUNTIME_SEC = int(os.getenv("AUTO_RESOLVE_MAX_RUNTIME_SEC", "240"))
 SETTLE_SOURCE = (
-    os.getenv("BET_SETTLE_SOURCE") or "daily_accuracy,flashscore,api_football"
+    os.getenv("BET_SETTLE_SOURCE") or "daily_accuracy"
 ).strip().lower()
 
 _DAILY_ACCURACY_ALIASES = frozenset(
@@ -46,7 +46,7 @@ _API_FOOTBALL_ALIASES = frozenset({"api_football", "api-football", "apifootball"
 def _settle_sources() -> list[str]:
     """Return configured settlement sources in priority order."""
     sources = [source.strip() for source in SETTLE_SOURCE.split(",") if source.strip()]
-    return sources or ["daily_accuracy", "flashscore", "api_football"]
+    return sources or ["daily_accuracy"]
 
 
 def _uses_source(aliases: frozenset[str], sources: list[str] | None = None) -> bool:

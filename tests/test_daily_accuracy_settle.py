@@ -85,16 +85,11 @@ class SettlementSourceOrderTests(unittest.TestCase):
     def tearDown(self):
         clear_accuracy_props_cache()
 
-    def test_default_sources_put_daily_accuracy_first(self):
+    def test_default_sources_are_daily_accuracy_only(self):
         import app.auto_resolve as ar
 
-        with patch.object(
-            ar, "SETTLE_SOURCE", "daily_accuracy,flashscore,api_football"
-        ):
-            self.assertEqual(
-                ar._settle_sources(),
-                ["daily_accuracy", "flashscore", "api_football"],
-            )
+        with patch.object(ar, "SETTLE_SOURCE", "daily_accuracy"):
+            self.assertEqual(ar._settle_sources(), ["daily_accuracy"])
 
     def test_find_settlement_prefers_daily_accuracy(self):
         import app.auto_resolve as ar

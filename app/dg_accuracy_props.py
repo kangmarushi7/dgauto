@@ -9,11 +9,15 @@ from __future__ import annotations
 import logging
 import re
 import time
+from datetime import date
 from typing import Any
 
 from app.dg_feeds import DAILY_ACCURACY_URL, _load_json
 
 logger = logging.getLogger(__name__)
+
+# DataGaffer accuracy calendar dates can lag/lead UTC fixture_date by one day.
+ACCURACY_DATE_SLACK_DAYS = 1
 
 
 def _parse_fixture(label: str) -> tuple[str, str]:
@@ -153,10 +157,38 @@ def load_accuracy_prop_rows(*, force_refresh: bool = False) -> list[dict[str, An
     return list(out)
 
 
+def _parse_iso_date(value: Any) -> date | None:
+    text = _date_key(value)
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _date_within_slack(want: date | None, row_date: Any, *, slack_days: int) -> bool:
+    if want is None:
+        return True
+    got = _parse_iso_date(row_date)
+    if got is None:
+        return True
+    return abs((got - want).days) <= slack_days
+
+
+def _team_row_score(home: str, away: str, row: dict[str, Any]) -> float:
+    rh = str(row.get("home") or "")
+    ra = str(row.get("away") or "")
+    if not rh or not ra:
+        return _team_similarity(f"{home} vs {away}", str(row.get("match") or ""))
+    return min(_team_similarity(home, rh), _team_similarity(away, ra))
+
+
 def lookup_accuracy_props(
     entry: dict[str, Any],
     *,
     force_refresh: bool = False,
+    date_slack_days: int = ACCURACY_DATE_SLACK_DAYS,
 ) -> dict[str, Any] | None:
     """Find corners/SOT totals for a bet log entry from daily_accuracy."""
     rows = load_accuracy_prop_rows(force_refresh=force_refresh)
@@ -172,25 +204,37 @@ def lookup_accuracy_props(
     home, away = _parse_fixture(str(entry.get("fixture") or ""))
     if not home or not away:
         return None
-    want_date = _date_key(entry.get("fixture_date"))
+    want_date = _parse_iso_date(entry.get("fixture_date"))
 
-    best: dict[str, Any] | None = None
-    best_score = 0.0
-    for row in rows:
-        if want_date and row.get("date") and row["date"] != want_date:
-            # Allow ±0 days only — accuracy date is kickoff calendar day.
-            continue
-        rh = str(row.get("home") or "")
-        ra = str(row.get("away") or "")
-        if not rh or not ra:
-            # Fall back to full match label similarity.
-            score = _team_similarity(f"{home} vs {away}", str(row.get("match") or ""))
-        else:
-            score = min(_team_similarity(home, rh), _team_similarity(away, ra))
-        if score > best_score:
-            best_score = score
-            best = row
+    def _best_in_rows(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, float]:
+        best: dict[str, Any] | None = None
+        best_score = 0.0
+        for row in candidates:
+            score = _team_row_score(home, away, row)
+            if score > best_score:
+                best_score = score
+                best = row
+        return best, best_score
 
+    # Prefer exact calendar-day matches; fall back to ±slack when DG date drifts.
+    exact_rows = [
+        row
+        for row in rows
+        if want_date is None
+        or not row.get("date")
+        or _parse_iso_date(row.get("date")) == want_date
+    ]
+    best, best_score = _best_in_rows(exact_rows)
     if best is not None and best_score >= 0.55:
         return best
+
+    if date_slack_days > 0 and want_date is not None:
+        slack_rows = [
+            row
+            for row in rows
+            if _date_within_slack(want_date, row.get("date"), slack_days=date_slack_days)
+        ]
+        best, best_score = _best_in_rows(slack_rows)
+        if best is not None and best_score >= 0.55:
+            return best
     return None

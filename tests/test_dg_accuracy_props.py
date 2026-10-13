@@ -76,6 +76,38 @@ class LookupAccuracyPropsTests(unittest.TestCase):
         self.assertEqual(hit["intAwayScore"], 0)
         self.assertEqual(hit["fixture_id"], "1557416")
 
+    def test_lookup_allows_plus_minus_one_day_date_slack(self):
+        """DataGaffer accuracy dates can be off by one vs UTC fixture_date."""
+        payload = {
+            "daily": [
+                {
+                    "date": "2026-10-12",
+                    "matches": [
+                        {
+                            "fixture_id": 99,
+                            "date": "2026-10-12",
+                            "match": "Hertha vs Greuther",
+                            "actual_score": "2 - 1",
+                            "league": "2. Bundesliga",
+                        }
+                    ],
+                }
+            ]
+        }
+        with patch("app.dg_accuracy_props._load_json", return_value=payload):
+            hit = lookup_accuracy_props(
+                {
+                    "fixture": "Hertha vs Greuther",
+                    "fixture_date": "2026-10-11T11:30:00+00:00",
+                },
+                force_refresh=True,
+            )
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit["intHomeScore"], 2)
+        self.assertEqual(hit["intAwayScore"], 1)
+        self.assertEqual(hit["date"], "2026-10-12")
+
 
 class CornersMarketMatchTests(unittest.TestCase):
     def test_match_corners_over_line(self):
